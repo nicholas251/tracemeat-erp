@@ -8,6 +8,7 @@ import {
   ShieldAlert, 
   Search, 
   Warehouse,
+  Boxes,
   ChevronLeft,
   ChevronRight
 } from "lucide-react";
@@ -22,6 +23,7 @@ const navItems = [
   { path: "/hold-release", label: "Hold & Release", icon: ShieldAlert },
   { path: "/traceability", label: "Traceability", icon: Search },
   { path: "/raw-materials", label: "Raw Materials", icon: Warehouse },
+  { path: "/inventory", label: "Inventory", icon: Boxes },
 ];
 
 export default function Sidebar({ collapsed, onToggle }) {

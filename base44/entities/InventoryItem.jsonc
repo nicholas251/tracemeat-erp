@@ -1,0 +1,76 @@
+{
+  "name": "InventoryItem",
+  "type": "object",
+  "properties": {
+    "product_id": {
+      "type": "string",
+      "description": "Linked product ID"
+    },
+    "product_name": {
+      "type": "string",
+      "description": "Product name for display"
+    },
+    "sku": {
+      "type": "string",
+      "description": "Product SKU"
+    },
+    "batch_id": {
+      "type": "string",
+      "description": "Source batch ID"
+    },
+    "batch_number": {
+      "type": "string",
+      "description": "Source batch number"
+    },
+    "quantity_kg": {
+      "type": "number",
+      "description": "Current quantity on hand in kg"
+    },
+    "original_quantity_kg": {
+      "type": "number",
+      "description": "Original quantity when received into inventory"
+    },
+    "location": {
+      "type": "string",
+      "description": "Storage location (e.g. Cooler A, Freezer 2)"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "available",
+        "reserved",
+        "shipped",
+        "quarantined",
+        "expired",
+        "damaged"
+      ],
+      "default": "available",
+      "description": "Current inventory status"
+    },
+    "production_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "expiry_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "storage_temp_c": {
+      "type": "number",
+      "description": "Required storage temperature"
+    },
+    "lot_number": {
+      "type": "string",
+      "description": "Finished goods lot number"
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "product_id",
+    "product_name",
+    "batch_id",
+    "batch_number"
+  ]
+}

@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Factory, Eye } from "lucide-react";
+import { Plus, Factory, Eye, Boxes } from "lucide-react";
+import { useToast } from "@/components/ui/use-toast";
 import { format } from "date-fns";
 import PageHeader from "@/components/shared/PageHeader";
 import StatusBadge from "@/components/shared/StatusBadge";
@@ -19,6 +20,7 @@ export default function Batches() {
   const [statusFilter, setStatusFilter] = useState("all");
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   const { data: batches = [], isLoading } = useQuery({
     queryKey: ["batches"],
@@ -33,6 +35,11 @@ export default function Batches() {
   const { data: rawMaterials = [] } = useQuery({
     queryKey: ["raw-materials"],
     queryFn: () => base44.entities.RawMaterial.list(),
+  });
+
+  const { data: products = [] } = useQuery({
+    queryKey: ["products"],
+    queryFn: () => base44.entities.Product.list(),
   });
 
   const createMutation = useMutation({
@@ -80,6 +87,32 @@ export default function Batches() {
     };
 
     await updateMutation.mutateAsync({ id: batch.id, data: updatedBatch });
+
+    // Auto-create finished goods inventory when batch completes
+    if (isLastStep) {
+      const product = products.find(p => p.id === batch.product_id);
+      await base44.entities.InventoryItem.create({
+        product_id: batch.product_id,
+        product_name: batch.product_name,
+        sku: product?.sku || "",
+        batch_id: batch.id,
+        batch_number: batch.batch_number,
+        lot_number: `FG-${batch.batch_number}`,
+        quantity_kg: batch.quantity_kg || 0,
+        original_quantity_kg: batch.quantity_kg || 0,
+        status: "available",
+        production_date: batch.production_date,
+        expiry_date: batch.expiry_date,
+        storage_temp_c: product?.storage_temp_c ?? null,
+        notes: `Auto-created from completed batch ${batch.batch_number}`,
+      });
+      queryClient.invalidateQueries({ queryKey: ["inventory"] });
+      toast({
+        title: "Batch Completed",
+        description: `Finished goods lot FG-${batch.batch_number} added to inventory.`,
+      });
+    }
+
     setTrackingBatch(isLastStep ? null : updatedBatch);
   };
 

@@ -13,6 +13,7 @@ import Batches from './pages/Batches';
 import HoldRelease from './pages/HoldRelease';
 import Traceability from './pages/Traceability';
 import RawMaterials from './pages/RawMaterials';
+import Inventory from './pages/Inventory';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -48,6 +49,7 @@ const AuthenticatedApp = () => {
         <Route path="/hold-release" element={<HoldRelease />} />
         <Route path="/traceability" element={<Traceability />} />
         <Route path="/raw-materials" element={<RawMaterials />} />
+        <Route path="/inventory" element={<Inventory />} />
       </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>
