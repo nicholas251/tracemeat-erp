@@ -43,6 +43,10 @@
           "ccp": {
             "type": "boolean",
             "description": "Critical Control Point"
+          },
+          "is_metal_detection": {
+            "type": "boolean",
+            "description": "Whether this step is a metal detection step (optional per customer requirements)"
           }
         }
       },

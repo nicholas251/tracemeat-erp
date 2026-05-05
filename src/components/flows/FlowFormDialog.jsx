@@ -19,7 +19,7 @@ export default function FlowFormDialog({ open, onClose, onSave, flow, products }
         order: (prev.steps || []).length + 1,
         name: "", description: "", station: "",
         target_temp_c: null, max_duration_min: null,
-        requires_inspection: false, ccp: false
+        requires_inspection: false, ccp: false, is_metal_detection: false
       }]
     }));
   };

@@ -46,6 +46,10 @@ export default function FlowStepEditor({ step, index, onChange, onRemove }) {
               <Switch checked={step.ccp || false} onCheckedChange={v => update("ccp", v)} />
               <Label className="text-xs font-semibold text-destructive">CCP</Label>
             </div>
+            <div className="flex items-center gap-2">
+              <Switch checked={step.is_metal_detection || false} onCheckedChange={v => update("is_metal_detection", v)} />
+              <Label className="text-xs">Metal Detection</Label>
+            </div>
           </div>
         </div>
         <Button variant="ghost" size="icon" className="text-destructive/60 hover:text-destructive mt-1" onClick={() => onRemove(index)}>
