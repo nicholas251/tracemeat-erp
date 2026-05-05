@@ -1,0 +1,81 @@
+{
+  "name": "HoldRelease",
+  "type": "object",
+  "properties": {
+    "batch_id": {
+      "type": "string"
+    },
+    "batch_number": {
+      "type": "string"
+    },
+    "product_name": {
+      "type": "string"
+    },
+    "hold_reason": {
+      "type": "string",
+      "enum": [
+        "temperature_deviation",
+        "contamination_suspect",
+        "labeling_error",
+        "foreign_material",
+        "quality_issue",
+        "regulatory_hold",
+        "customer_complaint",
+        "other"
+      ],
+      "description": "Reason for hold"
+    },
+    "hold_description": {
+      "type": "string",
+      "description": "Detailed description of the issue"
+    },
+    "severity": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ],
+      "default": "medium"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "on_hold",
+        "under_review",
+        "released",
+        "rejected",
+        "destroyed"
+      ],
+      "default": "on_hold"
+    },
+    "held_by": {
+      "type": "string"
+    },
+    "held_date": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "reviewed_by": {
+      "type": "string"
+    },
+    "review_date": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "resolution_notes": {
+      "type": "string"
+    },
+    "corrective_action": {
+      "type": "string"
+    },
+    "quantity_affected_kg": {
+      "type": "number"
+    }
+  },
+  "required": [
+    "batch_id",
+    "hold_reason"
+  ]
+}

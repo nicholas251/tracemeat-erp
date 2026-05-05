@@ -1,0 +1,98 @@
+{
+  "name": "Product",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Product name (e.g. Ground Beef 80/20)"
+    },
+    "sku": {
+      "type": "string",
+      "description": "Stock keeping unit code"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "beef",
+        "pork",
+        "poultry",
+        "lamb",
+        "mixed",
+        "ready_to_eat",
+        "other"
+      ],
+      "description": "Product category"
+    },
+    "description": {
+      "type": "string",
+      "description": "Product description and specs"
+    },
+    "ingredients": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "percentage": {
+            "type": "number"
+          }
+        }
+      },
+      "description": "Ingredient list with percentages"
+    },
+    "packaging_type": {
+      "type": "string",
+      "enum": [
+        "vacuum_sealed",
+        "tray_wrap",
+        "bulk_box",
+        "retail_pack",
+        "case_ready",
+        "chub"
+      ],
+      "description": "Packaging format"
+    },
+    "weight_kg": {
+      "type": "number",
+      "description": "Target weight in kg"
+    },
+    "shelf_life_days": {
+      "type": "number",
+      "description": "Shelf life in days"
+    },
+    "storage_temp_c": {
+      "type": "number",
+      "description": "Required storage temperature in Celsius"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "active",
+        "discontinued"
+      ],
+      "default": "draft"
+    },
+    "allergens": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "List of allergens"
+    },
+    "regulatory_codes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "USDA/FSIS establishment or product codes"
+    }
+  },
+  "required": [
+    "name",
+    "sku",
+    "category"
+  ]
+}

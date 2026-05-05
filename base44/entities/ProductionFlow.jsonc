@@ -1,0 +1,69 @@
+{
+  "name": "ProductionFlow",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Flow name"
+    },
+    "product_id": {
+      "type": "string",
+      "description": "Associated product ID"
+    },
+    "product_name": {
+      "type": "string",
+      "description": "Product name for display"
+    },
+    "steps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "order": {
+            "type": "number"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "station": {
+            "type": "string"
+          },
+          "target_temp_c": {
+            "type": "number"
+          },
+          "max_duration_min": {
+            "type": "number"
+          },
+          "requires_inspection": {
+            "type": "boolean"
+          },
+          "ccp": {
+            "type": "boolean",
+            "description": "Critical Control Point"
+          }
+        }
+      },
+      "description": "Ordered processing steps"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "active",
+        "archived"
+      ],
+      "default": "draft"
+    },
+    "version": {
+      "type": "number",
+      "default": 1
+    }
+  },
+  "required": [
+    "name",
+    "product_id"
+  ]
+}

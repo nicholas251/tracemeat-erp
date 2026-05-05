@@ -1,0 +1,72 @@
+{
+  "name": "RawMaterial",
+  "type": "object",
+  "properties": {
+    "lot_number": {
+      "type": "string",
+      "description": "Supplier lot number"
+    },
+    "name": {
+      "type": "string",
+      "description": "Material name"
+    },
+    "supplier": {
+      "type": "string"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "beef",
+        "pork",
+        "poultry",
+        "lamb",
+        "seasoning",
+        "casing",
+        "packaging",
+        "additive",
+        "other"
+      ]
+    },
+    "received_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "expiry_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "quantity_kg": {
+      "type": "number"
+    },
+    "temp_on_arrival_c": {
+      "type": "number"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "received",
+        "inspected",
+        "approved",
+        "rejected",
+        "in_use",
+        "depleted"
+      ],
+      "default": "received"
+    },
+    "inspection_notes": {
+      "type": "string"
+    },
+    "country_of_origin": {
+      "type": "string"
+    },
+    "establishment_number": {
+      "type": "string",
+      "description": "USDA establishment number of supplier"
+    }
+  },
+  "required": [
+    "lot_number",
+    "name",
+    "supplier"
+  ]
+}
