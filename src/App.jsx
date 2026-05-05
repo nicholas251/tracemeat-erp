@@ -14,6 +14,9 @@ import HoldRelease from './pages/HoldRelease';
 import Traceability from './pages/Traceability';
 import RawMaterials from './pages/RawMaterials';
 import Inventory from './pages/Inventory';
+import PurchaseOrders from './pages/PurchaseOrders';
+import Receiving from './pages/Receiving';
+import Recipes from './pages/Recipes';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -50,6 +53,9 @@ const AuthenticatedApp = () => {
         <Route path="/traceability" element={<Traceability />} />
         <Route path="/raw-materials" element={<RawMaterials />} />
         <Route path="/inventory" element={<Inventory />} />
+        <Route path="/purchase-orders" element={<PurchaseOrders />} />
+        <Route path="/receiving" element={<Receiving />} />
+        <Route path="/recipes" element={<Recipes />} />
       </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>

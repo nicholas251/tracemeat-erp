@@ -1,0 +1,80 @@
+{
+  "name": "PurchaseOrder",
+  "type": "object",
+  "properties": {
+    "po_number": {
+      "type": "string",
+      "description": "Unique PO number"
+    },
+    "supplier": {
+      "type": "string",
+      "description": "Supplier name"
+    },
+    "order_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "expected_delivery_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "ordered",
+        "partial_received",
+        "received",
+        "closed"
+      ],
+      "default": "draft"
+    },
+    "line_items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "material_name": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "beef",
+              "pork",
+              "poultry",
+              "lamb",
+              "seasoning",
+              "casing",
+              "packaging",
+              "additive",
+              "other"
+            ]
+          },
+          "quantity_kg": {
+            "type": "number"
+          },
+          "unit_price": {
+            "type": "number"
+          },
+          "received_qty_kg": {
+            "type": "number",
+            "default": 0
+          }
+        }
+      },
+      "description": "Order line items"
+    },
+    "total_amount": {
+      "type": "number",
+      "description": "Total PO amount"
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "po_number",
+    "supplier"
+  ]
+}

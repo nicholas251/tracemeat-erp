@@ -2,6 +2,14 @@
   "name": "RawMaterial",
   "type": "object",
   "properties": {
+    "po_id": {
+      "type": "string",
+      "description": "Purchase Order ID"
+    },
+    "po_number": {
+      "type": "string",
+      "description": "Purchase Order number for reference"
+    },
     "lot_number": {
       "type": "string",
       "description": "Supplier lot number"
@@ -37,6 +45,10 @@
     },
     "quantity_kg": {
       "type": "number"
+    },
+    "available_qty_kg": {
+      "type": "number",
+      "description": "Quantity still available for use (decreases as consumed in production)"
     },
     "temp_on_arrival_c": {
       "type": "number"

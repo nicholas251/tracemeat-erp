@@ -1,0 +1,74 @@
+{
+  "name": "Recipe",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Recipe name"
+    },
+    "product_id": {
+      "type": "string",
+      "description": "Finished product ID"
+    },
+    "product_name": {
+      "type": "string",
+      "description": "Finished product name"
+    },
+    "yield_kg": {
+      "type": "number",
+      "description": "Output quantity in kg"
+    },
+    "ingredients": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "raw_material_name": {
+            "type": "string"
+          },
+          "quantity_kg": {
+            "type": "number",
+            "description": "Amount needed per batch"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "beef",
+              "pork",
+              "poultry",
+              "lamb",
+              "seasoning",
+              "casing",
+              "packaging",
+              "additive",
+              "other"
+            ]
+          }
+        }
+      },
+      "description": "List of raw materials with quantities"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "active",
+        "archived"
+      ],
+      "default": "draft"
+    },
+    "version": {
+      "type": "number",
+      "default": 1
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "name",
+    "product_id",
+    "yield_kg",
+    "ingredients"
+  ]
+}

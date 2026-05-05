@@ -9,6 +9,9 @@ import {
   Search, 
   Warehouse,
   Boxes,
+  ShoppingCart,
+  Truck,
+  UtensilsCrossed,
   ChevronLeft,
   ChevronRight
 } from "lucide-react";
@@ -17,7 +20,10 @@ import { cn } from "@/lib/utils";
 
 const navItems = [
   { path: "/", label: "Dashboard", icon: LayoutDashboard },
+  { path: "/purchase-orders", label: "Purchase Orders", icon: ShoppingCart },
+  { path: "/receiving", label: "Receiving", icon: Truck },
   { path: "/products", label: "Products", icon: Package },
+  { path: "/recipes", label: "Recipes", icon: UtensilsCrossed },
   { path: "/flows", label: "Production Flows", icon: GitBranch },
   { path: "/batches", label: "Batches", icon: Factory },
   { path: "/hold-release", label: "Hold & Release", icon: ShieldAlert },
