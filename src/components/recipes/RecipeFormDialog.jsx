@@ -54,11 +54,11 @@ export default function RecipeFormDialog({ open, onClose, onSave, recipe, produc
   };
 
   const handleProductChange = (productId) => {
-    const product = products.find(p => p.id === productId);
+    const product = products?.find(p => p.id === productId);
     setForm(prev => ({
       ...prev,
       product_id: productId,
-      product_name: product?.data.name || "",
+      product_name: product?.name || "",
     }));
   };
 
@@ -94,9 +94,9 @@ export default function RecipeFormDialog({ open, onClose, onSave, recipe, produc
                   <SelectValue placeholder="Select product" />
                 </SelectTrigger>
                 <SelectContent>
-                  {products.map(p => (
+                  {products?.map(p => (
                     <SelectItem key={p.id} value={p.id}>
-                      {p.data.name} ({p.data.sku})
+                      {p.name} ({p.sku})
                     </SelectItem>
                   ))}
                 </SelectContent>
