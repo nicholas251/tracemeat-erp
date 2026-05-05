@@ -17,6 +17,8 @@ import Inventory from './pages/Inventory';
 import PurchaseOrders from './pages/PurchaseOrders';
 import Receiving from './pages/Receiving';
 import Recipes from './pages/Recipes';
+import ProductionOrders from './pages/ProductionOrders';
+import SpiceMixes from './pages/SpiceMixes';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -56,6 +58,8 @@ const AuthenticatedApp = () => {
         <Route path="/purchase-orders" element={<PurchaseOrders />} />
         <Route path="/receiving" element={<Receiving />} />
         <Route path="/recipes" element={<Recipes />} />
+        <Route path="/production-orders" element={<ProductionOrders />} />
+        <Route path="/spice-mixes" element={<SpiceMixes />} />
       </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>

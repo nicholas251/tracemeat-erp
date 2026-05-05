@@ -1,0 +1,153 @@
+{
+  "name": "ProductionOrder",
+  "type": "object",
+  "properties": {
+    "order_number": {
+      "type": "string",
+      "description": "Unique production order number"
+    },
+    "product_id": {
+      "type": "string",
+      "description": "Finished product ID"
+    },
+    "product_name": {
+      "type": "string",
+      "description": "Product name for display"
+    },
+    "recipe_id": {
+      "type": "string",
+      "description": "Recipe to follow"
+    },
+    "recipe_name": {
+      "type": "string",
+      "description": "Recipe name for display"
+    },
+    "quantity_to_produce": {
+      "type": "number",
+      "description": "Total quantity to produce in kg"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "in_progress",
+        "paused",
+        "completed",
+        "cancelled"
+      ],
+      "default": "pending"
+    },
+    "current_stage": {
+      "type": "number",
+      "default": 0,
+      "description": "Index of current stage"
+    },
+    "stages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "stage_number": {
+            "type": "number"
+          },
+          "stage_name": {
+            "type": "string",
+            "enum": [
+              "blending",
+              "chopping",
+              "linking",
+              "cooking",
+              "chilling",
+              "packaging"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "in_progress",
+              "completed",
+              "on_hold"
+            ],
+            "default": "pending"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "completed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "assigned_to": {
+            "type": "string",
+            "description": "Staff member or station"
+          },
+          "notes": {
+            "type": "string"
+          },
+          "quantity_completed_kg": {
+            "type": "number"
+          },
+          "quality_check_passed": {
+            "type": "boolean"
+          },
+          "spice_mix_id": {
+            "type": "string",
+            "description": "For chopping stage: linked spice mix"
+          },
+          "spice_mix_qty_kg": {
+            "type": "number",
+            "description": "Amount of spice mix used"
+          },
+          "oven_assignment": {
+            "type": "string",
+            "description": "For cooking stage: oven number/identifier"
+          },
+          "racks_used": {
+            "type": "number",
+            "description": "For cooking stage: number of racks (3 per oven standard)"
+          },
+          "cook_time_minutes": {
+            "type": "number",
+            "description": "For cooking stage: actual cook time"
+          },
+          "cook_temperature_c": {
+            "type": "number",
+            "description": "For cooking stage: actual temperature"
+          },
+          "packaging_type": {
+            "type": "string",
+            "description": "For packaging stage: packaging specification"
+          },
+          "packaging_weight_lbs": {
+            "type": "number",
+            "description": "For packaging stage: individual package weight"
+          },
+          "packages_produced": {
+            "type": "number",
+            "description": "For packaging stage: number of packages"
+          }
+        }
+      },
+      "description": "Sequential production stages with tracking"
+    },
+    "order_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "target_completion_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "order_number",
+    "product_id",
+    "recipe_id",
+    "quantity_to_produce"
+  ]
+}

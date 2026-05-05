@@ -13,7 +13,8 @@ import {
   Truck,
   UtensilsCrossed,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Spline
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -30,6 +31,8 @@ const navItems = [
   { path: "/traceability", label: "Traceability", icon: Search },
   { path: "/raw-materials", label: "Raw Materials", icon: Warehouse },
   { path: "/inventory", label: "Inventory", icon: Boxes },
+  { path: "/production-orders", label: "Production Orders", icon: Factory },
+  { path: "/spice-mixes", label: "Spice Mixes", icon: Spline },
 ];
 
 export default function Sidebar({ collapsed, onToggle }) {

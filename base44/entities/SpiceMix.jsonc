@@ -1,0 +1,55 @@
+{
+  "name": "SpiceMix",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Spice mix name (e.g., 'Classic Hot Dog Blend')"
+    },
+    "ingredients": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "quantity_kg": {
+            "type": "number",
+            "description": "Amount per batch"
+          }
+        }
+      },
+      "description": "List of spices and their quantities per batch"
+    },
+    "quantity_kg": {
+      "type": "number",
+      "description": "Total batch quantity in kg"
+    },
+    "available_qty_kg": {
+      "type": "number",
+      "description": "Quantity still available for use"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "active",
+        "archived"
+      ],
+      "default": "draft"
+    },
+    "date_created": {
+      "type": "string",
+      "format": "date"
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "name",
+    "ingredients",
+    "quantity_kg"
+  ]
+}
