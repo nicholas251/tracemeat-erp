@@ -28,7 +28,7 @@ const packagingTypes = [
 export default function ProductFormDialog({ open, onClose, onSave, product }) {
   const [form, setForm] = useState(product || {
     name: "", sku: "", category: "beef", description: "",
-    packaging_type: "vacuum_sealed", weight_kg: "", shelf_life_days: "",
+    packaging_type: "vacuum_sealed", case_weight_lbs: "", shelf_life_days: "",
     storage_temp_c: "", status: "draft", allergens: [], regulatory_codes: [],
     ingredients: []
   });
@@ -36,7 +36,7 @@ export default function ProductFormDialog({ open, onClose, onSave, product }) {
   const handleSave = () => {
     onSave({
       ...form,
-      weight_kg: form.weight_kg ? Number(form.weight_kg) : undefined,
+      case_weight_lbs: form.case_weight_lbs ? Number(form.case_weight_lbs) : undefined,
       shelf_life_days: form.shelf_life_days ? Number(form.shelf_life_days) : undefined,
       storage_temp_c: form.storage_temp_c ? Number(form.storage_temp_c) : undefined,
     });
@@ -78,8 +78,8 @@ export default function ProductFormDialog({ open, onClose, onSave, product }) {
             </Select>
           </div>
           <div className="space-y-2">
-            <Label>Weight (kg)</Label>
-            <Input type="number" value={form.weight_kg} onChange={e => update("weight_kg", e.target.value)} placeholder="0.0" />
+            <Label>Case Weight (lbs)</Label>
+            <Input type="number" step="0.1" value={form.case_weight_lbs} onChange={e => update("case_weight_lbs", e.target.value)} placeholder="e.g. 10.5" />
           </div>
           <div className="space-y-2">
             <Label>Shelf Life (days)</Label>

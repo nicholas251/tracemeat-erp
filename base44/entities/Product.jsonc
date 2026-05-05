@@ -54,9 +54,9 @@
       ],
       "description": "Packaging format"
     },
-    "weight_kg": {
+    "case_weight_lbs": {
       "type": "number",
-      "description": "Target weight in kg"
+      "description": "Weight per case in pounds"
     },
     "shelf_life_days": {
       "type": "number",
