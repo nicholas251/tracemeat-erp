@@ -1,10 +1,16 @@
 import React from "react";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { useNavigate } from "react-router-dom";
 
-export default function StatCard({ label, value, icon: Icon, trend, color = "text-primary" }) {
+export default function StatCard({ label, value, icon: Icon, trend, color = "text-primary", link }) {
+  const navigate = useNavigate();
+  
   return (
-    <Card className="p-5 hover:shadow-md transition-shadow">
+    <Card 
+      className={cn("p-5 hover:shadow-md transition-shadow", link && "cursor-pointer")}
+      onClick={() => link && navigate(link)}
+    >
       <div className="flex items-start justify-between">
         <div>
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{label}</p>

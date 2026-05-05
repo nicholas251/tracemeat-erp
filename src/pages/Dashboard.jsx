@@ -46,11 +46,11 @@ export default function Dashboard() {
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
-        <StatCard label="Active Batches" value={activeBatches} icon={Factory} color="text-chart-1" />
-        <StatCard label="Products" value={activeProducts} icon={Package} color="text-chart-2" />
-        <StatCard label="Active Holds" value={activeHolds} icon={ShieldAlert} color="text-accent" />
-        <StatCard label="Raw Materials" value={rawMaterials.length} icon={Warehouse} color="text-chart-5" />
-        <StatCard label="Inventory (kg)" value={inventoryKg.toLocaleString()} icon={Boxes} color="text-chart-3" />
+        <StatCard label="Active Batches" value={activeBatches} icon={Factory} color="text-chart-1" link="/batches" />
+        <StatCard label="Products" value={activeProducts} icon={Package} color="text-chart-2" link="/products" />
+        <StatCard label="Active Holds" value={activeHolds} icon={ShieldAlert} color="text-accent" link="/hold-release" />
+        <StatCard label="Raw Materials" value={rawMaterials.length} icon={Warehouse} color="text-chart-5" link="/raw-materials" />
+        <StatCard label="Inventory (lbs)" value={inventoryKg.toLocaleString()} icon={Boxes} color="text-chart-3" link="/inventory" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
