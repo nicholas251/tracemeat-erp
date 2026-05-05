@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { base44 } from "@/api/base44Client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,12 +7,15 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Save } from "lucide-react";
 import { format } from "date-fns";
 
 const CATEGORIES = ["beef", "pork", "poultry", "lamb", "seasoning", "casing", "packaging", "additive", "other"];
 
 export default function POFormDialog({ open, onClose, onSave, po }) {
+  const [suppliers, setSuppliers] = useState([]);
+  const [showSaveSupplier, setShowSaveSupplier] = useState(false);
+  const [newSupplierName, setNewSupplierName] = useState("");
   const [form, setForm] = useState(po ? {
     po_number: po.data.po_number,
     supplier: po.data.supplier,
@@ -31,6 +35,14 @@ export default function POFormDialog({ open, onClose, onSave, po }) {
     total_amount: 0,
     notes: "",
   });
+
+  useEffect(() => {
+    if (open) {
+      base44.entities.Supplier.list().then(data => {
+        setSuppliers(data.map(s => ({ id: s.id, name: s.data.name })));
+      });
+    }
+  }, [open]);
 
   const addLineItem = () => {
     setForm(prev => ({
@@ -90,11 +102,53 @@ export default function POFormDialog({ open, onClose, onSave, po }) {
             </div>
             <div>
               <Label>Supplier *</Label>
-              <Input
-                value={form.supplier}
-                onChange={e => setForm(prev => ({ ...prev, supplier: e.target.value }))}
-                placeholder="Supplier name"
-              />
+              <div className="flex gap-2">
+                <Select value={form.supplier} onValueChange={v => setForm(prev => ({ ...prev, supplier: v }))}>
+                  <SelectTrigger className="flex-1">
+                    <SelectValue placeholder="Select or type supplier" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {suppliers.map(s => (
+                      <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setShowSaveSupplier(!showSaveSupplier)}
+                  title="Save this supplier for future use"
+                >
+                  <Save className="w-4 h-4" />
+                </Button>
+              </div>
+              {showSaveSupplier && (
+                <div className="mt-2 p-2 bg-muted/50 rounded border">
+                  <Input
+                    placeholder="Supplier name to save"
+                    value={newSupplierName}
+                    onChange={e => setNewSupplierName(e.target.value)}
+                    className="mb-2"
+                  />
+                  <Button
+                    size="sm"
+                    onClick={async () => {
+                      if (newSupplierName.trim()) {
+                        await base44.entities.Supplier.create({ name: newSupplierName });
+                        setForm(prev => ({ ...prev, supplier: newSupplierName }));
+                        setNewSupplierName("");
+                        setShowSaveSupplier(false);
+                        const updated = await base44.entities.Supplier.list();
+                        setSuppliers(updated.map(s => ({ id: s.id, name: s.data.name })));
+                      }
+                    }}
+                    className="w-full"
+                  >
+                    Save Supplier
+                  </Button>
+                </div>
+              )}
             </div>
             <div>
               <Label>Order Date</Label>
