@@ -22,6 +22,14 @@
       "type": "string",
       "description": "Recipe name for display"
     },
+    "supplier_id": {
+      "type": "string",
+      "description": "Supplier ID"
+    },
+    "supplier_name": {
+      "type": "string",
+      "description": "Supplier name for display"
+    },
     "quantity_to_produce": {
       "type": "number",
       "description": "Total quantity to produce in lbs"
