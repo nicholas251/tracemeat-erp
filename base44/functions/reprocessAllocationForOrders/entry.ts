@@ -9,79 +9,88 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get all production orders and related data via service role
-    const orders = await base44.asServiceRole.entities.ProductionOrder.list();
+    const orders = await base44.asServiceRole.entities.ProductionOrder.filter({
+      status: ['pending', 'in_progress']
+    });
+
     const products = await base44.asServiceRole.entities.Product.list();
     const recipes = await base44.asServiceRole.entities.Recipe.list();
-    const rawMaterials = await base44.asServiceRole.entities.RawMaterial.list();
+    const rawMaterials = await base44.asServiceRole.entities.RawMaterial.filter({
+      status: 'approved'
+    });
 
     const results = [];
+    const errors = [];
 
     for (const order of orders) {
-      if (order.status === 'pending' || order.status === 'in_progress') {
+      try {
         const product = products.find(p => p.id === order.product_id);
-        const recipe = product ? recipes.find(r => r.id === product.recipe_id) : null;
-        
-        if (!product || !recipe) {
-          results.push({ orderId: order.id, orderNumber: order.order_number, status: 'skipped', reason: 'Product or recipe not found' });
+        const recipe = recipes.find(r => r.id === order.recipe_id);
+
+        if (!product || !recipe || !recipe.ingredients) {
+          errors.push({ orderId: order.id, error: 'Product or recipe not found' });
           continue;
         }
 
-        try {
-          // Reallocate materials for this order
-          const yieldRatio = recipe.yield_lbs || 1;
-          const allocations = [];
+        const allocations = [];
+        const yieldPercentage = recipe.yield_lbs / 100; // Convert percentage to decimal
 
-          // For each ingredient, allocate from raw materials
-          for (const ingredient of recipe.ingredients || []) {
-            if (!ingredient.bucket_id) continue;
+        // Process each ingredient in the recipe
+        for (const ingredient of recipe.ingredients) {
+          // Calculate raw material needed: finished_qty ÷ yield%
+          const rawNeeded = order.quantity_to_produce / yieldPercentage;
 
-            const neededLbs = (order.quantity_to_produce * ingredient.quantity_lbs) / yieldRatio;
-            
-            // Get raw materials for this category
-            const categoryMaterials = rawMaterials.filter(m => m.category === ingredient.category && m.status === 'approved');
-            
-            let remainingNeeded = neededLbs;
-            let allocated = 0;
+          // Find matching material by category
+          const material = rawMaterials.find(m => m.category === ingredient.category);
 
-            // FIFO allocation
-            for (const material of categoryMaterials) {
-              if (remainingNeeded <= 0) break;
-              
-              const available = material.available_qty_lbs || 0;
-              const allocateQty = Math.min(remainingNeeded, available);
-
-              if (allocateQty > 0) {
-                const currentAllocated = material.allocated_qty_lbs || 0;
-                await base44.asServiceRole.entities.RawMaterial.update(material.id, {
-                  allocated_qty_lbs: currentAllocated + allocateQty
-                });
-                
-                allocated += allocateQty;
-                remainingNeeded -= allocateQty;
-              }
-            }
-
+          if (!material) {
             allocations.push({
               ingredient: ingredient.bucket_name,
-              needed: neededLbs,
-              allocated,
-              shortfall: remainingNeeded > 0 ? remainingNeeded : 0
+              needed: rawNeeded,
+              allocated: 0,
+              shortfall: rawNeeded
+            });
+            continue;
+          }
+
+          // FIFO allocation
+          const availableQty = material.available_qty_lbs || 0;
+          const allocatedQty = Math.min(availableQty, rawNeeded);
+          const shortfall = Math.max(0, rawNeeded - allocatedQty);
+
+          // Update material
+          if (allocatedQty > 0) {
+            await base44.asServiceRole.entities.RawMaterial.update(material.id, {
+              allocated_qty_lbs: (material.allocated_qty_lbs || 0) + allocatedQty,
+              available_qty_lbs: availableQty - allocatedQty
             });
           }
 
-          results.push({ orderId: order.id, orderNumber: order.order_number, status: 'reallocated', allocations });
-        } catch (e) {
-          results.push({ orderId: order.id, orderNumber: order.order_number, status: 'error', error: e.message });
+          allocations.push({
+            ingredient: ingredient.bucket_name,
+            needed: rawNeeded,
+            allocated: allocatedQty,
+            shortfall
+          });
         }
+
+        results.push({
+          orderId: order.id,
+          orderNumber: order.order_number,
+          status: 'reallocated',
+          allocations
+        });
+      } catch (e) {
+        errors.push({ orderId: order.id, error: e.message });
       }
     }
 
-    return Response.json({ 
+    return Response.json({
       message: 'Reallocation complete',
       totalOrders: orders.length,
       processedOrders: results.length,
-      results
+      results,
+      errors: errors.length > 0 ? errors : undefined
     });
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });

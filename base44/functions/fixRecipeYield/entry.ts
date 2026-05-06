@@ -13,21 +13,20 @@ Deno.serve(async (req) => {
     
     const updates = [];
     for (const recipe of recipes) {
-      if (recipe.yield_lbs === 95) {
+      if (recipe.yield_lbs === 1000) {
         await base44.asServiceRole.entities.Recipe.update(recipe.id, {
-          yield_lbs: 1000
+          yield_lbs: 95
         });
         updates.push({
           id: recipe.id,
           name: recipe.name,
-          oldYield: 95,
-          newYield: 1000
+          reverted: '95% (percentage conversion)'
         });
       }
     }
 
     return Response.json({
-      message: 'Recipe yields corrected',
+      message: 'Recipe yields reverted to percentage',
       updatedCount: updates.length,
       updates
     });
