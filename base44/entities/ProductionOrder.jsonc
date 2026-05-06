@@ -24,7 +24,7 @@
     },
     "quantity_to_produce": {
       "type": "number",
-      "description": "Total quantity to produce in kg"
+      "description": "Total quantity to produce in lbs"
     },
     "status": {
       "type": "string",
@@ -86,7 +86,7 @@
           "notes": {
             "type": "string"
           },
-          "quantity_completed_kg": {
+          "quantity_completed_lbs": {
             "type": "number"
           },
           "quality_check_passed": {
@@ -96,9 +96,9 @@
             "type": "string",
             "description": "For chopping stage: linked spice mix"
           },
-          "spice_mix_qty_kg": {
+          "spice_mix_qty_lbs": {
             "type": "number",
-            "description": "Amount of spice mix used"
+            "description": "Amount of spice mix used in lbs"
           },
           "oven_assignment": {
             "type": "string",
@@ -122,7 +122,7 @@
           },
           "packaging_weight_lbs": {
             "type": "number",
-            "description": "For packaging stage: individual package weight"
+            "description": "For packaging stage: individual package weight in lbs"
           },
           "packages_produced": {
             "type": "number",

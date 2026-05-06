@@ -11,22 +11,22 @@ import { X } from "lucide-react";
 export default function SpiceMixFormDialog({ open, onClose, onSave, mix }) {
   const [form, setForm] = useState(mix || {
     name: "",
-    quantity_kg: "",
-    available_qty_kg: "",
+    quantity_lbs: "",
+    available_qty_lbs: "",
     status: "draft",
     ingredients: [],
     notes: "",
   });
 
-  const [newIngredient, setNewIngredient] = useState({ name: "", quantity_kg: "" });
+  const [newIngredient, setNewIngredient] = useState({ name: "", quantity_lbs: "" });
 
   const handleAddIngredient = () => {
-    if (!newIngredient.name || !newIngredient.quantity_kg) return;
+    if (!newIngredient.name || !newIngredient.quantity_lbs) return;
     setForm({
       ...form,
-      ingredients: [...(form.ingredients || []), { ...newIngredient, quantity_kg: Number(newIngredient.quantity_kg) }]
+      ingredients: [...(form.ingredients || []), { ...newIngredient, quantity_lbs: Number(newIngredient.quantity_lbs) }]
     });
-    setNewIngredient({ name: "", quantity_kg: "" });
+    setNewIngredient({ name: "", quantity_lbs: "" });
   };
 
   const handleRemoveIngredient = (idx) => {
@@ -37,14 +37,14 @@ export default function SpiceMixFormDialog({ open, onClose, onSave, mix }) {
   };
 
   const handleSave = () => {
-    if (!form.name || !form.quantity_kg) return;
+    if (!form.name || !form.quantity_lbs) return;
     onSave({
       ...form,
-      quantity_kg: Number(form.quantity_kg),
-      available_qty_kg: mix ? form.available_qty_kg : Number(form.quantity_kg),
+      quantity_lbs: Number(form.quantity_lbs),
+      available_qty_lbs: mix ? form.available_qty_lbs : Number(form.quantity_lbs),
       date_created: mix?.date_created || new Date().toISOString().split('T')[0],
     });
-    setForm({ name: "", quantity_kg: "", available_qty_kg: "", status: "draft", ingredients: [], notes: "" });
+    setForm({ name: "", quantity_lbs: "", available_qty_lbs: "", status: "draft", ingredients: [], notes: "" });
   };
 
   return (
@@ -65,24 +65,24 @@ export default function SpiceMixFormDialog({ open, onClose, onSave, mix }) {
           </div>
 
           <div className="space-y-2">
-            <Label>Batch Quantity (kg)</Label>
+            <Label>Batch Quantity (lbs)</Label>
             <Input 
               type="number"
               step="0.1"
-              value={form.quantity_kg}
-              onChange={e => setForm({ ...form, quantity_kg: e.target.value })}
+              value={form.quantity_lbs}
+              onChange={e => setForm({ ...form, quantity_lbs: e.target.value })}
               placeholder="50"
             />
           </div>
 
           {mix && (
             <div className="space-y-2">
-              <Label>Available Quantity (kg)</Label>
+              <Label>Available Quantity (lbs)</Label>
               <Input 
                 type="number"
                 step="0.1"
-                value={form.available_qty_kg}
-                onChange={e => setForm({ ...form, available_qty_kg: e.target.value })}
+                value={form.available_qty_lbs}
+                onChange={e => setForm({ ...form, available_qty_lbs: e.target.value })}
               />
             </div>
           )}
@@ -108,7 +108,7 @@ export default function SpiceMixFormDialog({ open, onClose, onSave, mix }) {
                 <Card key={idx} className="p-3 flex items-center justify-between">
                   <div className="text-sm">
                     <p className="font-medium">{ing.name}</p>
-                    <p className="text-muted-foreground">{ing.quantity_kg} kg</p>
+                    <p className="text-muted-foreground">{ing.quantity_lbs} lbs</p>
                   </div>
                   <Button 
                     size="icon" 
@@ -131,9 +131,9 @@ export default function SpiceMixFormDialog({ open, onClose, onSave, mix }) {
               <Input 
                 type="number"
                 step="0.1"
-                value={newIngredient.quantity_kg}
-                onChange={e => setNewIngredient({ ...newIngredient, quantity_kg: e.target.value })}
-                placeholder="Quantity (kg)"
+                value={newIngredient.quantity_lbs}
+                onChange={e => setNewIngredient({ ...newIngredient, quantity_lbs: e.target.value })}
+                placeholder="Quantity (lbs)"
               />
               <Button size="sm" onClick={handleAddIngredient} variant="outline" className="w-full">
                 Add Ingredient

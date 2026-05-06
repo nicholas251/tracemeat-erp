@@ -45,15 +45,15 @@
     },
     "packages_per_case": {
       "type": "number",
-      "description": "Number of packages per case or total pounds per case/gaylord"
+      "description": "Number of packages per case"
     },
     "case_weight_lbs": {
       "type": "number",
       "description": "Total weight per case in pounds (auto-calculated or manual)"
     },
-    "recipe_consumption_per_case_kg": {
+    "recipe_consumption_per_case_lbs": {
       "type": "number",
-      "description": "Amount of recipe needed to produce one case (in kg)"
+      "description": "Amount of recipe needed to produce one case (in lbs)"
     },
     "ingredients": {
       "type": "array",

@@ -64,7 +64,7 @@ export default function Receiving() {
     if (!state.bucket_id) { alert("Please assign a bucket"); return; }
 
     const lotNumber = state.lotNumber || `LOT-${Date.now()}`;
-    const receivedQty = parseFloat(state.receivedQty) || item.quantity_kg;
+    const receivedQty = parseFloat(state.receivedQty) || item.quantity_lbs;
     const selectedBucket = buckets.find(b => b.id === state.bucket_id);
 
     const newMaterial = await createMaterialMutation.mutateAsync({
@@ -76,8 +76,8 @@ export default function Receiving() {
       supplier: currentPO.supplier,
       received_date: format(new Date(), 'yyyy-MM-dd'),
       expiry_date: state.expiryDate,
-      quantity_kg: receivedQty,
-      available_qty_kg: receivedQty,
+      quantity_lbs: receivedQty,
+      available_qty_lbs: receivedQty,
       temp_on_arrival_c: parseFloat(state.tempOnArrival) || null,
       status: "received",
       inspection_notes: state.notes || "",
@@ -102,8 +102,8 @@ export default function Receiving() {
     });
 
     const updatedLineItems = [...currentPO.line_items];
-    updatedLineItems[lineItemIndex] = { ...updatedLineItems[lineItemIndex], received_qty_kg: receivedQty };
-    const allReceived = updatedLineItems.every(li => (li.received_qty_kg || 0) >= li.quantity_kg);
+    updatedLineItems[lineItemIndex] = { ...updatedLineItems[lineItemIndex], received_qty_lbs: receivedQty };
+    const allReceived = updatedLineItems.every(li => (li.received_qty_lbs || 0) >= li.quantity_lbs);
 
     await updatePOMutation.mutateAsync({
       id: currentPO.id,
@@ -150,7 +150,7 @@ export default function Receiving() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {pendingPOs.map(po => {
             const isSelected = currentPO?.id === po.id;
-            const receivedItems = (po.line_items || []).filter(li => (li.received_qty_kg || 0) >= li.quantity_kg).length;
+            const receivedItems = (po.line_items || []).filter(li => (li.received_qty_lbs || 0) >= li.quantity_lbs).length;
             const totalItems = (po.line_items || []).length;
             return (
               <button
@@ -223,7 +223,7 @@ export default function Receiving() {
                 {currentPO.line_items?.map((item, idx) => {
                   const key = `item_${idx}`;
                   const state = receivingState[key] || {};
-                  const isReceived = (item.received_qty_kg || 0) >= item.quantity_kg || state._done;
+                  const isReceived = (item.received_qty_lbs || 0) >= item.quantity_lbs || state._done;
                   const suggestedBuckets = getBucketsForCategory(item.category);
 
                   return (
@@ -233,9 +233,9 @@ export default function Receiving() {
                           <p className="font-semibold text-base">{item.material_name}</p>
                           <div className="flex items-center gap-2 mt-1">
                             <Badge variant="outline" className="text-xs capitalize">{item.category}</Badge>
-                            <span className="text-xs text-muted-foreground">Ordered: <strong>{item.quantity_kg} lbs</strong></span>
-                            {(item.received_qty_kg || 0) > 0 && (
-                              <span className="text-xs text-muted-foreground">Received: <strong>{item.received_qty_kg} lbs</strong></span>
+                            <span className="text-xs text-muted-foreground">Ordered: <strong>{item.quantity_lbs} lbs</strong></span>
+                            {(item.received_qty_lbs || 0) > 0 && (
+                              <span className="text-xs text-muted-foreground">Received: <strong>{item.received_qty_lbs} lbs</strong></span>
                             )}
                           </div>
                         </div>
@@ -305,7 +305,7 @@ export default function Receiving() {
                               <Label className="text-xs">Received Qty (lbs)</Label>
                               <Input
                                 type="number"
-                                value={state.receivedQty ?? item.quantity_kg}
+                                value={state.receivedQty ?? item.quantity_lbs}
                                 onChange={e => setReceivingState(prev => ({ ...prev, [key]: { ...state, receivedQty: e.target.value } }))}
                               />
                             </div>
@@ -318,7 +318,7 @@ export default function Receiving() {
                               />
                             </div>
                             <div>
-                              <Label className="text-xs">Temp on Arrival (°F)</Label>
+                              <Label className="text-xs">Temp on Arrival (°C)</Label>
                               <Input
                                 type="number"
                                 step="0.1"

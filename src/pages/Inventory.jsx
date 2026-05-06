@@ -93,8 +93,7 @@ export default function Inventory() {
     return matchesStatus && matchesSearch;
   });
 
-  const kgToLbs = (kg) => Math.round((kg || 0) * 2.20462);
-  const totalLbs = items.filter(i => i.status === "available").reduce((sum, i) => sum + (i.quantity_kg || 0), 0);
+  const totalLbs = items.filter(i => i.status === "available").reduce((sum, i) => sum + (i.quantity_lbs || 0), 0);
   const expiringItems = items.filter(i => {
     if (!i.expiry_date || i.status !== "available") return false;
     const daysLeft = Math.ceil((new Date(i.expiry_date) - new Date()) / 86400000);
@@ -250,7 +249,7 @@ export default function Inventory() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
             <Card className="p-4">
               <p className="text-xs text-muted-foreground uppercase tracking-wide">Total Available</p>
-              <p className="text-2xl font-bold mt-1">{kgToLbs(totalLbs).toLocaleString()} <span className="text-sm font-normal text-muted-foreground">lbs</span></p>
+              <p className="text-2xl font-bold mt-1">{totalLbs.toLocaleString()} <span className="text-sm font-normal text-muted-foreground">lbs</span></p>
             </Card>
             <Card className="p-4">
               <p className="text-xs text-muted-foreground uppercase tracking-wide">SKU Count</p>
@@ -325,9 +324,9 @@ export default function Inventory() {
                         <TableCell className="font-medium text-sm">{item.product_name}</TableCell>
                         <TableCell className="font-mono text-xs text-muted-foreground">{item.sku || "—"}</TableCell>
                         <TableCell>
-                         <span className="font-semibold">{kgToLbs(item.quantity_kg).toLocaleString()}</span>
-                         {item.original_quantity_kg && item.quantity_kg !== item.original_quantity_kg && (
-                           <span className="text-xs text-muted-foreground ml-1">/ {kgToLbs(item.original_quantity_kg).toLocaleString()}</span>
+                         <span className="font-semibold">{(item.quantity_lbs || 0).toLocaleString()}</span>
+                         {item.original_quantity_lbs && item.quantity_lbs !== item.original_quantity_lbs && (
+                           <span className="text-xs text-muted-foreground ml-1">/ {(item.original_quantity_lbs || 0).toLocaleString()}</span>
                          )}
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground">{item.location || "—"}</TableCell>

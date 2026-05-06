@@ -14,9 +14,9 @@
       "type": "string",
       "description": "Finished product name"
     },
-    "yield_kg": {
+    "yield_lbs": {
       "type": "number",
-      "description": "Output quantity in kg"
+      "description": "Output quantity in lbs"
     },
     "ingredients": {
       "type": "array",
@@ -26,9 +26,9 @@
           "raw_material_name": {
             "type": "string"
           },
-          "quantity_kg": {
+          "quantity_lbs": {
             "type": "number",
-            "description": "Amount needed per batch"
+            "description": "Amount needed per batch in lbs"
           },
           "category": {
             "type": "string",
@@ -68,7 +68,7 @@
   "required": [
     "name",
     "product_id",
-    "yield_kg",
+    "yield_lbs",
     "ingredients"
   ]
 }

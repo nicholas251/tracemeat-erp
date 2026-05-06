@@ -72,7 +72,7 @@ export default function RawMaterials() {
                   <TableHead>Name</TableHead>
                   <TableHead>Supplier</TableHead>
                   <TableHead>Category</TableHead>
-                  <TableHead>Qty (kg)</TableHead>
+                  <TableHead>Qty (lbs)</TableHead>
                   <TableHead>Temp (°C)</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Received</TableHead>
@@ -86,7 +86,7 @@ export default function RawMaterials() {
                     <TableCell className="text-sm font-medium">{m.name}</TableCell>
                     <TableCell className="text-sm">{m.supplier}</TableCell>
                     <TableCell className="text-sm capitalize">{(m.category || "").replace(/_/g, " ")}</TableCell>
-                    <TableCell className="text-sm">{m.quantity_kg || "—"}</TableCell>
+                    <TableCell className="text-sm">{m.quantity_lbs || "—"}</TableCell>
                     <TableCell className="text-sm">{m.temp_on_arrival_c != null ? `${m.temp_on_arrival_c}°` : "—"}</TableCell>
                     <TableCell><StatusBadge status={m.status} /></TableCell>
                     <TableCell className="text-sm text-muted-foreground">

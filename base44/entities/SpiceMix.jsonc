@@ -14,21 +14,21 @@
           "name": {
             "type": "string"
           },
-          "quantity_kg": {
+          "quantity_lbs": {
             "type": "number",
-            "description": "Amount per batch"
+            "description": "Amount per batch in lbs"
           }
         }
       },
       "description": "List of spices and their quantities per batch"
     },
-    "quantity_kg": {
+    "quantity_lbs": {
       "type": "number",
-      "description": "Total batch quantity in kg"
+      "description": "Total batch quantity in lbs"
     },
-    "available_qty_kg": {
+    "available_qty_lbs": {
       "type": "number",
-      "description": "Quantity still available for use"
+      "description": "Quantity still available for use in lbs"
     },
     "status": {
       "type": "string",
@@ -50,6 +50,6 @@
   "required": [
     "name",
     "ingredients",
-    "quantity_kg"
+    "quantity_lbs"
   ]
 }

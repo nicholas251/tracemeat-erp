@@ -43,12 +43,12 @@
       "type": "string",
       "format": "date"
     },
-    "quantity_kg": {
+    "quantity_lbs": {
       "type": "number"
     },
-    "available_qty_kg": {
+    "available_qty_lbs": {
       "type": "number",
-      "description": "Quantity still available for use (decreases as consumed in production)"
+      "description": "Quantity still available for use in lbs (decreases as consumed in production)"
     },
     "temp_on_arrival_c": {
       "type": "number"

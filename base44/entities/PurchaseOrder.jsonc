@@ -51,13 +51,13 @@
               "other"
             ]
           },
-          "quantity_kg": {
+          "quantity_lbs": {
             "type": "number"
           },
           "unit_price": {
             "type": "number"
           },
-          "received_qty_kg": {
+          "received_qty_lbs": {
             "type": "number",
             "default": 0
           }

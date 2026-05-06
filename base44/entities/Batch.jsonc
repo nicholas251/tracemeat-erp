@@ -38,9 +38,9 @@
     "total_steps": {
       "type": "number"
     },
-    "quantity_kg": {
+    "quantity_lbs": {
       "type": "number",
-      "description": "Batch quantity in kg"
+      "description": "Batch quantity in lbs"
     },
     "raw_material_lots": {
       "type": "array",

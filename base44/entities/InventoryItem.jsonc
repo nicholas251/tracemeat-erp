@@ -22,13 +22,13 @@
       "type": "string",
       "description": "Source batch number"
     },
-    "quantity_kg": {
+    "quantity_lbs": {
       "type": "number",
-      "description": "Current quantity on hand in kg"
+      "description": "Current quantity on hand in lbs"
     },
-    "original_quantity_kg": {
+    "original_quantity_lbs": {
       "type": "number",
-      "description": "Original quantity when received into inventory"
+      "description": "Original quantity when received into inventory in lbs"
     },
     "location": {
       "type": "string",

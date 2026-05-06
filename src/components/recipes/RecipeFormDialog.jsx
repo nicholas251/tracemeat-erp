@@ -15,7 +15,7 @@ export default function RecipeFormDialog({ open, onClose, onSave, recipe, produc
     name: recipe.data.name,
     product_id: recipe.data.product_id,
     product_name: recipe.data.product_name,
-    yield_kg: recipe.data.yield_kg,
+    yield_lbs: recipe.data.yield_lbs,
     ingredients: recipe.data.ingredients || [],
     status: recipe.data.status,
     notes: recipe.data.notes || "",
@@ -23,7 +23,7 @@ export default function RecipeFormDialog({ open, onClose, onSave, recipe, produc
     name: "",
     product_id: "",
     product_name: "",
-    yield_kg: 0,
+    yield_lbs: 0,
     ingredients: [],
     status: "draft",
     notes: "",
@@ -33,10 +33,10 @@ export default function RecipeFormDialog({ open, onClose, onSave, recipe, produc
     setForm(prev => ({
       ...prev,
       ingredients: [...(prev.ingredients || []), {
-        raw_material_name: "",
-        quantity_kg: 0,
-        category: "beef",
-      }],
+         raw_material_name: "",
+         quantity_lbs: 0,
+         category: "beef",
+       }],
     }));
   };
 
@@ -63,7 +63,7 @@ export default function RecipeFormDialog({ open, onClose, onSave, recipe, produc
   };
 
   const handleSave = () => {
-    if (!form.name || !form.product_id || !form.yield_kg) {
+    if (!form.name || !form.product_id || !form.yield_lbs) {
       alert("Recipe name, product, and yield are required");
       return;
     }
@@ -103,12 +103,12 @@ export default function RecipeFormDialog({ open, onClose, onSave, recipe, produc
               </Select>
             </div>
             <div>
-              <Label>Yield (kg) *</Label>
+              <Label>Yield (lbs) *</Label>
               <Input
                 type="number"
                 step="0.1"
-                value={form.yield_kg}
-                onChange={e => setForm(prev => ({ ...prev, yield_kg: parseFloat(e.target.value) || 0 }))}
+                value={form.yield_lbs}
+                onChange={e => setForm(prev => ({ ...prev, yield_lbs: parseFloat(e.target.value) || 0 }))}
               />
             </div>
           </div>
@@ -141,12 +141,12 @@ export default function RecipeFormDialog({ open, onClose, onSave, recipe, produc
                       </Select>
                     </div>
                     <div>
-                      <Label className="text-xs">Qty Per Batch (kg) *</Label>
+                      <Label className="text-xs">Qty Per Batch (lbs) *</Label>
                       <Input
                         type="number"
                         step="0.1"
-                        value={ingredient.quantity_kg}
-                        onChange={e => updateIngredient(idx, 'quantity_kg', parseFloat(e.target.value) || 0)}
+                        value={ingredient.quantity_lbs}
+                        onChange={e => updateIngredient(idx, 'quantity_lbs', parseFloat(e.target.value) || 0)}
                       />
                     </div>
                     <div className="flex items-end">

@@ -11,7 +11,7 @@ export default function BatchFormDialog({ open, onClose, onSave, flows, rawMater
   const [form, setForm] = useState({
     batch_number: `B-${Date.now().toString(36).toUpperCase()}`,
     flow_id: "", flow_name: "", product_id: "", product_name: "",
-    quantity_kg: "", raw_material_lots: [], notes: "",
+    quantity_lbs: "", raw_material_lots: [], notes: "",
     production_date: format(new Date(), "yyyy-MM-dd"),
     status: "pending", current_step: 0, step_records: []
   });
@@ -54,7 +54,7 @@ export default function BatchFormDialog({ open, onClose, onSave, flows, rawMater
     const expiryDays = 14; // default
     onSave({
       ...form,
-      quantity_kg: form.quantity_kg ? Number(form.quantity_kg) : undefined,
+      quantity_lbs: form.quantity_lbs ? Number(form.quantity_lbs) : undefined,
       expiry_date: form.production_date 
         ? format(new Date(new Date(form.production_date).getTime() + expiryDays * 86400000), "yyyy-MM-dd")
         : undefined,
@@ -95,8 +95,8 @@ export default function BatchFormDialog({ open, onClose, onSave, flows, rawMater
           </div>
 
           <div className="space-y-2">
-            <Label>Quantity (kg)</Label>
-            <Input type="number" value={form.quantity_kg} onChange={e => setForm(prev => ({ ...prev, quantity_kg: e.target.value }))} placeholder="0.0" />
+            <Label>Quantity (lbs)</Label>
+            <Input type="number" value={form.quantity_lbs} onChange={e => setForm(prev => ({ ...prev, quantity_lbs: e.target.value }))} placeholder="0.0" />
           </div>
 
           {approvedMaterials.length > 0 && (

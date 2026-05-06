@@ -98,8 +98,8 @@ export default function Batches() {
         batch_id: batch.id,
         batch_number: batch.batch_number,
         lot_number: `FG-${batch.batch_number}`,
-        quantity_kg: batch.quantity_kg || 0,
-        original_quantity_kg: batch.quantity_kg || 0,
+        quantity_lbs: batch.quantity_lbs || 0,
+        original_quantity_lbs: batch.quantity_lbs || 0,
         status: "available",
         production_date: batch.production_date,
         expiry_date: batch.expiry_date,
@@ -170,7 +170,7 @@ export default function Batches() {
                   <TableHead>Progress</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Date</TableHead>
-                  <TableHead>Qty (kg)</TableHead>
+                  <TableHead>Qty (lbs)</TableHead>
                   <TableHead></TableHead>
                 </TableRow>
               </TableHeader>
@@ -195,7 +195,7 @@ export default function Batches() {
                       <TableCell className="text-sm text-muted-foreground">
                         {batch.production_date ? format(new Date(batch.production_date), "MMM d") : "—"}
                       </TableCell>
-                      <TableCell className="text-sm">{batch.quantity_kg || "—"}</TableCell>
+                      <TableCell className="text-sm">{batch.quantity_lbs || "—"}</TableCell>
                       <TableCell>
                         <Button size="sm" variant="ghost"><Eye className="w-4 h-4" /></Button>
                       </TableCell>

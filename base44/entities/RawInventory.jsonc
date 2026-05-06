@@ -41,16 +41,15 @@
     },
     "quantity": {
       "type": "number",
-      "description": "Quantity received into this bucket"
+      "description": "Quantity received into this bucket in lbs"
     },
     "available_qty": {
       "type": "number",
-      "description": "Quantity still available (decreases as used in production)"
+      "description": "Quantity still available in lbs (decreases as used in production)"
     },
     "unit": {
       "type": "string",
       "enum": [
-        "kg",
         "lbs",
         "each",
         "case"

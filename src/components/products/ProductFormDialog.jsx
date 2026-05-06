@@ -142,8 +142,8 @@ export default function ProductFormDialog({ open, onClose, onSave, product }) {
             <Input type="number" step="0.1" value={form.case_weight_lbs} disabled placeholder="Auto-calculated" />
           </div>
           <div className="space-y-2">
-            <Label>Recipe Consumption per Case (kg)</Label>
-            <Input type="number" step="0.1" value={form.recipe_consumption_per_case_kg} disabled placeholder="Auto-calculated" />
+            <Label>Recipe Consumption per Case (lbs)</Label>
+            <Input type="number" step="0.1" value={form.recipe_consumption_per_case_lbs} disabled placeholder="Auto-calculated" />
           </div>
           <div className="space-y-2">
             <Label>Shelf Life (days)</Label>

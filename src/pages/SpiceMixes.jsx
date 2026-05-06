@@ -83,18 +83,18 @@ export default function SpiceMixes() {
                 <div className="text-sm space-y-2">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Batch Size:</span>
-                    <span className="font-medium">{mix.quantity_kg} kg</span>
-                  </div>
-                  <div className="flex justify-between">
+                    <span className="font-medium">{mix.quantity_lbs} lbs</span>
+                    </div>
+                    <div className="flex justify-between">
                     <span className="text-muted-foreground">Available:</span>
-                    <span className="font-medium">{mix.available_qty_kg || 0} kg</span>
+                    <span className="font-medium">{mix.available_qty_lbs || 0} lbs</span>
                   </div>
                   {mix.ingredients?.length > 0 && (
                     <div>
                       <p className="text-xs text-muted-foreground mb-2">Ingredients:</p>
                       <div className="space-y-1">
                         {mix.ingredients.map((ing, i) => (
-                          <p key={i} className="text-xs">{ing.name}: {ing.quantity_kg}kg</p>
+                          <p key={i} className="text-xs">{ing.name}: {ing.quantity_lbs}lbs</p>
                         ))}
                       </div>
                     </div>
