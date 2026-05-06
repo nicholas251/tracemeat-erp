@@ -109,16 +109,20 @@ export default function RecipeFormDialog({ open, onClose, onSave, recipe, produc
             </div>
             <div>
               <Label>Finished Product *</Label>
-              <Select value={form.product_id} onValueChange={handleProductChange}>
+              <Select value={form.product_id || ""} onValueChange={handleProductChange}>
                 <SelectTrigger>
-                  <SelectValue placeholder={form.product_name || "Select product"} />
+                  <SelectValue placeholder="Select product" />
                 </SelectTrigger>
                 <SelectContent className="z-[60]">
-                  {products?.map(p => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {p.name} ({p.sku})
-                    </SelectItem>
-                  ))}
+                  {products && products.length > 0 ? (
+                    products.map(p => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.name} ({p.sku})
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <div className="p-2 text-sm text-muted-foreground">No products available</div>
+                  )}
                 </SelectContent>
               </Select>
             </div>
