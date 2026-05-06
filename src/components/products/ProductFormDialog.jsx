@@ -33,9 +33,10 @@ export default function ProductFormDialog({ open, onClose, onSave, product }) {
     packaging_type: "vacuum_sealed", package_size: "", packages_per_case: "",
     case_weight_lbs: "", shelf_life_days: "", storage_temp_c: "", status: "draft",
     allergens: [], regulatory_codes: [], ingredients: [], recipe_id: "", recipe_name: "",
-    recipe_consumption_per_case_lbs: ""
+    recipe_consumption_per_case_lbs: "", process_id: "", process_name: ""
   });
   const [recipes, setRecipes] = useState([]);
+  const [processes, setProcesses] = useState([]);
   const [recipeMode, setRecipeMode] = useState("select");
   const [newRecipe, setNewRecipe] = useState({ name: "", yield_lbs: "", ingredients: [] });
   const [selectedRecipe, setSelectedRecipe] = useState(null);
@@ -43,6 +44,7 @@ export default function ProductFormDialog({ open, onClose, onSave, product }) {
   useEffect(() => {
     if (open) {
       base44.entities.Recipe.list().then(setRecipes);
+      base44.entities.ProductionProcess.list().then(setProcesses);
     }
   }, [open]);
 
@@ -167,6 +169,19 @@ export default function ProductFormDialog({ open, onClose, onSave, product }) {
           <div className="space-y-2 md:col-span-2">
             <Label>Description</Label>
             <Textarea value={form.description} onChange={e => update("description", e.target.value)} placeholder="Product specs and notes..." rows={3} />
+          </div>
+          <div className="space-y-2 md:col-span-2">
+            <Label>Production Process</Label>
+            <Select value={form.process_id} onValueChange={(val) => {
+              const proc = processes.find(p => p.id === val);
+              update("process_id", val);
+              update("process_name", proc?.name || "");
+            }}>
+              <SelectTrigger><SelectValue placeholder="Select a process template..." /></SelectTrigger>
+              <SelectContent>
+                {processes.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-2 md:col-span-2">
             <Label>Recipe *</Label>
