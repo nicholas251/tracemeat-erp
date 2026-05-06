@@ -206,11 +206,11 @@ export default function Receiving() {
                   <p className="font-semibold">${currentPO.total_amount?.toFixed(2) || '0.00'}</p>
                 </div>
                 <div>
-                  <Label className="text-xs text-muted-foreground">Expected Delivery</Label>
-                  <p className="font-semibold">
-                    {currentPO.expected_delivery_date ? format(new Date(currentPO.expected_delivery_date), 'MMM dd, yyyy') : '—'}
-                  </p>
-                </div>
+                   <Label className="text-xs text-muted-foreground">Expected Delivery</Label>
+                   <p className="font-semibold">
+                     {currentPO.expected_delivery_date ? format(new Date(currentPO.expected_delivery_date + 'T00:00:00'), 'MMM dd, yyyy') : '—'}
+                   </p>
+                 </div>
               </div>
             </CardContent>
           </Card>
