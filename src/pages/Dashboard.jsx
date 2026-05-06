@@ -45,7 +45,7 @@ export default function Dashboard() {
         subtitle="Overview of your meat processing operations" 
       />
 
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-4 mb-8">
         <StatCard label="Active Batches" value={activeBatches} icon={Factory} color="text-chart-1" link="/batches" />
         <StatCard label="Products" value={activeProducts} icon={Package} color="text-chart-2" link="/products" />
         <StatCard label="Active Holds" value={activeHolds} icon={ShieldAlert} color="text-accent" link="/hold-release" />

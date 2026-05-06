@@ -63,61 +63,109 @@ export default function RawMaterials() {
       {isLoading ? (
         <Card className="h-48 animate-pulse bg-muted" />
       ) : materials.length === 0 ? (
-        <Card className="p-12 text-center">
+        <Card className="p-8 sm:p-12 text-center">
           <Warehouse className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
           <h3 className="text-lg font-semibold mb-1">No raw materials</h3>
           <p className="text-sm text-muted-foreground mb-4">Record incoming materials to start tracking</p>
           <Button onClick={() => setShowForm(true)}><Plus className="w-4 h-4 mr-2" /> Receive Material</Button>
         </Card>
       ) : (
-        <Card>
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Lot #</TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Supplier</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead>Qty (lbs)</TableHead>
-                  <TableHead>Temp (°F)</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Received</TableHead>
-                  <TableHead></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {materials.map(m => (
-                  <TableRow key={m.id}>
-                    <TableCell className="font-mono text-sm font-medium">{m.lot_number}</TableCell>
-                    <TableCell className="text-sm font-medium">{m.name}</TableCell>
-                    <TableCell className="text-sm">{m.supplier}</TableCell>
-                    <TableCell className="text-sm capitalize">{(m.category || "").replace(/_/g, " ")}</TableCell>
-                    <TableCell className="text-sm">{m.quantity_lbs || "—"}</TableCell>
-                    <TableCell className="text-sm">{m.temp_on_arrival_c != null ? `${m.temp_on_arrival_c}°` : "—"}</TableCell>
-                    <TableCell><StatusBadge status={m.status} /></TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {m.received_date ? format(new Date(m.received_date), "MMM d") : "—"}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-1">
-                        <Button size="sm" variant="ghost" title="Update Allocation" onClick={() => setAllocating(m)}>
-                          📦
-                        </Button>
-                        <Button size="sm" variant="ghost" onClick={() => setEditing(m)}>
-                          <Pencil className="w-3.5 h-3.5" />
-                        </Button>
-                        <Button size="sm" variant="ghost" className="text-destructive" onClick={() => setDeleting(m)}>
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+        <>
+          {/* Desktop table */}
+          <div className="hidden md:block">
+            <Card>
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Lot #</TableHead>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Supplier</TableHead>
+                      <TableHead>Category</TableHead>
+                      <TableHead>Qty (lbs)</TableHead>
+                      <TableHead>Temp (°F)</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Received</TableHead>
+                      <TableHead></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {materials.map(m => (
+                      <TableRow key={m.id}>
+                        <TableCell className="font-mono text-sm font-medium">{m.lot_number}</TableCell>
+                        <TableCell className="text-sm font-medium">{m.name}</TableCell>
+                        <TableCell className="text-sm">{m.supplier}</TableCell>
+                        <TableCell className="text-sm capitalize">{(m.category || "").replace(/_/g, " ")}</TableCell>
+                        <TableCell className="text-sm">{m.quantity_lbs || "—"}</TableCell>
+                        <TableCell className="text-sm">{m.temp_on_arrival_c != null ? `${m.temp_on_arrival_c}°` : "—"}</TableCell>
+                        <TableCell><StatusBadge status={m.status} /></TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {m.received_date ? format(new Date(m.received_date), "MMM d") : "—"}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-1">
+                            <Button size="sm" variant="ghost" title="Update Allocation" onClick={() => setAllocating(m)}>
+                              📦
+                            </Button>
+                            <Button size="sm" variant="ghost" onClick={() => setEditing(m)}>
+                              <Pencil className="w-3.5 h-3.5" />
+                            </Button>
+                            <Button size="sm" variant="ghost" className="text-destructive" onClick={() => setDeleting(m)}>
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Mobile card view */}
+          <div className="md:hidden space-y-3">
+            {materials.map(m => (
+              <Card key={m.id} className="p-4">
+                <div className="space-y-3">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="font-mono text-sm font-semibold">{m.lot_number}</p>
+                      <p className="text-sm font-medium text-foreground">{m.name}</p>
+                    </div>
+                    <StatusBadge status={m.status} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <p className="text-muted-foreground text-xs">Supplier</p>
+                      <p className="font-medium">{m.supplier}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground text-xs">Category</p>
+                      <p className="font-medium capitalize">{(m.category || "").replace(/_/g, " ")}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground text-xs">Quantity</p>
+                      <p className="font-medium">{m.quantity_lbs || "—"} lbs</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground text-xs">Temp</p>
+                      <p className="font-medium">{m.temp_on_arrival_c != null ? `${m.temp_on_arrival_c}°` : "—"}</p>
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {m.received_date ? format(new Date(m.received_date), "MMM d, yyyy") : "—"}
+                  </p>
+                  <div className="flex gap-2 pt-2 border-t">
+                    <Button size="sm" variant="outline" className="flex-1" onClick={() => setAllocating(m)}>📦 Allocate</Button>
+                    <Button size="sm" variant="outline" onClick={() => setEditing(m)}><Pencil className="w-3.5 h-3.5" /></Button>
+                    <Button size="sm" variant="outline" className="text-destructive" onClick={() => setDeleting(m)}><Trash2 className="w-3.5 h-3.5" /></Button>
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </>
       )}
 
       {showForm && (
