@@ -50,6 +50,16 @@ export default function Inventory() {
     queryFn: () => base44.entities.RawMaterial.list("-created_date"),
   });
 
+  const { data: productionOrders = [] } = useQuery({
+    queryKey: ["production_orders"],
+    queryFn: () => base44.entities.ProductionOrder.list(),
+  });
+
+  const { data: recipes = [] } = useQuery({
+    queryKey: ["recipes"],
+    queryFn: () => base44.entities.Recipe.list(),
+  });
+
   const updateMutation = useMutation({
     mutationFn: ({ id, data }) => base44.entities.InventoryItem.update(id, data),
     onSuccess: () => {
@@ -112,6 +122,28 @@ export default function Inventory() {
   });
 
   const totalRawQty = rawItems.filter(i => i.status === "available").reduce((sum, i) => sum + (i.available_qty || 0), 0);
+
+  // Calculate material needs based on active production orders
+  const getMaterialNeeds = () => {
+    const activeOrders = productionOrders.filter(o => o.status === "pending" || o.status === "in_progress");
+    const needs = {};
+
+    activeOrders.forEach(order => {
+      const recipe = recipes.find(r => r.id === order.recipe_id);
+      if (recipe && recipe.ingredients) {
+        const yieldPercent = recipe.yield_lbs / 100;
+        const rawNeeded = order.quantity_to_produce / yieldPercent;
+
+        recipe.ingredients.forEach(ingredient => {
+          const key = ingredient.bucket_id || ingredient.category;
+          needs[key] = (needs[key] || 0) + ingredient.quantity_lbs * (rawNeeded / recipe.yield_lbs);
+        });
+      }
+    });
+    return needs;
+  };
+
+  const materialNeeds = getMaterialNeeds();
   const expiringRaw = rawItems.filter(i => {
     if (!i.expiry_date || i.status !== "available") return false;
     const daysLeft = Math.ceil((new Date(i.expiry_date) - new Date()) / 86400000);
@@ -220,46 +252,56 @@ export default function Inventory() {
                         <TableHead>Bucket</TableHead>
                         <TableHead>Description</TableHead>
                         <TableHead>Supplier</TableHead>
-                        <TableHead>Available Qty</TableHead>
+                        <TableHead>Available</TableHead>
+                        <TableHead>Allocated</TableHead>
+                        <TableHead>Needed</TableHead>
+                        <TableHead>Shortfall</TableHead>
                         <TableHead>Received</TableHead>
-                        <TableHead>Expiry</TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead></TableHead>
                       </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredRaw.map(item => (
-                      <TableRow key={item.id} className={isExpiringSoon(item.expiry_date) ? "bg-accent/5" : ""}>
-                        <TableCell className="font-mono text-xs font-medium">{item.lot_number || "—"}</TableCell>
-                        <TableCell>
-                          <p className="font-medium text-sm">{item.bucket_name}</p>
-                          <Badge variant="outline" className="text-xs capitalize mt-0.5">{item.bucket_category}</Badge>
-                        </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">{item.description || "—"}</TableCell>
-                        <TableCell className="text-sm text-muted-foreground">{item.supplier || "—"}</TableCell>
-                        <TableCell>
-                          <span className="font-semibold">{(item.available_qty || 0).toLocaleString()}</span>
-                          <span className="text-xs text-muted-foreground ml-1">{item.unit}</span>
-                        </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">
-                          {item.received_date ? format(new Date(item.received_date), "MMM d, yyyy") : "—"}
-                        </TableCell>
-                        <TableCell>
-                          {item.expiry_date ? (
-                            <span className={`text-sm font-medium ${isExpired(item.expiry_date) ? "text-destructive" : isExpiringSoon(item.expiry_date) ? "text-accent" : "text-muted-foreground"}`}>
-                              {format(new Date(item.expiry_date), "MMM d, yyyy")}
-                              {isExpiringSoon(item.expiry_date) && !isExpired(item.expiry_date) && <span className="ml-1 text-xs">(soon)</span>}
-                            </span>
-                          ) : "—"}
-                        </TableCell>
-                        <TableCell><StatusBadge status={item.status} /></TableCell>
-                        <TableCell>
-                          <Button size="sm" variant="ghost" onClick={() => setAdjustRawItem(item)}>
-                            <TrendingDown className="w-4 h-4" />
-                          </Button>
-                        </TableCell>
+                    {filteredRaw.map(item => {
+                      const allocated = item.allocated_qty_lbs || 0;
+                      const needed = materialNeeds[item.id] || 0;
+                      const shortfall = Math.max(0, needed - allocated);
+                      return (
+                        <TableRow key={item.id} className={isExpiringSoon(item.expiry_date) ? "bg-accent/5" : ""}>
+                          <TableCell className="font-mono text-xs font-medium">{item.lot_number || "—"}</TableCell>
+                          <TableCell>
+                            <p className="font-medium text-sm">{item.bucket_name}</p>
+                            <Badge variant="outline" className="text-xs capitalize mt-0.5">{item.bucket_category}</Badge>
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">{item.description || "—"}</TableCell>
+                          <TableCell className="text-sm text-muted-foreground">{item.supplier || "—"}</TableCell>
+                          <TableCell>
+                            <span className="font-semibold">{(item.available_qty || 0).toLocaleString()}</span>
+                            <span className="text-xs text-muted-foreground ml-1">{item.unit}</span>
+                          </TableCell>
+                          <TableCell>
+                            <span className="font-semibold text-accent">{allocated.toLocaleString()}</span>
+                            <span className="text-xs text-muted-foreground ml-1">{item.unit}</span>
+                          </TableCell>
+                          <TableCell>
+                            <span className="font-semibold">{needed.toLocaleString()}</span>
+                            <span className="text-xs text-muted-foreground ml-1">{item.unit}</span>
+                          </TableCell>
+                          <TableCell>
+                            <span className={shortfall > 0 ? "font-semibold text-destructive" : "text-muted-foreground"}>{shortfall > 0 ? shortfall.toLocaleString() : "—"}</span>
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {item.received_date ? format(new Date(item.received_date), "MMM d, yyyy") : "—"}
+                          </TableCell>
+                          <TableCell><StatusBadge status={item.status} /></TableCell>
+                          <TableCell>
+                            <Button size="sm" variant="ghost" onClick={() => setAdjustRawItem(item)}>
+                              <TrendingDown className="w-4 h-4" />
+                            </Button>
+                          </TableCell>
                         </TableRow>
-                        ))}
+                      );
+                    })}
                         </TableBody>
                         </Table>
                         </CardContent>
