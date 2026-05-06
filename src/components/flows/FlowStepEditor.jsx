@@ -26,7 +26,7 @@ export default function FlowStepEditor({ step, index, onChange, onRemove }) {
             <Input value={step.station || ""} onChange={e => update("station", e.target.value)} placeholder="e.g. Line A" />
           </div>
           <div className="space-y-1">
-            <Label className="text-xs">Target Temp (°C)</Label>
+            <Label className="text-xs">Target Temp (°F)</Label>
             <Input type="number" value={step.target_temp_c || ""} onChange={e => update("target_temp_c", e.target.value ? Number(e.target.value) : null)} />
           </div>
           <div className="space-y-1">

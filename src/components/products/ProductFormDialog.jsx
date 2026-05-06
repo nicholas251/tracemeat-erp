@@ -168,8 +168,8 @@ export default function ProductFormDialog({ open, onClose, onSave, product }) {
             <Input type="number" value={form.shelf_life_days} onChange={e => update("shelf_life_days", e.target.value)} placeholder="e.g. 14" />
           </div>
           <div className="space-y-2">
-            <Label>Storage Temp (°C)</Label>
-            <Input type="number" value={form.storage_temp_c} onChange={e => update("storage_temp_c", e.target.value)} placeholder="e.g. -2" />
+            <Label>Storage Temp (°F)</Label>
+            <Input type="number" value={form.storage_temp_c} onChange={e => update("storage_temp_c", e.target.value)} placeholder="e.g. 28" />
           </div>
           <div className="space-y-2">
             <Label>Status</Label>

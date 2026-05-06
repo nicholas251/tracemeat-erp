@@ -84,11 +84,11 @@ export default function BatchStepTracker({ open, onClose, batch, flow, onAdvance
                       )}
                     </div>
                     {step.station && <p className="text-xs text-muted-foreground">Station: {step.station}</p>}
-                    {step.target_temp_c != null && <p className="text-xs text-muted-foreground">Target: {step.target_temp_c}°C</p>}
+                    {step.target_temp_c != null && <p className="text-xs text-muted-foreground">Target: {step.target_temp_c}°F</p>}
 
                     {isDone && record && (
                       <div className="mt-2 text-xs text-muted-foreground space-y-0.5">
-                        {record.temp_recorded_c != null && <p>Recorded: {record.temp_recorded_c}°C</p>}
+                        {record.temp_recorded_c != null && <p>Recorded: {record.temp_recorded_c}°F</p>}
                         {record.completed_at && <p>Completed: {format(new Date(record.completed_at), "MMM d, HH:mm")}</p>}
                         {record.notes && <p>Notes: {record.notes}</p>}
                       </div>
@@ -100,7 +100,7 @@ export default function BatchStepTracker({ open, onClose, batch, flow, onAdvance
                         <div className="grid grid-cols-2 gap-3">
                           {step.target_temp_c != null && (
                             <div className="space-y-1">
-                              <Label className="text-xs">Temperature (°C)</Label>
+                              <Label className="text-xs">Temperature (°F)</Label>
                               <Input type="number" value={tempRecorded} onChange={e => setTempRecorded(e.target.value)} placeholder="Record temp" />
                             </div>
                           )}

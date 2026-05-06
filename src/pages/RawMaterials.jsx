@@ -73,7 +73,7 @@ export default function RawMaterials() {
                   <TableHead>Supplier</TableHead>
                   <TableHead>Category</TableHead>
                   <TableHead>Qty (lbs)</TableHead>
-                  <TableHead>Temp (°C)</TableHead>
+                  <TableHead>Temp (°F)</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Received</TableHead>
                   <TableHead></TableHead>
