@@ -29,20 +29,32 @@ const packagingTypes = [
 
 export default function ProductFormDialog({ open, onClose, onSave, product }) {
   const [form, setForm] = useState(product || {
-    name: "", sku: "", category: "beef", description: "",
-    packaging_type: "vacuum_sealed", case_weight_lbs: "", shelf_life_days: "",
-    storage_temp_c: "", status: "draft", allergens: [], regulatory_codes: [],
-    ingredients: [], recipe_id: "", recipe_name: ""
+    name: "", product_number: "", sku: "", category: "beef", description: "",
+    packaging_type: "vacuum_sealed", package_size: "", packages_per_case: "",
+    case_weight_lbs: "", shelf_life_days: "", storage_temp_c: "", status: "draft",
+    allergens: [], regulatory_codes: [], ingredients: [], recipe_id: "", recipe_name: "",
+    recipe_consumption_per_case_kg: ""
   });
   const [recipes, setRecipes] = useState([]);
   const [recipeMode, setRecipeMode] = useState("select");
   const [newRecipe, setNewRecipe] = useState({ name: "", yield_kg: "", ingredients: [] });
+  const [selectedRecipe, setSelectedRecipe] = useState(null);
 
   useEffect(() => {
     if (open) {
       base44.entities.Recipe.list().then(setRecipes);
     }
   }, [open]);
+
+  // Auto-calculate recipe consumption when package size/case quantity changes
+  useEffect(() => {
+    if (form.package_size && form.packages_per_case && selectedRecipe?.yield_kg) {
+      const totalCaseWeightKg = (Number(form.package_size) * Number(form.packages_per_case)) / 2.20462;
+      const consumption = (totalCaseWeightKg / selectedRecipe.yield_kg) * selectedRecipe.yield_kg;
+      update("recipe_consumption_per_case_kg", Math.round(consumption * 100) / 100);
+      update("case_weight_lbs", Math.round((totalCaseWeightKg * 2.20462) * 100) / 100);
+    }
+  }, [form.package_size, form.packages_per_case, selectedRecipe]);
 
   const handleSave = () => {
     onSave({
@@ -66,10 +78,18 @@ export default function ProductFormDialog({ open, onClose, onSave, product }) {
       status: "draft"
     });
     setRecipes(prev => [...prev, created]);
+    setSelectedRecipe(created);
     update("recipe_id", created.id);
     update("recipe_name", created.name);
     setRecipeMode("select");
     setNewRecipe({ name: "", yield_kg: "", ingredients: [] });
+  };
+
+  const handleSelectRecipe = (val) => {
+    const recipe = recipes.find(r => r.id === val);
+    setSelectedRecipe(recipe);
+    update("recipe_id", val);
+    update("recipe_name", recipe?.name || "");
   };
 
   return (
@@ -82,6 +102,10 @@ export default function ProductFormDialog({ open, onClose, onSave, product }) {
           <div className="space-y-2">
             <Label>Product Name *</Label>
             <Input value={form.name} onChange={e => update("name", e.target.value)} placeholder="e.g. Ground Beef 80/20" />
+          </div>
+          <div className="space-y-2">
+            <Label>Product Number *</Label>
+            <Input value={form.product_number} onChange={e => update("product_number", e.target.value)} placeholder="e.g. PD-001" />
           </div>
           <div className="space-y-2">
             <Label>SKU *</Label>
@@ -106,8 +130,20 @@ export default function ProductFormDialog({ open, onClose, onSave, product }) {
             </Select>
           </div>
           <div className="space-y-2">
+            <Label>Package Size (lbs) *</Label>
+            <Input type="number" step="0.1" value={form.package_size} onChange={e => update("package_size", e.target.value)} placeholder="e.g. 2.0" />
+          </div>
+          <div className="space-y-2">
+            <Label>Packages per Case / lbs per Box *</Label>
+            <Input type="number" step="0.1" value={form.packages_per_case} onChange={e => update("packages_per_case", e.target.value)} placeholder="e.g. 12 packages or 40 lbs" />
+          </div>
+          <div className="space-y-2">
             <Label>Case Weight (lbs)</Label>
-            <Input type="number" step="0.1" value={form.case_weight_lbs} onChange={e => update("case_weight_lbs", e.target.value)} placeholder="e.g. 10.5" />
+            <Input type="number" step="0.1" value={form.case_weight_lbs} disabled placeholder="Auto-calculated" />
+          </div>
+          <div className="space-y-2">
+            <Label>Recipe Consumption per Case (kg)</Label>
+            <Input type="number" step="0.1" value={form.recipe_consumption_per_case_kg} disabled placeholder="Auto-calculated" />
           </div>
           <div className="space-y-2">
             <Label>Shelf Life (days)</Label>
@@ -140,11 +176,7 @@ export default function ProductFormDialog({ open, onClose, onSave, product }) {
                 <TabsTrigger value="create">Create New</TabsTrigger>
               </TabsList>
               <TabsContent value="select" className="space-y-2 mt-2">
-                <Select value={form.recipe_id} onValueChange={(val) => {
-                  const recipe = recipes.find(r => r.id === val);
-                  update("recipe_id", val);
-                  update("recipe_name", recipe?.name || "");
-                }}>
+                <Select value={form.recipe_id} onValueChange={handleSelectRecipe}>
                   <SelectTrigger><SelectValue placeholder="Select a recipe..." /></SelectTrigger>
                   <SelectContent>
                     {recipes.map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}
@@ -169,7 +201,7 @@ export default function ProductFormDialog({ open, onClose, onSave, product }) {
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={handleSave} disabled={!form.name || !form.sku}>
+          <Button onClick={handleSave} disabled={!form.name || !form.product_number || !form.sku || !form.recipe_id || !form.package_size || !form.packages_per_case}>
             {product ? "Update" : "Create"} Product
           </Button>
         </DialogFooter>

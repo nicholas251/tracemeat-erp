@@ -6,6 +6,10 @@
       "type": "string",
       "description": "Product name (e.g. Ground Beef 80/20)"
     },
+    "product_number": {
+      "type": "string",
+      "description": "Unique product number/code"
+    },
     "sku": {
       "type": "string",
       "description": "Stock keeping unit code"
@@ -35,6 +39,22 @@
       "type": "string",
       "description": "Recipe name for display"
     },
+    "package_size": {
+      "type": "number",
+      "description": "Size of each package in lbs"
+    },
+    "packages_per_case": {
+      "type": "number",
+      "description": "Number of packages per case or total pounds per case/gaylord"
+    },
+    "case_weight_lbs": {
+      "type": "number",
+      "description": "Total weight per case in pounds (auto-calculated or manual)"
+    },
+    "recipe_consumption_per_case_kg": {
+      "type": "number",
+      "description": "Amount of recipe needed to produce one case (in kg)"
+    },
     "ingredients": {
       "type": "array",
       "items": {
@@ -61,10 +81,6 @@
         "chub"
       ],
       "description": "Packaging format"
-    },
-    "case_weight_lbs": {
-      "type": "number",
-      "description": "Weight per case in pounds"
     },
     "shelf_life_days": {
       "type": "number",
@@ -100,7 +116,9 @@
   },
   "required": [
     "name",
+    "product_number",
     "sku",
-    "category"
+    "category",
+    "recipe_id"
   ]
 }
