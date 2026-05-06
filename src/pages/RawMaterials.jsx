@@ -44,7 +44,7 @@ export default function RawMaterials() {
   });
 
   const updateAllocationMutation = useMutation({
-    mutationFn: ({ id, allocated }) => base44.entities.RawMaterial.update(id, { allocated_qty_lbs: allocated }),
+    mutationFn: ({ id, allocated, parLevel }) => base44.entities.RawMaterial.update(id, { allocated_qty_lbs: allocated, par_level: parLevel }),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["raw-materials"] }); setAllocating(null); },
   });
 
@@ -127,7 +127,7 @@ export default function RawMaterials() {
         <MaterialFormDialog open material={editing} onClose={() => setEditing(null)} onSave={(data) => updateMutation.mutate({ id: editing.id, data })} />
       )}
       {allocating && (
-        <AllocationDialog open onClose={() => setAllocating(null)} material={allocating} onSave={(allocated) => updateAllocationMutation.mutate({ id: allocating.id, allocated })} />
+        <AllocationDialog open onClose={() => setAllocating(null)} material={allocating} onSave={({ allocated, parLevel }) => updateAllocationMutation.mutate({ id: allocating.id, allocated, parLevel })} />
       )}
 
       <AlertDialog open={!!deleting} onOpenChange={() => setDeleting(null)}>

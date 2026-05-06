@@ -6,16 +6,19 @@ import { Label } from "@/components/ui/label";
 
 export default function AllocationDialog({ open, onClose, onSave, material }) {
   const [allocated, setAllocated] = useState(0);
+  const [parLevel, setParLevel] = useState(0);
 
   useEffect(() => {
     if (material) {
       setAllocated(material.allocated_qty_lbs || 0);
+      setParLevel(material.par_level || 0);
     }
   }, [material, open]);
 
   const handleSave = () => {
-    onSave(Number(allocated));
+    onSave({ allocated: Number(allocated), parLevel: Number(parLevel) });
     setAllocated(0);
+    setParLevel(0);
   };
 
   return (
@@ -45,6 +48,15 @@ export default function AllocationDialog({ open, onClose, onSave, material }) {
               type="number" 
               value={allocated}
               onChange={e => setAllocated(e.target.value)}
+              placeholder="0"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Par Level (lbs)</Label>
+            <Input 
+              type="number" 
+              value={parLevel}
+              onChange={e => setParLevel(e.target.value)}
               placeholder="0"
             />
           </div>
