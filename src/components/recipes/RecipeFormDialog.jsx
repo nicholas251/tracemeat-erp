@@ -14,18 +14,18 @@ const CATEGORIES = ["beef", "pork", "poultry", "lamb", "seasoning", "casing", "p
 export default function RecipeFormDialog({ open, onClose, onSave, recipe, products }) {
   const [buckets, setBuckets] = useState([]);
   const [form, setForm] = useState(recipe ? {
-    name: recipe.data.name,
-    product_id: recipe.data.product_id,
-    product_name: recipe.data.product_name,
-    yield_lbs: recipe.data.yield_lbs,
-    ingredients: recipe.data.ingredients || [],
-    status: recipe.data.status,
-    notes: recipe.data.notes || "",
+    name: recipe.name,
+    product_id: recipe.product_id,
+    product_name: recipe.product_name,
+    yield_lbs: recipe.yield_lbs,
+    ingredients: recipe.ingredients || [],
+    status: recipe.status,
+    notes: recipe.notes || "",
   } : {
     name: "",
     product_id: "",
     product_name: "",
-    yield_lbs: 0,
+    yield_lbs: "",
     ingredients: [],
     status: "draft",
     notes: "",
@@ -113,7 +113,7 @@ export default function RecipeFormDialog({ open, onClose, onSave, recipe, produc
                 <SelectTrigger>
                   <SelectValue placeholder="Select product" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="z-50">
                   {products?.map(p => (
                     <SelectItem key={p.id} value={p.id}>
                       {p.name} ({p.sku})
@@ -142,10 +142,10 @@ export default function RecipeFormDialog({ open, onClose, onSave, recipe, produc
                       <div>
                         <Label className="text-xs">Inventory Bucket *</Label>
                         <Select value={ingredient.bucket_id} onValueChange={v => updateIngredient(idx, 'bucket_id', v)}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select bucket" />
-                          </SelectTrigger>
-                          <SelectContent>
+                           <SelectTrigger>
+                             <SelectValue placeholder="Select bucket" />
+                           </SelectTrigger>
+                           <SelectContent className="z-50">
                             {buckets.map(b => (
                               <SelectItem key={b.id} value={b.id}>
                                 {b.name} ({b.category})
