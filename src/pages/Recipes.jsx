@@ -93,14 +93,14 @@ export default function Recipes() {
                 </TableRow>
               ) : (
                 recipes.map((recipe) => (
-                  <TableRow key={recipe.id}>
-                    <TableCell className="font-medium">{recipe.data.name}</TableCell>
-                    <TableCell>{recipe.data.product_name}</TableCell>
-                    <TableCell>{recipe.data.yield_lbs}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {recipe.data.ingredients?.length || 0} ingredient(s)
-                    </TableCell>
-                    <TableCell><StatusBadge status={recipe.data.status} /></TableCell>
+                   <TableRow key={recipe.id}>
+                     <TableCell className="font-medium">{recipe.name}</TableCell>
+                     <TableCell>{recipe.product_name || "—"}</TableCell>
+                     <TableCell>{recipe.yield_lbs}</TableCell>
+                     <TableCell className="text-sm text-muted-foreground">
+                       {recipe.ingredients?.length || 0} ingredient(s)
+                     </TableCell>
+                     <TableCell><StatusBadge status={recipe.status} /></TableCell>
                     <TableCell>
                       <div className="flex gap-2">
                         <Button
