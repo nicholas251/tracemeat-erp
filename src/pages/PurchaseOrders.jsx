@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Plus, Eye } from "lucide-react";
+import { Plus, Eye, Trash2 } from "lucide-react";
 import PageHeader from "@/components/shared/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -11,10 +11,20 @@ import POFormDialog from "@/components/po/POFormDialog";
 import { format } from "date-fns";
 import { Link, useNavigate } from "react-router-dom";
 import { useToast } from "@/components/ui/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export default function PurchaseOrders() {
   const [showForm, setShowForm] = useState(false);
   const [editingPO, setEditingPO] = useState(null);
+  const [deletingPO, setDeletingPO] = useState(null);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -43,6 +53,18 @@ export default function PurchaseOrders() {
       queryClient.invalidateQueries({ queryKey: ["purchase_orders"] });
       setShowForm(false);
       setEditingPO(null);
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id) => base44.entities.PurchaseOrder.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["purchase_orders"] });
+      setDeletingPO(null);
+      toast({
+        title: "Purchase Order Deleted",
+        description: "The purchase order has been successfully deleted.",
+      });
     },
   });
 
@@ -109,8 +131,11 @@ export default function PurchaseOrders() {
                          <Button size="sm" variant="ghost" onClick={() => { setEditingPO(po); setShowForm(true); }}>
                            Edit
                          </Button>
-                       </div>
-                     </TableCell>
+                         <Button size="sm" variant="ghost" onClick={() => setDeletingPO(po)}>
+                           <Trash2 className="w-4 h-4" />
+                         </Button>
+                         </div>
+                         </TableCell>
                    </TableRow>
                  ))
               )}
@@ -125,6 +150,26 @@ export default function PurchaseOrders() {
         onSave={handleSave}
         po={editingPO}
       />
+
+      <AlertDialog open={!!deletingPO} onOpenChange={(open) => !open && setDeletingPO(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Purchase Order</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete PO #{deletingPO?.po_number}? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="flex gap-3 justify-end">
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteMutation.mutate(deletingPO.id)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </div>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
