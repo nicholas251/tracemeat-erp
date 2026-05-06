@@ -145,7 +145,7 @@ export default function MaterialParDashboard({ materials = [] }) {
                       )}
                       {allocated > 0 && (
                         <Badge className="text-xs bg-accent/15 text-accent border-accent/20">
-                          {((allocated / available) * 100).toFixed(0)}% Allocated to Orders
+                          {((allocated / total) * 100).toFixed(0)}% Allocated to Orders
                         </Badge>
                       )}
                     </div>
