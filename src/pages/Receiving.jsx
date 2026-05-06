@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import PageHeader from "@/components/shared/PageHeader";
 import StatusBadge from "@/components/shared/StatusBadge";
 import { format } from "date-fns";
-import { CheckCircle2, ArrowRight } from "lucide-react";
+import { CheckCircle2, ArrowRight, Package, ChevronRight } from "lucide-react";
 
 export default function Receiving() {
   const urlParams = new URLSearchParams(window.location.search);
@@ -35,28 +35,22 @@ export default function Receiving() {
 
   const currentPO = useMemo(() => {
     if (selectedPOId) return pos.find(p => p.id === selectedPOId);
-    return pendingPOs[0] || null;
-  }, [pos, selectedPOId, pendingPOs]);
+    return null;
+  }, [pos, selectedPOId]);
 
   const createMaterialMutation = useMutation({
     mutationFn: (data) => base44.entities.RawMaterial.create(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["raw_materials"] });
-    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["raw_materials"] }); },
   });
 
   const createRawInventoryMutation = useMutation({
     mutationFn: (data) => base44.entities.RawInventory.create(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["raw_inventory"] });
-    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["raw_inventory"] }); },
   });
 
   const updatePOMutation = useMutation({
     mutationFn: ({ id, data }) => base44.entities.PurchaseOrder.update(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["purchase_orders"] });
-    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["purchase_orders"] }); },
   });
 
   const handleReceiveItem = async (lineItemIndex) => {
@@ -73,7 +67,6 @@ export default function Receiving() {
     const receivedQty = parseFloat(state.receivedQty) || item.quantity_kg;
     const selectedBucket = buckets.find(b => b.id === state.bucket_id);
 
-    // Create raw material lot record
     const newMaterial = await createMaterialMutation.mutateAsync({
       po_id: currentPO.id,
       po_number: currentPO.po_number,
@@ -90,7 +83,6 @@ export default function Receiving() {
       inspection_notes: state.notes || "",
     });
 
-    // Create raw inventory entry in bucket
     await createRawInventoryMutation.mutateAsync({
       bucket_id: state.bucket_id,
       bucket_name: selectedBucket?.name || "",
@@ -109,7 +101,6 @@ export default function Receiving() {
       notes: state.notes || "",
     });
 
-    // Update PO line item
     const updatedLineItems = [...currentPO.line_items];
     updatedLineItems[lineItemIndex] = { ...updatedLineItems[lineItemIndex], received_qty_kg: receivedQty };
     const allReceived = updatedLineItems.every(li => (li.received_qty_kg || 0) >= li.quantity_kg);
@@ -125,78 +116,106 @@ export default function Receiving() {
     setReceivingState(prev => ({ ...prev, [key]: { _done: true } }));
   };
 
-  const proteinBuckets = buckets.filter(b => b.category === "protein" && b.status === "active");
-  const spiceBuckets = buckets.filter(b => b.category === "spice" && b.status === "active");
-  const packagingBuckets = buckets.filter(b => b.category === "packaging" && b.status === "active");
-
   const getBucketsForCategory = (category) => {
-    if (category === "beef" || category === "pork" || category === "poultry" || category === "lamb") return proteinBuckets;
-    if (category === "seasoning" || category === "additive") return spiceBuckets;
-    if (category === "packaging" || category === "casing") return packagingBuckets;
+    const proteinCats = ["beef", "pork", "poultry", "lamb"];
+    const spiceCats = ["seasoning", "additive"];
+    const packCats = ["packaging", "casing"];
+    if (proteinCats.includes(category)) return buckets.filter(b => b.category === "protein" && b.status === "active");
+    if (spiceCats.includes(category)) return buckets.filter(b => b.category === "spice" && b.status === "active");
+    if (packCats.includes(category)) return buckets.filter(b => b.category === "packaging" && b.status === "active");
     return buckets.filter(b => b.status === "active");
+  };
+
+  const statusColor = (status) => {
+    if (status === "ordered") return "bg-blue-50 border-blue-200";
+    if (status === "partial_received") return "bg-amber-50 border-amber-200";
+    return "bg-muted/30 border-border";
   };
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Receiving"
-        subtitle="Receive raw materials and assign to inventory buckets"
+        subtitle="Select a purchase order to receive raw materials"
       />
 
-      {/* PO Selector */}
-      {pendingPOs.length > 1 && (
-        <Card>
-          <CardHeader><CardTitle className="text-base">Select Purchase Order</CardTitle></CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-2">
-              {pendingPOs.map(po => (
-                <Button
-                  key={po.id}
-                  variant={currentPO?.id === po.id ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setSelectedPOId(po.id)}
-                >
-                  {po.po_number} — {po.supplier}
-                  <Badge variant="outline" className="ml-2 text-xs capitalize">{po.status?.replace(/_/g, " ")}</Badge>
-                </Button>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {!currentPO ? (
+      {/* PO Cards */}
+      {pendingPOs.length === 0 ? (
         <Card>
           <CardContent className="pt-6 text-center text-muted-foreground">
             No pending purchase orders. Create one first.
           </CardContent>
         </Card>
       ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {pendingPOs.map(po => {
+            const isSelected = currentPO?.id === po.id;
+            const receivedItems = (po.line_items || []).filter(li => (li.received_qty_kg || 0) >= li.quantity_kg).length;
+            const totalItems = (po.line_items || []).length;
+            return (
+              <button
+                key={po.id}
+                onClick={() => setSelectedPOId(isSelected ? null : po.id)}
+                className={`text-left rounded-xl border-2 p-4 transition-all hover:shadow-md focus:outline-none ${
+                  isSelected
+                    ? "border-primary bg-primary/5 shadow-md"
+                    : `${statusColor(po.status)} hover:border-primary/40`
+                }`}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Package className={`w-5 h-5 shrink-0 ${isSelected ? "text-primary" : "text-muted-foreground"}`} />
+                    <span className="font-bold text-base truncate">{po.po_number}</span>
+                  </div>
+                  <ChevronRight className={`w-4 h-4 shrink-0 mt-0.5 transition-transform ${isSelected ? "rotate-90 text-primary" : "text-muted-foreground"}`} />
+                </div>
+                <p className="text-sm text-muted-foreground mt-1 ml-7">{po.supplier}</p>
+                <div className="flex items-center justify-between mt-3 ml-7">
+                  <StatusBadge status={po.status} />
+                  <span className="text-xs text-muted-foreground">{receivedItems}/{totalItems} items</span>
+                </div>
+                {po.expected_delivery_date && (
+                  <p className="text-xs text-muted-foreground mt-1 ml-7">
+                    Expected: {format(new Date(po.expected_delivery_date), 'MMM dd, yyyy')}
+                  </p>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Receiving Form for selected PO */}
+      {currentPO && (
         <>
+          {/* PO Summary */}
           <Card>
-            <CardHeader><CardTitle className="text-base">PO Details</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-base">PO Details — {currentPO.po_number}</CardTitle></CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div>
-                  <Label className="text-xs text-muted-foreground">PO Number</Label>
-                  <p className="font-semibold">{currentPO.po_number}</p>
-                </div>
                 <div>
                   <Label className="text-xs text-muted-foreground">Supplier</Label>
                   <p className="font-semibold">{currentPO.supplier}</p>
                 </div>
                 <div>
                   <Label className="text-xs text-muted-foreground">Status</Label>
-                  <StatusBadge status={currentPO.status} />
+                  <div className="mt-0.5"><StatusBadge status={currentPO.status} /></div>
                 </div>
                 <div>
                   <Label className="text-xs text-muted-foreground">Total</Label>
                   <p className="font-semibold">${currentPO.total_amount?.toFixed(2) || '0.00'}</p>
                 </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Expected Delivery</Label>
+                  <p className="font-semibold">
+                    {currentPO.expected_delivery_date ? format(new Date(currentPO.expected_delivery_date), 'MMM dd, yyyy') : '—'}
+                  </p>
+                </div>
               </div>
             </CardContent>
           </Card>
 
+          {/* Line Items */}
           <Card>
             <CardHeader><CardTitle className="text-base">Line Items — Receive & Assign to Buckets</CardTitle></CardHeader>
             <CardContent>
@@ -209,15 +228,14 @@ export default function Receiving() {
 
                   return (
                     <div key={idx} className={`border rounded-xl p-4 ${isReceived ? "bg-chart-2/5 border-chart-2/30" : "bg-muted/20"}`}>
-                      {/* Item header */}
                       <div className="flex items-start justify-between mb-3">
                         <div>
                           <p className="font-semibold text-base">{item.material_name}</p>
                           <div className="flex items-center gap-2 mt-1">
                             <Badge variant="outline" className="text-xs capitalize">{item.category}</Badge>
-                            <span className="text-xs text-muted-foreground">Ordered: <strong>{item.quantity_kg} kg</strong></span>
+                            <span className="text-xs text-muted-foreground">Ordered: <strong>{item.quantity_kg} lbs</strong></span>
                             {(item.received_qty_kg || 0) > 0 && (
-                              <span className="text-xs text-muted-foreground">Received: <strong>{item.received_qty_kg} kg</strong></span>
+                              <span className="text-xs text-muted-foreground">Received: <strong>{item.received_qty_kg} lbs</strong></span>
                             )}
                           </div>
                         </div>
@@ -230,11 +248,8 @@ export default function Receiving() {
 
                       {!isReceived && (
                         <div className="border rounded-lg p-4 bg-card space-y-4">
-                          {/* Bucket assignment — prominent */}
                           <div className="bg-primary/5 border border-primary/20 rounded-lg p-3">
-                            <Label className="text-sm font-semibold mb-2 block">
-                              Assign to Inventory Bucket *
-                            </Label>
+                            <Label className="text-sm font-semibold mb-2 block">Assign to Inventory Bucket *</Label>
                             <Select
                               value={state.bucket_id || ""}
                               onValueChange={v => setReceivingState(prev => ({ ...prev, [key]: { ...state, bucket_id: v } }))}
@@ -247,9 +262,7 @@ export default function Receiving() {
                                   <>
                                     <div className="px-2 py-1 text-xs text-muted-foreground font-semibold uppercase tracking-wide">Suggested</div>
                                     {suggestedBuckets.map(b => (
-                                      <SelectItem key={b.id} value={b.id}>
-                                        {b.code ? `[${b.code}] ` : ""}{b.name}
-                                      </SelectItem>
+                                      <SelectItem key={b.id} value={b.id}>{b.code ? `[${b.code}] ` : ""}{b.name}</SelectItem>
                                     ))}
                                   </>
                                 )}
@@ -257,14 +270,12 @@ export default function Receiving() {
                                   <>
                                     <div className="px-2 py-1 text-xs text-muted-foreground font-semibold uppercase tracking-wide mt-1">All Buckets</div>
                                     {buckets.filter(b => b.status === "active" && !suggestedBuckets.find(s => s.id === b.id)).map(b => (
-                                      <SelectItem key={b.id} value={b.id}>
-                                        {b.code ? `[${b.code}] ` : ""}{b.name} ({b.category})
-                                      </SelectItem>
+                                      <SelectItem key={b.id} value={b.id}>{b.code ? `[${b.code}] ` : ""}{b.name} ({b.category})</SelectItem>
                                     ))}
                                   </>
                                 )}
                                 {buckets.filter(b => b.status === "active").length === 0 && (
-                                  <div className="px-2 py-3 text-xs text-muted-foreground text-center">No buckets configured yet. Set up buckets in Raw Material Inventory.</div>
+                                  <div className="px-2 py-3 text-xs text-muted-foreground text-center">No buckets configured yet.</div>
                                 )}
                               </SelectContent>
                             </Select>
@@ -280,7 +291,7 @@ export default function Receiving() {
                               />
                             </div>
                             <div>
-                              <Label className="text-xs">Received Qty (kg)</Label>
+                              <Label className="text-xs">Received Qty (lbs)</Label>
                               <Input
                                 type="number"
                                 value={state.receivedQty ?? item.quantity_kg}
@@ -296,7 +307,7 @@ export default function Receiving() {
                               />
                             </div>
                             <div>
-                              <Label className="text-xs">Temp on Arrival (°C)</Label>
+                              <Label className="text-xs">Temp on Arrival (°F)</Label>
                               <Input
                                 type="number"
                                 step="0.1"
