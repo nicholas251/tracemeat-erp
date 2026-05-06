@@ -34,6 +34,7 @@ const moreNav = [
   { path: "/batches", label: "Batches", icon: Factory },
   { path: "/traceability", label: "Traceability", icon: Search },
   { path: "/raw-materials", label: "Raw Materials", icon: Warehouse },
+  { path: "/raw-inventory", label: "Raw Inventory", icon: Boxes },
   { path: "/spice-mixes", label: "Spice Mixes", icon: Spline },
 ];
 

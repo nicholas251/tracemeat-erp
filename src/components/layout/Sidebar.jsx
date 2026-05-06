@@ -30,7 +30,8 @@ const navItems = [
   { path: "/hold-release", label: "Hold & Release", icon: ShieldAlert },
   { path: "/traceability", label: "Traceability", icon: Search },
   { path: "/raw-materials", label: "Raw Materials", icon: Warehouse },
-  { path: "/inventory", label: "Inventory", icon: Boxes },
+  { path: "/raw-inventory", label: "Raw Inventory", icon: Boxes },
+  { path: "/inventory", label: "Finished Goods", icon: Boxes },
   { path: "/production-orders", label: "Production Orders", icon: Factory },
   { path: "/spice-mixes", label: "Spice Mixes", icon: Spline },
 ];

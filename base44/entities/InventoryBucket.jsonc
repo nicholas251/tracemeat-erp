@@ -1,0 +1,50 @@
+{
+  "name": "InventoryBucket",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Bucket display name (e.g. '50/50 Beef/Pork Trim', 'Hot Dog Spice Blend')"
+    },
+    "code": {
+      "type": "string",
+      "description": "Short code identifier (e.g. 'PROT-01', 'SPICE-03')"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "protein",
+        "spice",
+        "packaging"
+      ],
+      "description": "Bucket category"
+    },
+    "description": {
+      "type": "string",
+      "description": "What materials belong in this bucket"
+    },
+    "unit": {
+      "type": "string",
+      "enum": [
+        "kg",
+        "lbs",
+        "each",
+        "case"
+      ],
+      "default": "lbs",
+      "description": "Unit of measure for this bucket"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "inactive"
+      ],
+      "default": "active"
+    }
+  },
+  "required": [
+    "name",
+    "category"
+  ]
+}

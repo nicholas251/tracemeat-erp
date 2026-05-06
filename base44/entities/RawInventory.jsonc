@@ -1,0 +1,89 @@
+{
+  "name": "RawInventory",
+  "type": "object",
+  "properties": {
+    "bucket_id": {
+      "type": "string",
+      "description": "Linked InventoryBucket ID"
+    },
+    "bucket_name": {
+      "type": "string",
+      "description": "Bucket name for display"
+    },
+    "bucket_category": {
+      "type": "string",
+      "enum": [
+        "protein",
+        "spice",
+        "packaging"
+      ],
+      "description": "Category for filtering"
+    },
+    "lot_number": {
+      "type": "string",
+      "description": "Raw material lot number this came from"
+    },
+    "raw_material_id": {
+      "type": "string",
+      "description": "Linked RawMaterial record ID"
+    },
+    "supplier": {
+      "type": "string",
+      "description": "Supplier name"
+    },
+    "description": {
+      "type": "string",
+      "description": "Supplier's description / product name as received"
+    },
+    "po_number": {
+      "type": "string",
+      "description": "Source purchase order number"
+    },
+    "quantity": {
+      "type": "number",
+      "description": "Quantity received into this bucket"
+    },
+    "available_qty": {
+      "type": "number",
+      "description": "Quantity still available (decreases as used in production)"
+    },
+    "unit": {
+      "type": "string",
+      "enum": [
+        "kg",
+        "lbs",
+        "each",
+        "case"
+      ],
+      "default": "lbs"
+    },
+    "received_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "expiry_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "available",
+        "in_use",
+        "depleted",
+        "quarantined",
+        "expired"
+      ],
+      "default": "available"
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "bucket_id",
+    "bucket_name",
+    "bucket_category",
+    "quantity"
+  ]
+}
