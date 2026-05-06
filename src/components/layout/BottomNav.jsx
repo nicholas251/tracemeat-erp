@@ -15,6 +15,7 @@ import {
   Warehouse,
   Spline,
   X,
+  Building2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -26,6 +27,7 @@ const primaryNav = [
 ];
 
 const moreNav = [
+  { path: "/suppliers", label: "Suppliers", icon: Building2 },
   { path: "/purchase-orders", label: "Purchase Orders", icon: ShoppingCart },
   { path: "/receiving", label: "Receiving", icon: Truck },
   { path: "/products", label: "Products", icon: Package },
