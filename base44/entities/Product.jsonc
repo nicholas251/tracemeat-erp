@@ -27,6 +27,14 @@
       "type": "string",
       "description": "Product description and specs"
     },
+    "recipe_id": {
+      "type": "string",
+      "description": "Linked recipe ID"
+    },
+    "recipe_name": {
+      "type": "string",
+      "description": "Recipe name for display"
+    },
     "ingredients": {
       "type": "array",
       "items": {

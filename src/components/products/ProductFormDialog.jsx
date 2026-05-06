@@ -1,10 +1,12 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { base44 } from "@/api/base44Client";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const categories = [
   { value: "beef", label: "Beef" },
@@ -30,8 +32,17 @@ export default function ProductFormDialog({ open, onClose, onSave, product }) {
     name: "", sku: "", category: "beef", description: "",
     packaging_type: "vacuum_sealed", case_weight_lbs: "", shelf_life_days: "",
     storage_temp_c: "", status: "draft", allergens: [], regulatory_codes: [],
-    ingredients: []
+    ingredients: [], recipe_id: "", recipe_name: ""
   });
+  const [recipes, setRecipes] = useState([]);
+  const [recipeMode, setRecipeMode] = useState("select");
+  const [newRecipe, setNewRecipe] = useState({ name: "", yield_kg: "", ingredients: [] });
+
+  useEffect(() => {
+    if (open) {
+      base44.entities.Recipe.list().then(setRecipes);
+    }
+  }, [open]);
 
   const handleSave = () => {
     onSave({
@@ -43,6 +54,23 @@ export default function ProductFormDialog({ open, onClose, onSave, product }) {
   };
 
   const update = (field, value) => setForm(prev => ({ ...prev, [field]: value }));
+
+  const handleCreateRecipe = async () => {
+    if (!newRecipe.name || !form.name || !newRecipe.yield_kg) return;
+    const created = await base44.entities.Recipe.create({
+      name: newRecipe.name,
+      product_id: "",
+      product_name: form.name,
+      yield_kg: Number(newRecipe.yield_kg),
+      ingredients: newRecipe.ingredients,
+      status: "draft"
+    });
+    setRecipes(prev => [...prev, created]);
+    update("recipe_id", created.id);
+    update("recipe_name", created.name);
+    setRecipeMode("select");
+    setNewRecipe({ name: "", yield_kg: "", ingredients: [] });
+  };
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -103,6 +131,40 @@ export default function ProductFormDialog({ open, onClose, onSave, product }) {
           <div className="space-y-2 md:col-span-2">
             <Label>Description</Label>
             <Textarea value={form.description} onChange={e => update("description", e.target.value)} placeholder="Product specs and notes..." rows={3} />
+          </div>
+          <div className="space-y-2 md:col-span-2">
+            <Label>Recipe *</Label>
+            <Tabs value={recipeMode} onValueChange={setRecipeMode}>
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="select">Select Existing</TabsTrigger>
+                <TabsTrigger value="create">Create New</TabsTrigger>
+              </TabsList>
+              <TabsContent value="select" className="space-y-2 mt-2">
+                <Select value={form.recipe_id} onValueChange={(val) => {
+                  const recipe = recipes.find(r => r.id === val);
+                  update("recipe_id", val);
+                  update("recipe_name", recipe?.name || "");
+                }}>
+                  <SelectTrigger><SelectValue placeholder="Select a recipe..." /></SelectTrigger>
+                  <SelectContent>
+                    {recipes.map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </TabsContent>
+              <TabsContent value="create" className="space-y-3 mt-2">
+                <div className="space-y-2">
+                  <Label className="text-sm">Recipe Name</Label>
+                  <Input value={newRecipe.name} onChange={e => setNewRecipe(prev => ({ ...prev, name: e.target.value }))} placeholder="e.g. Ground Beef Standard" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm">Yield (kg)</Label>
+                  <Input type="number" step="0.1" value={newRecipe.yield_kg} onChange={e => setNewRecipe(prev => ({ ...prev, yield_kg: e.target.value }))} placeholder="e.g. 100" />
+                </div>
+                <Button type="button" onClick={handleCreateRecipe} className="w-full" size="sm" disabled={!newRecipe.name || !newRecipe.yield_kg}>
+                  Create Recipe
+                </Button>
+              </TabsContent>
+            </Tabs>
           </div>
         </div>
         <DialogFooter>
