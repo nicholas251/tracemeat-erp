@@ -9,12 +9,15 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import StatusBadge from "@/components/shared/StatusBadge";
 import POFormDialog from "@/components/po/POFormDialog";
 import { format } from "date-fns";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { useToast } from "@/components/ui/use-toast";
 
 export default function PurchaseOrders() {
   const [showForm, setShowForm] = useState(false);
   const [editingPO, setEditingPO] = useState(null);
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const { toast } = useToast();
 
   const { data: pos = [] } = useQuery({
     queryKey: ["purchase_orders"],
@@ -26,6 +29,11 @@ export default function PurchaseOrders() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["purchase_orders"] });
       setShowForm(false);
+      toast({
+        title: "Purchase Order Created",
+        description: "Your purchase order has been successfully created.",
+      });
+      navigate("/");
     },
   });
 
