@@ -17,17 +17,19 @@ export default function ProductionOrderFormDialog({ open, onClose, onSave, recip
   });
 
   useEffect(() => {
-    if (order) {
-      setForm({
-        order_number: order.order_number || "",
-        product_id: order.product_id || "",
-        supplier_id: order.supplier_id || "",
-        quantity_to_produce: order.quantity_to_produce || "",
-        target_completion_date: order.target_completion_date || "",
-        notes: order.notes || "",
-      });
-    } else {
-      setForm({ order_number: "", product_id: "", supplier_id: "", quantity_to_produce: "", target_completion_date: "", notes: "" });
+    if (open) {
+      if (order) {
+        setForm({
+          order_number: order.order_number || "",
+          product_id: order.product_id || "",
+          supplier_id: order.supplier_id || "",
+          quantity_to_produce: order.quantity_to_produce || "",
+          target_completion_date: order.target_completion_date || "",
+          notes: order.notes || "",
+        });
+      } else {
+        setForm({ order_number: "", product_id: "", supplier_id: "", quantity_to_produce: "", target_completion_date: "", notes: "" });
+      }
     }
   }, [order, open]);
 
