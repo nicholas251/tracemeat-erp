@@ -44,16 +44,19 @@ export default function MaterialParDashboard({ materials = [] }) {
           </h3>
           <div className="grid gap-3">
             {items.map(material => {
-              const available = material.available_qty_lbs || 0;
-              const allocated = material.allocated_qty_lbs || 0;
-              const parLevel = material.par_level || 0;
-              const total = material.quantity_lbs || 0;
-              
-              const isCritical = available < (parLevel * 0.5);
-              const isLow = available < parLevel;
-              
-              const availablePercent = total > 0 ? (available / total) * 100 : 0;
-              const allocatedPercent = total > 0 ? (allocated / total) * 100 : 0;
+               const available = material.available_qty_lbs || 0;
+               const allocated = material.allocated_qty_lbs || 0;
+               const parLevel = material.par_level || 0;
+               const original = material.quantity_lbs || 0;
+
+               // Total in system is available + allocated
+               const total = available + allocated;
+
+               const isCritical = available < (parLevel * 0.5);
+               const isLow = available < parLevel;
+
+               const availablePercent = total > 0 ? (available / total) * 100 : 0;
+               const allocatedPercent = total > 0 ? (allocated / total) * 100 : 0;
 
               return (
                 <Card key={material.id} className="p-4">
@@ -86,8 +89,8 @@ export default function MaterialParDashboard({ materials = [] }) {
                         <p className="font-semibold text-sm text-primary">{parLevel.toFixed(0)} lbs</p>
                       </div>
                       <div className="bg-muted p-2 rounded">
-                        <p className="text-muted-foreground">Total</p>
-                        <p className="font-semibold text-sm">{total.toFixed(0)} lbs</p>
+                        <p className="text-muted-foreground">Original</p>
+                        <p className="font-semibold text-sm">{original.toFixed(0)} lbs</p>
                       </div>
                     </div>
 
@@ -121,14 +124,14 @@ export default function MaterialParDashboard({ materials = [] }) {
                       </div>
 
                       {/* Par level indicator */}
-                      {parLevel > 0 && (
-                        <div className="relative h-1 bg-muted rounded-full overflow-hidden">
-                          <div 
-                            className="h-full bg-primary"
-                            style={{ width: `${(parLevel / total) * 100}%` }}
-                          />
-                        </div>
-                      )}
+                       {parLevel > 0 && original > 0 && (
+                         <div className="relative h-1 bg-muted rounded-full overflow-hidden">
+                           <div 
+                             className="h-full bg-primary"
+                             style={{ width: `${(parLevel / original) * 100}%` }}
+                           />
+                         </div>
+                       )}
                     </div>
 
                     {/* Status badges */}
