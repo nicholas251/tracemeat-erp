@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
-export default function ProductionOrderFormDialog({ open, onClose, onSave, recipes, products, suppliers }) {
+export default function ProductionOrderFormDialog({ open, onClose, onSave, recipes, products, suppliers, order = null }) {
   const [form, setForm] = useState({
     order_number: "",
     product_id: "",
@@ -16,10 +16,25 @@ export default function ProductionOrderFormDialog({ open, onClose, onSave, recip
     notes: "",
   });
 
+  useEffect(() => {
+    if (order) {
+      setForm({
+        order_number: order.order_number || "",
+        product_id: order.product_id || "",
+        supplier_id: order.supplier_id || "",
+        quantity_to_produce: order.quantity_to_produce || "",
+        target_completion_date: order.target_completion_date || "",
+        notes: order.notes || "",
+      });
+    } else {
+      setForm({ order_number: "", product_id: "", supplier_id: "", quantity_to_produce: "", target_completion_date: "", notes: "" });
+    }
+  }, [order, open]);
+
   const handleSave = () => {
     const product = products.find(p => p.id === form.product_id);
     if (!form.order_number || !form.product_id || !product?.recipe_id || !form.quantity_to_produce || !form.supplier_id) return;
-    onSave({ ...form, recipe_id: product.recipe_id });
+    onSave({ ...form, recipe_id: product.recipe_id, id: order?.id });
     setForm({ order_number: "", product_id: "", supplier_id: "", quantity_to_produce: "", target_completion_date: "", notes: "" });
   };
 
@@ -27,7 +42,7 @@ export default function ProductionOrderFormDialog({ open, onClose, onSave, recip
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Create Production Order</DialogTitle>
+          <DialogTitle>{order ? "Edit Production Order" : "Create Production Order"}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2">
@@ -118,7 +133,7 @@ export default function ProductionOrderFormDialog({ open, onClose, onSave, recip
 
         <DialogFooter className="gap-2">
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={handleSave} disabled={!form.order_number || !form.product_id || !form.supplier_id || !form.quantity_to_produce}>Create Order</Button>
+          <Button onClick={handleSave} disabled={!form.order_number || !form.product_id || !form.supplier_id || !form.quantity_to_produce}>{order ? "Update Order" : "Create Order"}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

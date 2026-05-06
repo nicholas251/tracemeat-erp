@@ -13,6 +13,7 @@ import ProductionOrderDetail from "@/components/production-orders/ProductionOrde
 export default function ProductionOrders() {
   const [showForm, setShowForm] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
+  const [editingOrder, setEditingOrder] = useState(null);
   const [viewDetail, setViewDetail] = useState(false);
   const queryClient = useQueryClient();
 
@@ -41,6 +42,7 @@ export default function ProductionOrders() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['productionOrders'] });
       setShowForm(false);
+      setEditingOrder(null);
     },
   });
 
@@ -48,40 +50,60 @@ export default function ProductionOrders() {
     mutationFn: ({ id, data }) => base44.entities.ProductionOrder.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['productionOrders'] });
+      setShowForm(false);
+      setEditingOrder(null);
       setViewDetail(false);
     },
   });
 
   const handleSaveOrder = (data) => {
-    const stages = [
-      { stage_number: 1, stage_name: "blending", status: "pending" },
-      { stage_number: 2, stage_name: "chopping", status: "pending" },
-      { stage_number: 3, stage_name: "linking", status: "pending" },
-      { stage_number: 4, stage_name: "cooking", status: "pending" },
-      { stage_number: 5, stage_name: "chilling", status: "pending" },
-      { stage_number: 6, stage_name: "packaging", status: "pending" },
-    ];
-
     const recipe = recipes.find(r => r.id === data.recipe_id);
     const product = products.find(p => p.id === data.product_id);
     const supplier = suppliers.find(s => s.id === data.supplier_id);
 
-    createMutation.mutate({
-      order_number: data.order_number,
-      product_id: data.product_id,
-      product_name: product?.name,
-      recipe_id: data.recipe_id,
-      recipe_name: recipe?.name,
-      supplier_id: data.supplier_id,
-      supplier_name: supplier?.name,
-      quantity_to_produce: data.quantity_to_produce,
-      status: "pending",
-      current_stage: 0,
-      stages,
-      order_date: new Date().toISOString().split('T')[0],
-      target_completion_date: data.target_completion_date,
-      notes: data.notes,
-    });
+    if (editingOrder) {
+      updateMutation.mutate({
+        id: editingOrder.id,
+        data: {
+          order_number: data.order_number,
+          product_id: data.product_id,
+          product_name: product?.name,
+          recipe_id: data.recipe_id,
+          recipe_name: recipe?.name,
+          supplier_id: data.supplier_id,
+          supplier_name: supplier?.name,
+          quantity_to_produce: data.quantity_to_produce,
+          target_completion_date: data.target_completion_date,
+          notes: data.notes,
+        }
+      });
+    } else {
+      const stages = [
+        { stage_number: 1, stage_name: "blending", status: "pending" },
+        { stage_number: 2, stage_name: "chopping", status: "pending" },
+        { stage_number: 3, stage_name: "linking", status: "pending" },
+        { stage_number: 4, stage_name: "cooking", status: "pending" },
+        { stage_number: 5, stage_name: "chilling", status: "pending" },
+        { stage_number: 6, stage_name: "packaging", status: "pending" },
+      ];
+
+      createMutation.mutate({
+        order_number: data.order_number,
+        product_id: data.product_id,
+        product_name: product?.name,
+        recipe_id: data.recipe_id,
+        recipe_name: recipe?.name,
+        supplier_id: data.supplier_id,
+        supplier_name: supplier?.name,
+        quantity_to_produce: data.quantity_to_produce,
+        status: "pending",
+        current_stage: 0,
+        stages,
+        order_date: new Date().toISOString().split('T')[0],
+        target_completion_date: data.target_completion_date,
+        notes: data.notes,
+      });
+    }
   };
 
   const stageColors = {
@@ -126,7 +148,20 @@ export default function ProductionOrders() {
                     <CardTitle className="text-lg">{order.order_number}</CardTitle>
                     <p className="text-sm text-muted-foreground">{order.product_name} - {order.recipe_name}</p>
                   </div>
-                  <StatusBadge status={order.status} />
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditingOrder(order);
+                        setShowForm(true);
+                      }}
+                    >
+                      Edit
+                    </Button>
+                    <StatusBadge status={order.status} />
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>
@@ -167,11 +202,15 @@ export default function ProductionOrders() {
 
       <ProductionOrderFormDialog
         open={showForm}
-        onClose={() => setShowForm(false)}
+        onClose={() => {
+          setShowForm(false);
+          setEditingOrder(null);
+        }}
         onSave={handleSaveOrder}
         recipes={recipes}
         products={products}
         suppliers={suppliers}
+        order={editingOrder}
       />
 
       {selectedOrder && (
