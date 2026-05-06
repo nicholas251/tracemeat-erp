@@ -24,7 +24,7 @@ export default function MaterialFormDialog({ open, onClose, onSave, material }) 
     lot_number: `L-${Date.now().toString(36).toUpperCase()}`,
     name: "", supplier: "", category: "beef",
     received_date: format(new Date(), "yyyy-MM-dd"),
-    expiry_date: "", quantity_kg: "", temp_on_arrival_c: "",
+    expiry_date: "", quantity_lbs: "", par_level: "", temp_on_arrival_c: "",
     status: "received", inspection_notes: "",
     country_of_origin: "", establishment_number: ""
   });
@@ -34,7 +34,8 @@ export default function MaterialFormDialog({ open, onClose, onSave, material }) 
   const handleSave = () => {
     onSave({
       ...form,
-      quantity_kg: form.quantity_kg ? Number(form.quantity_kg) : undefined,
+      quantity_lbs: form.quantity_lbs ? Number(form.quantity_lbs) : undefined,
+      par_level: form.par_level ? Number(form.par_level) : undefined,
       temp_on_arrival_c: form.temp_on_arrival_c ? Number(form.temp_on_arrival_c) : undefined,
     });
   };
@@ -76,11 +77,15 @@ export default function MaterialFormDialog({ open, onClose, onSave, material }) 
             <Input type="date" value={form.expiry_date} onChange={e => update("expiry_date", e.target.value)} />
           </div>
           <div className="space-y-2">
-            <Label>Quantity (kg)</Label>
-            <Input type="number" value={form.quantity_kg} onChange={e => update("quantity_kg", e.target.value)} />
+            <Label>Quantity (lbs)</Label>
+            <Input type="number" value={form.quantity_lbs} onChange={e => update("quantity_lbs", e.target.value)} />
           </div>
           <div className="space-y-2">
-            <Label>Temp on Arrival (°F)</Label>
+            <Label>Par Level (lbs) - Min to maintain</Label>
+            <Input type="number" value={form.par_level} onChange={e => update("par_level", e.target.value)} placeholder="e.g. 100" />
+          </div>
+          <div className="space-y-2">
+            <Label>Temp on Arrival (°C)</Label>
             <Input type="number" value={form.temp_on_arrival_c} onChange={e => update("temp_on_arrival_c", e.target.value)} />
           </div>
           <div className="space-y-2">

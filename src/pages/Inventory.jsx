@@ -14,6 +14,7 @@ import PageHeader from "@/components/shared/PageHeader";
 import StatusBadge from "@/components/shared/StatusBadge";
 import InventoryAdjustDialog from "@/components/inventory/InventoryAdjustDialog";
 import RawInventoryAdjustDialog from "@/components/inventory/RawInventoryAdjustDialog";
+import MaterialParDashboard from "@/components/inventory/MaterialParDashboard";
 
 export default function Inventory() {
   const [statusFilter, setStatusFilter] = useState("all");
@@ -37,6 +38,11 @@ export default function Inventory() {
   const { data: buckets = [] } = useQuery({
     queryKey: ["inventory_buckets"],
     queryFn: () => base44.entities.InventoryBucket.filter({ status: "active" }),
+  });
+
+  const { data: rawMaterials = [] } = useQuery({
+    queryKey: ["raw_materials"],
+    queryFn: () => base44.entities.RawMaterial.list("-created_date"),
   });
 
   const updateMutation = useMutation({
@@ -125,8 +131,11 @@ export default function Inventory() {
         subtitle="View raw materials and finished goods inventory"
       />
 
-      <Tabs defaultValue="finished">
+      <Tabs defaultValue="par">
         <TabsList className="mb-6">
+          <TabsTrigger value="par" className="flex items-center gap-2">
+            <TrendingDown className="w-4 h-4" /> Par Levels
+          </TabsTrigger>
           <TabsTrigger value="raw" className="flex items-center gap-2">
             <Package className="w-4 h-4" /> Raw Materials
           </TabsTrigger>
@@ -134,6 +143,15 @@ export default function Inventory() {
             <Boxes className="w-4 h-4" /> Finished Goods
           </TabsTrigger>
         </TabsList>
+
+        {/* PAR LEVELS TAB */}
+        <TabsContent value="par">
+          <PageHeader
+            title="Par Level Status"
+            subtitle="Track consumption and stock levels against par minimums"
+          />
+          <MaterialParDashboard materials={rawMaterials} />
+        </TabsContent>
 
         {/* RAW MATERIALS TAB */}
         <TabsContent value="raw">

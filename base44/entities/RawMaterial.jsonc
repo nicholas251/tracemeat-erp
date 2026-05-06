@@ -35,6 +35,10 @@
         "other"
       ]
     },
+    "par_level": {
+      "type": "number",
+      "description": "Minimum quantity to maintain in lbs"
+    },
     "received_date": {
       "type": "string",
       "format": "date"
@@ -49,6 +53,11 @@
     "available_qty_lbs": {
       "type": "number",
       "description": "Quantity still available for use in lbs (decreases as consumed in production)"
+    },
+    "allocated_qty_lbs": {
+      "type": "number",
+      "description": "Quantity allocated to production orders in lbs",
+      "default": 0
     },
     "temp_on_arrival_c": {
       "type": "number"
