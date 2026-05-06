@@ -78,7 +78,7 @@ export default function Recipes() {
               <TableRow>
                 <TableHead>Recipe Name</TableHead>
                 <TableHead>Product</TableHead>
-                <TableHead>Yield (kg)</TableHead>
+                <TableHead>Yield (lbs)</TableHead>
                 <TableHead>Ingredients</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead></TableHead>
@@ -96,7 +96,7 @@ export default function Recipes() {
                   <TableRow key={recipe.id}>
                     <TableCell className="font-medium">{recipe.data.name}</TableCell>
                     <TableCell>{recipe.data.product_name}</TableCell>
-                    <TableCell>{recipe.data.yield_kg}</TableCell>
+                    <TableCell>{recipe.data.yield_lbs}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {recipe.data.ingredients?.length || 0} ingredient(s)
                     </TableCell>
