@@ -168,7 +168,13 @@ export default function ProductFormDialog({ open, onClose, onSave, product }) {
             <Input type="number" step="0.1" value={form.package_size} onChange={e => update("package_size", e.target.value)} placeholder="e.g. 2.0" />
           </div>
           <div className="space-y-2">
-            <Label>Packs per Case *</Label>
+            <Label>
+              {form.finished_product_unit === "lbs" && "Packs per Case"}
+              {form.finished_product_unit === "cases" && "Cases per Gaylord"}
+              {form.finished_product_unit === "gaylords" && "Gaylords per Pallet"}
+              {form.finished_product_unit === "packs" && "Packs per Case"}
+              {" *"}
+            </Label>
             <Input type="number" value={form.packages_per_case} onChange={e => update("packages_per_case", e.target.value)} placeholder="e.g. 12" />
           </div>
           <div className="space-y-2">
