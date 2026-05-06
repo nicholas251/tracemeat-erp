@@ -196,11 +196,12 @@ export default function POFormDialog({ open, onClose, onSave, po }) {
                       </Select>
                     </div>
                     <div>
-                      <Label className="text-xs">Qty (kg) *</Label>
+                      <Label className="text-xs">Qty (lbs) *</Label>
                       <Input
                         type="number"
-                        value={item.quantity_kg}
-                        onChange={e => updateLineItem(idx, 'quantity_kg', parseFloat(e.target.value) || 0)}
+                        value={item.quantity_kg || ""}
+                        onChange={e => updateLineItem(idx, 'quantity_kg', e.target.value === "" ? 0 : parseFloat(e.target.value) || 0)}
+                        placeholder="0"
                       />
                     </div>
                     <div>
