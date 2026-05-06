@@ -175,7 +175,9 @@ export default function ProductFormDialog({ open, onClose, onSave, product }) {
             <Input type="number" value={form.packages_per_case} onChange={e => update("packages_per_case", e.target.value)} placeholder="e.g. 12" />
           </div>
           <div className="space-y-2">
-            <Label>Case Weight (lbs)</Label>
+            <Label>
+              {form.finished_product_unit.charAt(0).toUpperCase() + form.finished_product_unit.slice(1).replace(/_/g, ' ')} Weight (lbs)
+            </Label>
             <Input type="number" step="0.1" value={form.case_weight_lbs} disabled placeholder="Auto-calculated" />
           </div>
           <div className="space-y-2">
