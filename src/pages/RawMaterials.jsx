@@ -9,6 +9,7 @@ import { format } from "date-fns";
 import PageHeader from "@/components/shared/PageHeader";
 import StatusBadge from "@/components/shared/StatusBadge";
 import MaterialFormDialog from "@/components/materials/MaterialFormDialog";
+import AllocationDialog from "@/components/materials/AllocationDialog";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
@@ -19,6 +20,7 @@ export default function RawMaterials() {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
   const [deleting, setDeleting] = useState(null);
+  const [allocating, setAllocating] = useState(null);
   const queryClient = useQueryClient();
 
   const { data: materials = [], isLoading } = useQuery({
@@ -39,6 +41,11 @@ export default function RawMaterials() {
   const deleteMutation = useMutation({
     mutationFn: (id) => base44.entities.RawMaterial.delete(id),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["raw-materials"] }); setDeleting(null); },
+  });
+
+  const updateAllocationMutation = useMutation({
+    mutationFn: ({ id, allocated }) => base44.entities.RawMaterial.update(id, { allocated_qty_lbs: allocated }),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["raw-materials"] }); setAllocating(null); },
   });
 
   return (
@@ -94,6 +101,9 @@ export default function RawMaterials() {
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-1">
+                        <Button size="sm" variant="ghost" title="Update Allocation" onClick={() => setAllocating(m)}>
+                          📦
+                        </Button>
                         <Button size="sm" variant="ghost" onClick={() => setEditing(m)}>
                           <Pencil className="w-3.5 h-3.5" />
                         </Button>
@@ -115,6 +125,9 @@ export default function RawMaterials() {
       )}
       {editing && (
         <MaterialFormDialog open material={editing} onClose={() => setEditing(null)} onSave={(data) => updateMutation.mutate({ id: editing.id, data })} />
+      )}
+      {allocating && (
+        <AllocationDialog open onClose={() => setAllocating(null)} material={allocating} onSave={(allocated) => updateAllocationMutation.mutate({ id: allocating.id, allocated })} />
       )}
 
       <AlertDialog open={!!deleting} onOpenChange={() => setDeleting(null)}>
