@@ -33,11 +33,11 @@ export default function ProductFormDialog({ open, onClose, onSave, product }) {
     packaging_type: "vacuum_sealed", package_size: "", packages_per_case: "",
     case_weight_lbs: "", shelf_life_days: "", storage_temp_c: "", status: "draft",
     allergens: [], regulatory_codes: [], ingredients: [], recipe_id: "", recipe_name: "",
-    recipe_consumption_per_case_kg: ""
+    recipe_consumption_per_case_lbs: ""
   });
   const [recipes, setRecipes] = useState([]);
   const [recipeMode, setRecipeMode] = useState("select");
-  const [newRecipe, setNewRecipe] = useState({ name: "", yield_kg: "", ingredients: [] });
+  const [newRecipe, setNewRecipe] = useState({ name: "", yield_lbs: "", ingredients: [] });
   const [selectedRecipe, setSelectedRecipe] = useState(null);
 
   useEffect(() => {
@@ -48,11 +48,11 @@ export default function ProductFormDialog({ open, onClose, onSave, product }) {
 
   // Auto-calculate recipe consumption when package size/case quantity changes
   useEffect(() => {
-    if (form.package_size && form.packages_per_case && selectedRecipe?.yield_kg) {
-      const totalCaseWeightKg = (Number(form.package_size) * Number(form.packages_per_case)) / 2.20462;
-      const consumption = (totalCaseWeightKg / selectedRecipe.yield_kg) * selectedRecipe.yield_kg;
-      update("recipe_consumption_per_case_kg", Math.round(consumption * 100) / 100);
-      update("case_weight_lbs", Math.round((totalCaseWeightKg * 2.20462) * 100) / 100);
+    if (form.package_size && form.packages_per_case && selectedRecipe?.yield_lbs) {
+      const totalCaseWeightLbs = Number(form.package_size) * Number(form.packages_per_case);
+      const consumption = (totalCaseWeightLbs / selectedRecipe.yield_lbs) * selectedRecipe.yield_lbs;
+      update("recipe_consumption_per_case_lbs", Math.round(consumption * 100) / 100);
+      update("case_weight_lbs", Math.round(totalCaseWeightLbs * 100) / 100);
     }
   }, [form.package_size, form.packages_per_case, selectedRecipe]);
 
@@ -68,12 +68,12 @@ export default function ProductFormDialog({ open, onClose, onSave, product }) {
   const update = (field, value) => setForm(prev => ({ ...prev, [field]: value }));
 
   const handleCreateRecipe = async () => {
-    if (!newRecipe.name || !form.name || !newRecipe.yield_kg) return;
+    if (!newRecipe.name || !form.name || !newRecipe.yield_lbs) return;
     const created = await base44.entities.Recipe.create({
       name: newRecipe.name,
       product_id: "",
       product_name: form.name,
-      yield_kg: Number(newRecipe.yield_kg),
+      yield_lbs: Number(newRecipe.yield_lbs),
       ingredients: newRecipe.ingredients,
       status: "draft"
     });
@@ -82,7 +82,7 @@ export default function ProductFormDialog({ open, onClose, onSave, product }) {
     update("recipe_id", created.id);
     update("recipe_name", created.name);
     setRecipeMode("select");
-    setNewRecipe({ name: "", yield_kg: "", ingredients: [] });
+    setNewRecipe({ name: "", yield_lbs: "", ingredients: [] });
   };
 
   const handleSelectRecipe = (val) => {
@@ -189,10 +189,10 @@ export default function ProductFormDialog({ open, onClose, onSave, product }) {
                   <Input value={newRecipe.name} onChange={e => setNewRecipe(prev => ({ ...prev, name: e.target.value }))} placeholder="e.g. Ground Beef Standard" />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-sm">Yield (kg)</Label>
-                  <Input type="number" step="0.1" value={newRecipe.yield_kg} onChange={e => setNewRecipe(prev => ({ ...prev, yield_kg: e.target.value }))} placeholder="e.g. 100" />
-                </div>
-                <Button type="button" onClick={handleCreateRecipe} className="w-full" size="sm" disabled={!newRecipe.name || !newRecipe.yield_kg}>
+                   <Label className="text-sm">Yield (lbs)</Label>
+                   <Input type="number" step="0.1" value={newRecipe.yield_lbs} onChange={e => setNewRecipe(prev => ({ ...prev, yield_lbs: e.target.value }))} placeholder="e.g. 100" />
+                 </div>
+                 <Button type="button" onClick={handleCreateRecipe} className="w-full" size="sm" disabled={!newRecipe.name || !newRecipe.yield_lbs}>
                   Create Recipe
                 </Button>
               </TabsContent>
