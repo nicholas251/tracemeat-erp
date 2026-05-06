@@ -91,7 +91,7 @@ export default function PurchaseOrders() {
                   </TableCell>
                 </TableRow>
               ) : (
-                pos.map((po) => (
+                pos.filter(po => po).map((po) => (
                    <TableRow key={po.id}>
                      <TableCell className="font-medium">{po.po_number}</TableCell>
                      <TableCell>{po.supplier}</TableCell>
