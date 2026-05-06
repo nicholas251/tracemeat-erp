@@ -145,7 +145,7 @@ export default function ProductionOrders() {
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between">
                   <div className="space-y-1">
-                    <CardTitle className="text-lg">{order.order_number}</CardTitle>
+                    <CardTitle className="text-lg">{order.order_number} - {order.supplier_name}</CardTitle>
                     <p className="text-sm text-muted-foreground">{order.product_name} - {order.recipe_name}</p>
                   </div>
                   <div className="flex items-center gap-2">
