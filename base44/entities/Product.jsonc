@@ -39,6 +39,14 @@
       "type": "string",
       "description": "Recipe name for display"
     },
+    "process_id": {
+      "type": "string",
+      "description": "Linked ProductionProcess template ID"
+    },
+    "process_name": {
+      "type": "string",
+      "description": "ProductionProcess name for display"
+    },
     "package_size": {
       "type": "number",
       "description": "Size of each package in lbs"
