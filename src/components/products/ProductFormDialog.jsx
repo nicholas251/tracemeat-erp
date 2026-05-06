@@ -169,10 +169,7 @@ export default function ProductFormDialog({ open, onClose, onSave, product }) {
           </div>
           <div className="space-y-2">
             <Label>
-              {form.finished_product_unit === "lbs" && "Packs per Case"}
-              {form.finished_product_unit === "cases" && "Cases per Gaylord"}
-              {form.finished_product_unit === "gaylords" && "Gaylords per Pallet"}
-              {form.finished_product_unit === "packs" && "Packs per Case"}
+              Packs per {form.finished_product_unit.charAt(0).toUpperCase() + form.finished_product_unit.slice(1).replace(/_/g, ' ')}
               {" *"}
             </Label>
             <Input type="number" value={form.packages_per_case} onChange={e => update("packages_per_case", e.target.value)} placeholder="e.g. 12" />
@@ -182,7 +179,9 @@ export default function ProductFormDialog({ open, onClose, onSave, product }) {
             <Input type="number" step="0.1" value={form.case_weight_lbs} disabled placeholder="Auto-calculated" />
           </div>
           <div className="space-y-2">
-            <Label>Recipe Consumption per Case (lbs)</Label>
+            <Label>
+              Recipe Consumption per {form.finished_product_unit.charAt(0).toUpperCase() + form.finished_product_unit.slice(1).replace(/_/g, ' ')} (lbs)
+            </Label>
             <Input type="number" step="0.1" value={form.recipe_consumption_per_case_lbs} disabled placeholder="Auto-calculated" />
           </div>
           <div className="space-y-2">
