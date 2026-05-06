@@ -41,23 +41,38 @@ export default function ProductionOrderFormDialog({ open, onClose, onSave, recip
           </div>
 
           {form.product_id && (
-            <div className="space-y-2">
-              <Label>Recipe</Label>
-              <div className="px-3 py-2 border rounded-md bg-muted text-sm">
-                {products.find(p => p.id === form.product_id)?.recipe_name || "No recipe assigned"}
+            <>
+              <div className="space-y-2">
+                <Label>Recipe</Label>
+                <div className="px-3 py-2 border rounded-md bg-muted text-sm">
+                  {products.find(p => p.id === form.product_id)?.recipe_name || "No recipe assigned"}
+                </div>
               </div>
-            </div>
+
+              <div className="space-y-2">
+                <Label>Quantity to Produce ({products.find(p => p.id === form.product_id)?.finished_product_unit || "lbs"})</Label>
+                <Input 
+                  type="number" 
+                  value={form.quantity_to_produce}
+                  onChange={e => setForm({ ...form, quantity_to_produce: e.target.value })}
+                  placeholder="5"
+                />
+              </div>
+            </>
           )}
 
-          <div className="space-y-2">
-            <Label>Quantity to Produce (lbs)</Label>
-            <Input 
-              type="number" 
-              value={form.quantity_to_produce}
-              onChange={e => setForm({ ...form, quantity_to_produce: e.target.value })}
-              placeholder="100"
-            />
-          </div>
+          {!form.product_id && (
+            <div className="space-y-2">
+              <Label>Quantity to Produce</Label>
+              <Input 
+                type="number" 
+                value={form.quantity_to_produce}
+                onChange={e => setForm({ ...form, quantity_to_produce: e.target.value })}
+                placeholder="Select a product first"
+                disabled
+              />
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label>Target Completion Date</Label>
