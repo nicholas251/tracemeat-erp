@@ -92,27 +92,27 @@ export default function PurchaseOrders() {
                 </TableRow>
               ) : (
                 pos.map((po) => (
-                  <TableRow key={po.id}>
-                    <TableCell className="font-medium">{po.data.po_number}</TableCell>
-                    <TableCell>{po.data.supplier}</TableCell>
-                    <TableCell>{po.data.order_date ? format(new Date(po.data.order_date), 'MMM dd, yyyy') : '-'}</TableCell>
-                    <TableCell>{po.data.expected_delivery_date ? format(new Date(po.data.expected_delivery_date), 'MMM dd, yyyy') : '-'}</TableCell>
-                    <TableCell>${po.data.total_amount?.toFixed(2) || '0.00'}</TableCell>
-                    <TableCell><StatusBadge status={po.data.status} /></TableCell>
-                    <TableCell>
-                      <div className="flex gap-2">
-                        <Link to={`/receiving?po_id=${po.id}`}>
-                          <Button size="sm" variant="outline">
-                            <Eye className="w-4 h-4" /> Receive
-                          </Button>
-                        </Link>
-                        <Button size="sm" variant="ghost" onClick={() => { setEditingPO(po); setShowForm(true); }}>
-                          Edit
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
+                   <TableRow key={po.id}>
+                     <TableCell className="font-medium">{po.po_number}</TableCell>
+                     <TableCell>{po.supplier}</TableCell>
+                     <TableCell>{po.order_date ? format(new Date(po.order_date), 'MMM dd, yyyy') : '-'}</TableCell>
+                     <TableCell>{po.expected_delivery_date ? format(new Date(po.expected_delivery_date), 'MMM dd, yyyy') : '-'}</TableCell>
+                     <TableCell>${po.total_amount?.toFixed(2) || '0.00'}</TableCell>
+                     <TableCell><StatusBadge status={po.status} /></TableCell>
+                     <TableCell>
+                       <div className="flex gap-2">
+                         <Link to={`/receiving?po_id=${po.id}`}>
+                           <Button size="sm" variant="outline">
+                             <Eye className="w-4 h-4" /> Receive
+                           </Button>
+                         </Link>
+                         <Button size="sm" variant="ghost" onClick={() => { setEditingPO(po); setShowForm(true); }}>
+                           Edit
+                         </Button>
+                       </div>
+                     </TableCell>
+                   </TableRow>
+                 ))
               )}
             </TableBody>
           </Table>
