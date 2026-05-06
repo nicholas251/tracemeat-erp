@@ -169,20 +169,20 @@ export default function ProductFormDialog({ open, onClose, onSave, product }) {
           </div>
           <div className="space-y-2">
             <Label>
-              Packs per {form.finished_product_unit.charAt(0).toUpperCase() + form.finished_product_unit.slice(1).replace(/_/g, ' ')}
+              Packs per {form.finished_product_unit && (form.finished_product_unit.charAt(0).toUpperCase() + form.finished_product_unit.slice(1).replace(/_/g, ' '))}
               {" *"}
             </Label>
             <Input type="number" value={form.packages_per_case} onChange={e => update("packages_per_case", e.target.value)} placeholder="e.g. 12" />
           </div>
           <div className="space-y-2">
             <Label>
-              {form.finished_product_unit.charAt(0).toUpperCase() + form.finished_product_unit.slice(1).replace(/_/g, ' ')} Weight (lbs)
+              {form.finished_product_unit && (form.finished_product_unit.charAt(0).toUpperCase() + form.finished_product_unit.slice(1).replace(/_/g, ' '))} Weight (lbs)
             </Label>
             <Input type="number" step="0.1" value={form.case_weight_lbs} disabled placeholder="Auto-calculated" />
           </div>
           <div className="space-y-2">
             <Label>
-              Recipe Consumption per {form.finished_product_unit.charAt(0).toUpperCase() + form.finished_product_unit.slice(1).replace(/_/g, ' ')} (lbs)
+              Recipe Consumption per {form.finished_product_unit && (form.finished_product_unit.charAt(0).toUpperCase() + form.finished_product_unit.slice(1).replace(/_/g, ' '))} (lbs)
             </Label>
             <Input type="number" step="0.1" value={form.recipe_consumption_per_case_lbs} disabled placeholder="Auto-calculated" />
           </div>
