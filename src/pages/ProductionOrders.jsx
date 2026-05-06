@@ -38,9 +38,24 @@ export default function ProductionOrders() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (data) => base44.entities.ProductionOrder.create(data),
+    mutationFn: async (data) => {
+      const order = await base44.entities.ProductionOrder.create(data);
+      // Allocate raw materials for this order
+      try {
+        await base44.functions.invoke('allocateRawMaterialsForOrder', {
+          productionOrderId: order.id,
+          productId: data.product_id,
+          quantityToProduce: data.quantity_to_produce,
+          action: 'allocate'
+        });
+      } catch (e) {
+        console.error('Error allocating materials:', e);
+      }
+      return order;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['productionOrders'] });
+      queryClient.invalidateQueries({ queryKey: ['raw_materials'] });
       setShowForm(false);
       setEditingOrder(null);
     },
@@ -50,6 +65,7 @@ export default function ProductionOrders() {
     mutationFn: ({ id, data }) => base44.entities.ProductionOrder.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['productionOrders'] });
+      queryClient.invalidateQueries({ queryKey: ['raw_materials'] });
       setShowForm(false);
       setEditingOrder(null);
       setViewDetail(false);
