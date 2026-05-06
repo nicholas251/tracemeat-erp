@@ -75,6 +75,9 @@ export default function ProductionOrders() {
           quantity_to_produce: data.quantity_to_produce,
           target_completion_date: data.target_completion_date,
           notes: data.notes,
+          stages: editingOrder.stages,
+          status: editingOrder.status,
+          current_stage: editingOrder.current_stage,
         }
       });
     } else {
