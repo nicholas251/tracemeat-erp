@@ -161,4 +161,8 @@ function useToast() {
   };
 }
 
-export { useToast, toast };
+const clearAllToasts = () => {
+  dispatch({ type: actionTypes.DISMISS_TOAST, toastId: undefined });
+};
+
+export { useToast, toast, clearAllToasts };
