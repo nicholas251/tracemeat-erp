@@ -14,13 +14,15 @@ import {
   UtensilsCrossed,
   ChevronLeft,
   ChevronRight,
-  Spline
+  Spline,
+  Building2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 const navItems = [
   { path: "/", label: "Dashboard", icon: LayoutDashboard },
+  { path: "/suppliers", label: "Suppliers", icon: Building2 },
   { path: "/purchase-orders", label: "Purchase Orders", icon: ShoppingCart },
   { path: "/receiving", label: "Receiving", icon: Truck },
   { path: "/products", label: "Products", icon: Package },
