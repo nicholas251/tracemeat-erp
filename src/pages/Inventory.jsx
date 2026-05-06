@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -24,6 +24,11 @@ export default function Inventory() {
   const [adjustItem, setAdjustItem] = useState(null);
   const [adjustRawItem, setAdjustRawItem] = useState(null);
   const queryClient = useQueryClient();
+
+  // Refetch raw materials when page mounts to sync with updates from other pages
+  useEffect(() => {
+    queryClient.invalidateQueries({ queryKey: ["raw_materials"] });
+  }, [queryClient]);
 
   const { data: items = [], isLoading } = useQuery({
     queryKey: ["inventory"],
