@@ -283,13 +283,24 @@ export default function Receiving() {
 
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                             <div>
-                              <Label className="text-xs">Lot Number</Label>
-                              <Input
-                                value={state.lotNumber || ''}
-                                onChange={e => setReceivingState(prev => ({ ...prev, [key]: { ...state, lotNumber: e.target.value } }))}
-                                placeholder="Auto-generated if empty"
-                              />
-                            </div>
+                               <Label className="text-xs">Lot Number</Label>
+                               <div className="flex gap-2">
+                                 <Input
+                                   value={state.lotNumber || ''}
+                                   onChange={e => setReceivingState(prev => ({ ...prev, [key]: { ...state, lotNumber: e.target.value } }))}
+                                   placeholder="Auto-generated if empty"
+                                 />
+                                 <Button
+                                   type="button"
+                                   variant="outline"
+                                   size="sm"
+                                   onClick={() => setReceivingState(prev => ({ ...prev, [key]: { ...state, lotNumber: format(new Date(), 'yyyy-MM-dd') } }))}
+                                   className="shrink-0"
+                                 >
+                                   Today
+                                 </Button>
+                               </div>
+                             </div>
                             <div>
                               <Label className="text-xs">Received Qty (lbs)</Label>
                               <Input
