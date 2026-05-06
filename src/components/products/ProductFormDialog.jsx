@@ -130,12 +130,12 @@ export default function ProductFormDialog({ open, onClose, onSave, product }) {
             </Select>
           </div>
           <div className="space-y-2">
-            <Label>Package Size (lbs) *</Label>
+            <Label>Pack Size (lbs) *</Label>
             <Input type="number" step="0.1" value={form.package_size} onChange={e => update("package_size", e.target.value)} placeholder="e.g. 2.0" />
           </div>
           <div className="space-y-2">
-            <Label>Packages per Case / lbs per Box *</Label>
-            <Input type="number" step="0.1" value={form.packages_per_case} onChange={e => update("packages_per_case", e.target.value)} placeholder="e.g. 12 packages or 40 lbs" />
+            <Label>Packs per Case *</Label>
+            <Input type="number" value={form.packages_per_case} onChange={e => update("packages_per_case", e.target.value)} placeholder="e.g. 12" />
           </div>
           <div className="space-y-2">
             <Label>Case Weight (lbs)</Label>
