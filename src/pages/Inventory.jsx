@@ -34,6 +34,11 @@ export default function Inventory() {
     queryFn: () => base44.entities.RawInventory.list("-created_date"),
   });
 
+  const { data: buckets = [] } = useQuery({
+    queryKey: ["inventory_buckets"],
+    queryFn: () => base44.entities.InventoryBucket.filter({ status: "active" }),
+  });
+
   const updateMutation = useMutation({
     mutationFn: ({ id, data }) => base44.entities.InventoryItem.update(id, data),
     onSuccess: () => {
@@ -372,6 +377,7 @@ export default function Inventory() {
           onClose={() => setAdjustRawItem(null)}
           onSave={(id, data) => updateRawMutation.mutate({ id, data })}
           onDelete={(id) => deleteRawMutation.mutate(id)}
+          buckets={buckets}
         />
       )}
     </div>

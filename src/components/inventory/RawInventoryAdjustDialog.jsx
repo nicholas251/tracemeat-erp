@@ -12,14 +12,29 @@ import {
   AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-export default function RawInventoryAdjustDialog({ open, item, onClose, onSave, onDelete }) {
+export default function RawInventoryAdjustDialog({ open, item, onClose, onSave, onDelete, buckets = [] }) {
   const [form, setForm] = useState({
     available_qty: item.available_qty || 0,
     quantity: item.quantity || 0,
     status: item.status || "available",
     notes: item.notes || "",
+    bucket_id: item.bucket_id || "",
+    bucket_name: item.bucket_name || "",
+    bucket_category: item.bucket_category || "",
   });
   const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const handleBucketChange = (bucketId) => {
+    const bucket = buckets.find(b => b.id === bucketId);
+    if (bucket) {
+      setForm(prev => ({
+        ...prev,
+        bucket_id: bucket.id,
+        bucket_name: bucket.name,
+        bucket_category: bucket.category,
+      }));
+    }
+  };
 
   const handleSave = () => {
     onSave(item.id, {
@@ -28,6 +43,9 @@ export default function RawInventoryAdjustDialog({ open, item, onClose, onSave, 
       quantity: Number(form.quantity),
       status: form.status,
       notes: form.notes,
+      bucket_id: form.bucket_id,
+      bucket_name: form.bucket_name,
+      bucket_category: form.bucket_category,
     });
   };
 
@@ -40,10 +58,25 @@ export default function RawInventoryAdjustDialog({ open, item, onClose, onSave, 
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="rounded-md bg-muted/50 p-3 text-sm">
-              <p className="font-semibold">{item.bucket_name}</p>
+              <p className="font-semibold">{form.bucket_name || item.bucket_name}</p>
               <p className="text-muted-foreground font-mono text-xs mt-0.5">
                 Lot: {item.lot_number || "—"} · Supplier: {item.supplier || "—"}
               </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Bucket</Label>
+              <Select value={form.bucket_id} onValueChange={handleBucketChange}>
+                <SelectTrigger><SelectValue placeholder="Select bucket..." /></SelectTrigger>
+                <SelectContent>
+                  {buckets.map(b => (
+                    <SelectItem key={b.id} value={b.id}>
+                      <span className="font-medium">{b.name}</span>
+                      <span className="ml-2 text-xs text-muted-foreground capitalize">({b.category})</span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
