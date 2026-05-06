@@ -111,9 +111,9 @@ export default function RecipeFormDialog({ open, onClose, onSave, recipe, produc
               <Label>Finished Product *</Label>
               <Select value={form.product_id} onValueChange={handleProductChange}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select product" />
+                  <SelectValue placeholder={form.product_name || "Select product"} />
                 </SelectTrigger>
-                <SelectContent className="z-50">
+                <SelectContent className="z-[60]">
                   {products?.map(p => (
                     <SelectItem key={p.id} value={p.id}>
                       {p.name} ({p.sku})
@@ -145,7 +145,7 @@ export default function RecipeFormDialog({ open, onClose, onSave, recipe, produc
                            <SelectTrigger>
                              <SelectValue placeholder="Select bucket" />
                            </SelectTrigger>
-                           <SelectContent className="z-50">
+                           <SelectContent className="z-[60]">
                             {buckets.map(b => (
                               <SelectItem key={b.id} value={b.id}>
                                 {b.name} ({b.category})
