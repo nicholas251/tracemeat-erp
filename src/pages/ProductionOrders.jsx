@@ -125,7 +125,17 @@ export default function ProductionOrders() {
                 <div className="space-y-3">
                   <div className="flex items-center justify-between text-sm">
                      <span className="text-muted-foreground">Quantity:</span>
-                     <span className="font-medium">{order.quantity_to_produce} lbs</span>
+                     <div className="text-right">
+                       <span className="font-medium">{order.quantity_to_produce} {products.find(p => p.id === order.product_id)?.finished_product_unit || 'lbs'}</span>
+                       <p className="text-xs text-muted-foreground">
+                         {(() => {
+                           const product = products.find(p => p.id === order.product_id);
+                           if (!product) return '';
+                           const consumedLbs = order.quantity_to_produce * (product.recipe_consumption_per_case_lbs || 0);
+                           return consumedLbs > 0 ? `${consumedLbs.toFixed(2)} lbs consumed` : '';
+                         })()}
+                       </p>
+                     </div>
                    </div>
                   <div className="space-y-2">
                     <p className="text-sm font-medium">Production Pipeline</p>
