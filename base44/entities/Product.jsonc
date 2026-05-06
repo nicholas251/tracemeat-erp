@@ -63,6 +63,17 @@
       "type": "number",
       "description": "Amount of recipe needed to produce one case (in lbs)"
     },
+    "finished_product_unit": {
+      "type": "string",
+      "enum": [
+        "lbs",
+        "cases",
+        "gaylords",
+        "packs"
+      ],
+      "default": "lbs",
+      "description": "Unit of measurement for finished product"
+    },
     "ingredients": {
       "type": "array",
       "items": {

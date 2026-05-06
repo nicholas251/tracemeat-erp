@@ -27,13 +27,20 @@ const packagingTypes = [
   { value: "chub", label: "Chub" },
 ];
 
+const finishedProductUnits = [
+  { value: "lbs", label: "Lbs" },
+  { value: "cases", label: "Cases" },
+  { value: "gaylords", label: "Gaylords" },
+  { value: "packs", label: "Packs" },
+];
+
 export default function ProductFormDialog({ open, onClose, onSave, product }) {
   const [form, setForm] = useState(product || {
     name: "", product_number: "", sku: "", category: "beef", description: "",
     packaging_type: "vacuum_sealed", package_size: "", packages_per_case: "",
     case_weight_lbs: "", shelf_life_days: "", storage_temp_c: "", status: "draft",
     allergens: [], regulatory_codes: [], ingredients: [], recipe_id: "", recipe_name: "",
-    recipe_consumption_per_case_lbs: "", process_id: "", process_name: ""
+    recipe_consumption_per_case_lbs: "", process_id: "", process_name: "", finished_product_unit: "lbs"
   });
   const [recipes, setRecipes] = useState([]);
   const [processes, setProcesses] = useState([]);
@@ -144,6 +151,15 @@ export default function ProductFormDialog({ open, onClose, onSave, product }) {
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 {packagingTypes.map(p => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Finished Product Unit *</Label>
+            <Select value={form.finished_product_unit} onValueChange={v => update("finished_product_unit", v)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {finishedProductUnits.map(u => <SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
