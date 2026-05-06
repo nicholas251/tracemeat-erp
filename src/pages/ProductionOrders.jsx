@@ -124,9 +124,9 @@ export default function ProductionOrders() {
               <CardContent>
                 <div className="space-y-3">
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Quantity:</span>
-                    <span className="font-medium">{order.quantity_to_produce} kg</span>
-                  </div>
+                     <span className="text-muted-foreground">Quantity:</span>
+                     <span className="font-medium">{order.quantity_to_produce} lbs</span>
+                   </div>
                   <div className="space-y-2">
                     <p className="text-sm font-medium">Production Pipeline</p>
                     <div className="flex flex-wrap gap-2">

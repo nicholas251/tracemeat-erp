@@ -53,7 +53,7 @@ export default function ProductionOrderFormDialog({ open, onClose, onSave, recip
           </div>
 
           <div className="space-y-2">
-            <Label>Quantity to Produce (kg)</Label>
+            <Label>Quantity to Produce (lbs)</Label>
             <Input 
               type="number" 
               value={form.quantity_to_produce}

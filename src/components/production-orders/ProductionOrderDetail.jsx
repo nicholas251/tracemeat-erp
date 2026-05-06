@@ -60,7 +60,7 @@ export default function ProductionOrderDetail({ open, onClose, order, onUpdate }
             </CardHeader>
             <CardContent className="space-y-2 text-sm">
               <div className="flex justify-between"><span className="text-muted-foreground">Recipe:</span><span>{order.recipe_name}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Quantity:</span><span>{order.quantity_to_produce} kg</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Quantity:</span><span>{order.quantity_to_produce} lbs</span></div>
               <div className="flex justify-between"><span className="text-muted-foreground">Status:</span><Badge>{order.status}</Badge></div>
               <div className="flex justify-between"><span className="text-muted-foreground">Target Date:</span><span>{order.target_completion_date}</span></div>
             </CardContent>
@@ -149,13 +149,13 @@ export default function ProductionOrderDetail({ open, onClose, order, onUpdate }
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>Spice Mix Qty (kg)</Label>
-                      <Input 
-                        type="number"
-                        value={stageForm.spice_mix_qty_kg || ""}
-                        onChange={e => setStageForm({ ...stageForm, spice_mix_qty_kg: Number(e.target.value) })}
-                      />
-                    </div>
+                       <Label>Spice Mix Qty (lbs)</Label>
+                       <Input 
+                         type="number"
+                         value={stageForm.spice_mix_qty_lbs || ""}
+                         onChange={e => setStageForm({ ...stageForm, spice_mix_qty_lbs: Number(e.target.value) })}
+                       />
+                     </div>
                   </>
                 )}
 
@@ -186,13 +186,13 @@ export default function ProductionOrderDetail({ open, onClose, order, onUpdate }
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>Cook Temperature (°C)</Label>
-                      <Input 
-                        type="number"
-                        value={stageForm.cook_temperature_c || ""}
-                        onChange={e => setStageForm({ ...stageForm, cook_temperature_c: Number(e.target.value) })}
-                      />
-                    </div>
+                       <Label>Cook Temperature (°F)</Label>
+                       <Input 
+                         type="number"
+                         value={stageForm.cook_temperature_c || ""}
+                         onChange={e => setStageForm({ ...stageForm, cook_temperature_c: Number(e.target.value) })}
+                       />
+                     </div>
                   </>
                 )}
 
@@ -227,13 +227,13 @@ export default function ProductionOrderDetail({ open, onClose, order, onUpdate }
                 )}
 
                 <div className="space-y-2">
-                  <Label>Quantity Completed (kg)</Label>
-                  <Input 
-                    type="number"
-                    value={stageForm.quantity_completed_kg || ""}
-                    onChange={e => setStageForm({ ...stageForm, quantity_completed_kg: Number(e.target.value) })}
-                  />
-                </div>
+                   <Label>Quantity Completed (lbs)</Label>
+                   <Input 
+                     type="number"
+                     value={stageForm.quantity_completed_lbs || ""}
+                     onChange={e => setStageForm({ ...stageForm, quantity_completed_lbs: Number(e.target.value) })}
+                   />
+                 </div>
 
                 <div className="space-y-2">
                   <Label>Quality Check Passed</Label>
