@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,10 +7,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
 import { Plus, Trash2 } from "lucide-react";
+import { base44 } from "@/api/base44Client";
 
 const CATEGORIES = ["beef", "pork", "poultry", "lamb", "seasoning", "casing", "packaging", "additive", "other"];
 
 export default function RecipeFormDialog({ open, onClose, onSave, recipe, products }) {
+  const [buckets, setBuckets] = useState([]);
   const [form, setForm] = useState(recipe ? {
     name: recipe.data.name,
     product_id: recipe.data.product_id,
@@ -29,11 +31,18 @@ export default function RecipeFormDialog({ open, onClose, onSave, recipe, produc
     notes: "",
   });
 
+  useEffect(() => {
+    if (open) {
+      base44.entities.InventoryBucket.list().then(setBuckets);
+    }
+  }, [open]);
+
   const addIngredient = () => {
     setForm(prev => ({
       ...prev,
       ingredients: [...(prev.ingredients || []), {
-         raw_material_name: "",
+         bucket_id: "",
+         bucket_name: "",
          quantity_lbs: 0,
          category: "beef",
        }],
@@ -42,7 +51,14 @@ export default function RecipeFormDialog({ open, onClose, onSave, recipe, produc
 
   const updateIngredient = (idx, field, value) => {
     const ingredients = [...form.ingredients];
-    ingredients[idx][field] = value;
+    if (field === 'bucket_id') {
+      const bucket = buckets.find(b => b.id === value);
+      ingredients[idx].bucket_id = value;
+      ingredients[idx].bucket_name = bucket?.name || "";
+      ingredients[idx].category = bucket?.category || ingredients[idx].category;
+    } else {
+      ingredients[idx][field] = value;
+    }
     setForm(prev => ({ ...prev, ingredients }));
   };
 
@@ -65,6 +81,10 @@ export default function RecipeFormDialog({ open, onClose, onSave, recipe, produc
   const handleSave = () => {
     if (!form.name || !form.product_id || !form.yield_lbs) {
       alert("Recipe name, product, and yield are required");
+      return;
+    }
+    if (!form.ingredients.every(ing => ing.bucket_id && ing.quantity_lbs > 0)) {
+      alert("All ingredients must have a bucket and quantity");
       return;
     }
     onSave(form);
@@ -114,53 +134,55 @@ export default function RecipeFormDialog({ open, onClose, onSave, recipe, produc
           </div>
 
           <div>
-            <Label className="text-base font-semibold mb-3 block">Ingredients (FIFO will pull from oldest lot first)</Label>
+            <Label className="text-base font-semibold mb-3 block">Ingredients (linked to inventory buckets for traceability)</Label>
             <div className="space-y-3">
               {form.ingredients.map((ingredient, idx) => (
                 <Card key={idx} className="p-3 bg-muted/30">
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-2">
-                    <div>
-                      <Label className="text-xs">Raw Material Name *</Label>
-                      <Input
-                        value={ingredient.raw_material_name}
-                        onChange={e => updateIngredient(idx, 'raw_material_name', e.target.value)}
-                        placeholder="e.g. Pork Shoulder"
-                      />
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-2">
+                      <div>
+                        <Label className="text-xs">Inventory Bucket *</Label>
+                        <Select value={ingredient.bucket_id} onValueChange={v => updateIngredient(idx, 'bucket_id', v)}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select bucket" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {buckets.map(b => (
+                              <SelectItem key={b.id} value={b.id}>
+                                {b.name} ({b.category})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label className="text-xs">Category</Label>
+                        <Input
+                          value={ingredient.category}
+                          disabled
+                          placeholder="Auto-set from bucket"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Qty Per Batch (lbs) *</Label>
+                        <Input
+                          type="number"
+                          step="0.1"
+                          value={ingredient.quantity_lbs}
+                          onChange={e => updateIngredient(idx, 'quantity_lbs', parseFloat(e.target.value) || 0)}
+                        />
+                      </div>
+                      <div className="flex items-end">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-destructive"
+                          onClick={() => removeIngredient(idx)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </div>
-                    <div>
-                      <Label className="text-xs">Category</Label>
-                      <Select value={ingredient.category} onValueChange={v => updateIngredient(idx, 'category', v)}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {CATEGORIES.map(cat => (
-                            <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label className="text-xs">Qty Per Batch (lbs) *</Label>
-                      <Input
-                        type="number"
-                        step="0.1"
-                        value={ingredient.quantity_lbs}
-                        onChange={e => updateIngredient(idx, 'quantity_lbs', parseFloat(e.target.value) || 0)}
-                      />
-                    </div>
-                    <div className="flex items-end">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="text-destructive"
-                        onClick={() => removeIngredient(idx)}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </Card>
+                  </Card>
               ))}
 
               <Button size="sm" variant="outline" onClick={addIngredient} className="w-full">

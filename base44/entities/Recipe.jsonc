@@ -23,8 +23,13 @@
       "items": {
         "type": "object",
         "properties": {
-          "raw_material_name": {
-            "type": "string"
+          "bucket_id": {
+            "type": "string",
+            "description": "InventoryBucket ID for FIFO tracking"
+          },
+          "bucket_name": {
+            "type": "string",
+            "description": "Bucket name for display"
           },
           "quantity_lbs": {
             "type": "number",
@@ -46,7 +51,7 @@
           }
         }
       },
-      "description": "List of raw materials with quantities"
+      "description": "List of raw material buckets with quantities"
     },
     "status": {
       "type": "string",
