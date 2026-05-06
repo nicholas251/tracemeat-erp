@@ -31,6 +31,11 @@ export default function ProductionOrders() {
     queryFn: () => base44.entities.Product.list(),
   });
 
+  const { data: suppliers = [] } = useQuery({
+    queryKey: ['suppliers'],
+    queryFn: () => base44.entities.Supplier.list(),
+  });
+
   const createMutation = useMutation({
     mutationFn: (data) => base44.entities.ProductionOrder.create(data),
     onSuccess: () => {
@@ -59,13 +64,16 @@ export default function ProductionOrders() {
 
     const recipe = recipes.find(r => r.id === data.recipe_id);
     const product = products.find(p => p.id === data.product_id);
+    const supplier = suppliers.find(s => s.id === data.supplier_id);
 
     createMutation.mutate({
-      order_number: `PO-${Date.now()}`,
+      order_number: data.order_number,
       product_id: data.product_id,
       product_name: product?.name,
       recipe_id: data.recipe_id,
       recipe_name: recipe?.name,
+      supplier_id: data.supplier_id,
+      supplier_name: supplier?.name,
       quantity_to_produce: data.quantity_to_produce,
       status: "pending",
       current_stage: 0,
@@ -163,6 +171,7 @@ export default function ProductionOrders() {
         onSave={handleSaveOrder}
         recipes={recipes}
         products={products}
+        suppliers={suppliers}
       />
 
       {selectedOrder && (

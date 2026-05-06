@@ -6,9 +6,11 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
-export default function ProductionOrderFormDialog({ open, onClose, onSave, recipes, products }) {
+export default function ProductionOrderFormDialog({ open, onClose, onSave, recipes, products, suppliers }) {
   const [form, setForm] = useState({
+    order_number: "",
     product_id: "",
+    supplier_id: "",
     quantity_to_produce: "",
     target_completion_date: "",
     notes: "",
@@ -16,9 +18,9 @@ export default function ProductionOrderFormDialog({ open, onClose, onSave, recip
 
   const handleSave = () => {
     const product = products.find(p => p.id === form.product_id);
-    if (!form.product_id || !product?.recipe_id || !form.quantity_to_produce) return;
+    if (!form.order_number || !form.product_id || !product?.recipe_id || !form.quantity_to_produce || !form.supplier_id) return;
     onSave({ ...form, recipe_id: product.recipe_id });
-    setForm({ product_id: "", quantity_to_produce: "", target_completion_date: "", notes: "" });
+    setForm({ order_number: "", product_id: "", supplier_id: "", quantity_to_produce: "", target_completion_date: "", notes: "" });
   };
 
   return (
@@ -28,6 +30,27 @@ export default function ProductionOrderFormDialog({ open, onClose, onSave, recip
           <DialogTitle>Create Production Order</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
+          <div className="space-y-2">
+            <Label>Order Number *</Label>
+            <Input 
+              value={form.order_number}
+              onChange={e => setForm({ ...form, order_number: e.target.value })}
+              placeholder="e.g. PO-001"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Company/Supplier *</Label>
+            <Select value={form.supplier_id} onValueChange={v => setForm({ ...form, supplier_id: v })}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select supplier" />
+              </SelectTrigger>
+              <SelectContent>
+                {suppliers?.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+
           <div className="space-y-2">
             <Label>Product *</Label>
             <Select value={form.product_id} onValueChange={v => setForm({ ...form, product_id: v })}>
@@ -95,7 +118,7 @@ export default function ProductionOrderFormDialog({ open, onClose, onSave, recip
 
         <DialogFooter className="gap-2">
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={handleSave}>Create Order</Button>
+          <Button onClick={handleSave} disabled={!form.order_number || !form.product_id || !form.supplier_id || !form.quantity_to_produce}>Create Order</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
