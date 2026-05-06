@@ -39,7 +39,7 @@ export default function POFormDialog({ open, onClose, onSave, po }) {
   useEffect(() => {
     if (open) {
       base44.entities.Supplier.list().then(data => {
-        setSuppliers(data.map(s => ({ id: s.id, name: s.data.name })));
+        setSuppliers(data.map(s => ({ id: s.id, name: s.name })));
       });
     }
   }, [open]);
@@ -140,7 +140,7 @@ export default function POFormDialog({ open, onClose, onSave, po }) {
                         setNewSupplierName("");
                         setShowSaveSupplier(false);
                         const updated = await base44.entities.Supplier.list();
-                        setSuppliers(updated.map(s => ({ id: s.id, name: s.data.name })));
+                        setSuppliers(updated.map(s => ({ id: s.id, name: s.name })));
                       }
                     }}
                     className="w-full"
