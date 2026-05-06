@@ -61,10 +61,6 @@ export default function PurchaseOrders() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["purchase_orders"] });
       setDeletingPO(null);
-      toast({
-        title: "Purchase Order Deleted",
-        description: "The purchase order has been successfully deleted.",
-      });
     },
   });
 
