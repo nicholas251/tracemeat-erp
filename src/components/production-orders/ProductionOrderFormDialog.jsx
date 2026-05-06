@@ -70,7 +70,7 @@ export default function ProductionOrderFormDialog({ open, onClose, onSave, recip
 
           <div className="space-y-2">
             <Label>Product *</Label>
-            <Select value={form.product_id} onValueChange={v => setForm({ ...form, product_id: v })}>
+            <Select value={form.product_id || ""} onValueChange={v => setForm({ ...form, product_id: v })}>
               <SelectTrigger>
                 <SelectValue placeholder="Select product" />
               </SelectTrigger>
