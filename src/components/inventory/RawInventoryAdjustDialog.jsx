@@ -12,14 +12,11 @@ import {
   AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-const kgToLbs = (kg) => Math.round((kg || 0) * 2.20462 * 100) / 100;
-const lbsToKg = (lbs) => (lbs || 0) / 2.20462;
-
-export default function InventoryAdjustDialog({ open, item, onClose, onSave, onDelete }) {
+export default function RawInventoryAdjustDialog({ open, item, onClose, onSave, onDelete }) {
   const [form, setForm] = useState({
-    quantity_lbs: kgToLbs(item.quantity_kg),
+    available_qty: item.available_qty || 0,
+    quantity: item.quantity || 0,
     status: item.status || "available",
-    location: item.location || "",
     notes: item.notes || "",
   });
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -27,9 +24,9 @@ export default function InventoryAdjustDialog({ open, item, onClose, onSave, onD
   const handleSave = () => {
     onSave(item.id, {
       ...item,
-      quantity_kg: lbsToKg(Number(form.quantity_lbs)),
+      available_qty: Number(form.available_qty),
+      quantity: Number(form.quantity),
       status: form.status,
-      location: form.location,
       notes: form.notes,
     });
   };
@@ -39,47 +36,49 @@ export default function InventoryAdjustDialog({ open, item, onClose, onSave, onD
       <Dialog open={open && !confirmDelete} onOpenChange={onClose}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Adjust Inventory Item</DialogTitle>
+            <DialogTitle>Adjust Raw Material</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="rounded-md bg-muted/50 p-3 text-sm">
-              <p className="font-semibold">{item.product_name}</p>
-              <p className="text-muted-foreground font-mono text-xs mt-0.5">{item.lot_number || item.batch_number}</p>
+              <p className="font-semibold">{item.bucket_name}</p>
+              <p className="text-muted-foreground font-mono text-xs mt-0.5">
+                Lot: {item.lot_number || "—"} · Supplier: {item.supplier || "—"}
+              </p>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Quantity on Hand (lbs)</Label>
+                <Label>Available Qty ({item.unit || "lbs"})</Label>
                 <Input
                   type="number"
-                  value={form.quantity_lbs}
-                  onChange={e => setForm(prev => ({ ...prev, quantity_lbs: e.target.value }))}
+                  value={form.available_qty}
+                  onChange={e => setForm(prev => ({ ...prev, available_qty: e.target.value }))}
                   min={0}
                 />
               </div>
               <div className="space-y-2">
-                <Label>Status</Label>
-                <Select value={form.status} onValueChange={v => setForm(prev => ({ ...prev, status: v }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="available">Available</SelectItem>
-                    <SelectItem value="reserved">Reserved</SelectItem>
-                    <SelectItem value="shipped">Shipped</SelectItem>
-                    <SelectItem value="quarantined">Quarantined</SelectItem>
-                    <SelectItem value="expired">Expired</SelectItem>
-                    <SelectItem value="damaged">Damaged</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label>Total Qty ({item.unit || "lbs"})</Label>
+                <Input
+                  type="number"
+                  value={form.quantity}
+                  onChange={e => setForm(prev => ({ ...prev, quantity: e.target.value }))}
+                  min={0}
+                />
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label>Storage Location</Label>
-              <Input
-                value={form.location}
-                onChange={e => setForm(prev => ({ ...prev, location: e.target.value }))}
-                placeholder="e.g. Cooler A, Freezer 2"
-              />
+              <Label>Status</Label>
+              <Select value={form.status} onValueChange={v => setForm(prev => ({ ...prev, status: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="available">Available</SelectItem>
+                  <SelectItem value="in_use">In Use</SelectItem>
+                  <SelectItem value="depleted">Depleted</SelectItem>
+                  <SelectItem value="quarantined">Quarantined</SelectItem>
+                  <SelectItem value="expired">Expired</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="space-y-2">
@@ -105,9 +104,9 @@ export default function InventoryAdjustDialog({ open, item, onClose, onSave, onD
       <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Inventory Item?</AlertDialogTitle>
+            <AlertDialogTitle>Delete Raw Material Lot?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently remove <strong>{item.product_name || item.lot_number}</strong> from inventory. This action cannot be undone.
+              This will permanently remove lot <strong>{item.lot_number || item.bucket_name}</strong> from inventory. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

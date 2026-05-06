@@ -13,6 +13,7 @@ import { format } from "date-fns";
 import PageHeader from "@/components/shared/PageHeader";
 import StatusBadge from "@/components/shared/StatusBadge";
 import InventoryAdjustDialog from "@/components/inventory/InventoryAdjustDialog";
+import RawInventoryAdjustDialog from "@/components/inventory/RawInventoryAdjustDialog";
 
 export default function Inventory() {
   const [statusFilter, setStatusFilter] = useState("all");
@@ -20,6 +21,7 @@ export default function Inventory() {
   const [rawSearch, setRawSearch] = useState("");
   const [rawStatusFilter, setRawStatusFilter] = useState("all");
   const [adjustItem, setAdjustItem] = useState(null);
+  const [adjustRawItem, setAdjustRawItem] = useState(null);
   const queryClient = useQueryClient();
 
   const { data: items = [], isLoading } = useQuery({
@@ -37,6 +39,30 @@ export default function Inventory() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["inventory"] });
       setAdjustItem(null);
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id) => base44.entities.InventoryItem.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["inventory"] });
+      setAdjustItem(null);
+    },
+  });
+
+  const updateRawMutation = useMutation({
+    mutationFn: ({ id, data }) => base44.entities.RawInventory.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["raw_inventory"] });
+      setAdjustRawItem(null);
+    },
+  });
+
+  const deleteRawMutation = useMutation({
+    mutationFn: (id) => base44.entities.RawInventory.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["raw_inventory"] });
+      setAdjustRawItem(null);
     },
   });
 
@@ -164,14 +190,15 @@ export default function Inventory() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Lot Number</TableHead>
-                      <TableHead>Bucket</TableHead>
-                      <TableHead>Description</TableHead>
-                      <TableHead>Supplier</TableHead>
-                      <TableHead>Available Qty</TableHead>
-                      <TableHead>Received</TableHead>
-                      <TableHead>Expiry</TableHead>
-                      <TableHead>Status</TableHead>
-                    </TableRow>
+                        <TableHead>Bucket</TableHead>
+                        <TableHead>Description</TableHead>
+                        <TableHead>Supplier</TableHead>
+                        <TableHead>Available Qty</TableHead>
+                        <TableHead>Received</TableHead>
+                        <TableHead>Expiry</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead></TableHead>
+                      </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredRaw.map(item => (
@@ -199,16 +226,21 @@ export default function Inventory() {
                           ) : "—"}
                         </TableCell>
                         <TableCell><StatusBadge status={item.status} /></TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          )}
-        </TabsContent>
+                        <TableCell>
+                          <Button size="sm" variant="ghost" onClick={() => setAdjustRawItem(item)}>
+                            <TrendingDown className="w-4 h-4" />
+                          </Button>
+                        </TableCell>
+                        </TableRow>
+                        ))}
+                        </TableBody>
+                        </Table>
+                        </CardContent>
+                        </Card>
+                        )}
+                        </TabsContent>
 
-        {/* FINISHED GOODS TAB */}
+                        {/* FINISHED GOODS TAB */}
         <TabsContent value="finished">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
             <Card className="p-4">
@@ -329,6 +361,17 @@ export default function Inventory() {
           item={adjustItem}
           onClose={() => setAdjustItem(null)}
           onSave={(id, data) => updateMutation.mutate({ id, data })}
+          onDelete={(id) => deleteMutation.mutate(id)}
+        />
+      )}
+
+      {adjustRawItem && (
+        <RawInventoryAdjustDialog
+          open
+          item={adjustRawItem}
+          onClose={() => setAdjustRawItem(null)}
+          onSave={(id, data) => updateRawMutation.mutate({ id, data })}
+          onDelete={(id) => deleteRawMutation.mutate(id)}
         />
       )}
     </div>
