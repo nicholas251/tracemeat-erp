@@ -9,16 +9,16 @@ import { Textarea } from "@/components/ui/textarea";
 export default function ProductionOrderFormDialog({ open, onClose, onSave, recipes, products }) {
   const [form, setForm] = useState({
     product_id: "",
-    recipe_id: "",
     quantity_to_produce: "",
     target_completion_date: "",
     notes: "",
   });
 
   const handleSave = () => {
-    if (!form.product_id || !form.recipe_id || !form.quantity_to_produce) return;
-    onSave(form);
-    setForm({ product_id: "", recipe_id: "", quantity_to_produce: "", target_completion_date: "", notes: "" });
+    const product = products.find(p => p.id === form.product_id);
+    if (!form.product_id || !product?.recipe_id || !form.quantity_to_produce) return;
+    onSave({ ...form, recipe_id: product.recipe_id });
+    setForm({ product_id: "", quantity_to_produce: "", target_completion_date: "", notes: "" });
   };
 
   return (
@@ -29,7 +29,7 @@ export default function ProductionOrderFormDialog({ open, onClose, onSave, recip
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label>Product</Label>
+            <Label>Product *</Label>
             <Select value={form.product_id} onValueChange={v => setForm({ ...form, product_id: v })}>
               <SelectTrigger>
                 <SelectValue placeholder="Select product" />
@@ -40,17 +40,14 @@ export default function ProductionOrderFormDialog({ open, onClose, onSave, recip
             </Select>
           </div>
 
-          <div className="space-y-2">
-            <Label>Recipe</Label>
-            <Select value={form.recipe_id} onValueChange={v => setForm({ ...form, recipe_id: v })}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select recipe" />
-              </SelectTrigger>
-              <SelectContent>
-                {recipes.map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
+          {form.product_id && (
+            <div className="space-y-2">
+              <Label>Recipe</Label>
+              <div className="px-3 py-2 border rounded-md bg-muted text-sm">
+                {products.find(p => p.id === form.product_id)?.recipe_name || "No recipe assigned"}
+              </div>
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label>Quantity to Produce (lbs)</Label>
