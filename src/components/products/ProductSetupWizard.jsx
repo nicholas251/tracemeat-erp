@@ -358,26 +358,62 @@ export default function ProductSetupWizard({ open, onClose, onSave }) {
           {/* CHOPPING */}
           {currentStep.id === "chopping" && (
             <div className="space-y-4">
-              <p className="text-sm text-muted-foreground">The chopping step combines the protein blend with a spice mix to create the filling. Assign the default spice blend for this product.</p>
+              <p className="text-sm text-muted-foreground">The chopping step combines the protein blend with a spice mix to create the filling. Select which spice mix this product uses.</p>
               <div className="space-y-1.5">
                 <Label>Default Spice Mix</Label>
                 <Select value={form.chop_spice_mix_id} onValueChange={handleSelectSpiceMix}>
                   <SelectTrigger><SelectValue placeholder="Select spice mix..." /></SelectTrigger>
                   <SelectContent>
-                    {spiceMixes.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
+                    {spiceMixes.map(m => (
+                      <SelectItem key={m.id} value={m.id}>
+                        {m.name} {m.quantity_lbs ? `— ${m.quantity_lbs} lb batch` : ""}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
                 {spiceMixes.length === 0 && (
                   <p className="text-xs text-amber-600">No active spice mixes found. You can set this later or create spice mixes under the Spice Mixes page.</p>
                 )}
               </div>
-              {form.chop_spice_mix_id && (
-                <div className="space-y-1.5">
-                  <Label>How much spice mix is used per chopping batch? (lbs)</Label>
-                  <Input type="number" step="0.1" value={form.chop_spice_qty_lbs} onChange={e => up("chop_spice_qty_lbs", e.target.value)} placeholder="e.g. 12.5" />
-                  <p className="text-xs text-muted-foreground">The amount of pre-made spice mix consumed each time a chopping batch is run for this product — not the spice mix recipe size.</p>
-                </div>
-              )}
+
+              {form.chop_spice_mix_id && (() => {
+                const selectedMix = spiceMixes.find(m => m.id === form.chop_spice_mix_id);
+                return (
+                  <div className="space-y-3">
+                    {selectedMix && (
+                      <div className="bg-muted/40 rounded-lg p-3 text-xs space-y-1">
+                        <p className="font-semibold text-foreground">{selectedMix.name}</p>
+                        <p className="text-muted-foreground">
+                          Recipe batch size: <span className="font-medium text-foreground">{selectedMix.quantity_lbs} lbs</span>
+                          {selectedMix.available_qty_lbs != null && (
+                            <> &nbsp;·&nbsp; Currently available: <span className="font-medium text-foreground">{selectedMix.available_qty_lbs} lbs</span></>
+                          )}
+                        </p>
+                        {selectedMix.ingredients?.length > 0 && (
+                          <p className="text-muted-foreground">Ingredients: {selectedMix.ingredients.map(i => i.bucket_name).join(", ")}</p>
+                        )}
+                      </div>
+                    )}
+                    <div className="space-y-1.5">
+                      <Label>Amount of spice mix used per chopping batch (lbs)</Label>
+                      <Input
+                        type="number"
+                        step="0.1"
+                        value={form.chop_spice_qty_lbs}
+                        onChange={e => up("chop_spice_qty_lbs", e.target.value)}
+                        placeholder="e.g. 12.5"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        How many lbs of <strong>{selectedMix?.name}</strong> are added each time a chopping batch runs for this product.
+                        {selectedMix?.quantity_lbs && form.chop_spice_qty_lbs && (
+                          <> &nbsp;({(Number(form.chop_spice_qty_lbs) / selectedMix.quantity_lbs * 100).toFixed(0)}% of one spice batch per chopping batch)</>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })()}
+
               <div className="bg-blue-50 rounded-lg p-3 text-xs text-blue-700">
                 The protein batch from blending will be combined with this spice mix during chopping to produce filling batches.
               </div>
