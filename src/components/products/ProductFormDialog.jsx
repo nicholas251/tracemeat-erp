@@ -43,17 +43,13 @@ export default function ProductFormDialog({ open, onClose, onSave, product }) {
     recipe_consumption_per_case_lbs: "", process_id: "", process_name: "", finished_product_unit: "lbs"
   });
   const [recipes, setRecipes] = useState([]);
-  const [processes, setProcesses] = useState([]);
   const [recipeMode, setRecipeMode] = useState("select");
-  const [processMode, setProcessMode] = useState("select");
   const [newRecipe, setNewRecipe] = useState({ name: "", yield_lbs: "", ingredients: [] });
-  const [newProcess, setNewProcess] = useState({ name: "", description: "", steps: [] });
   const [selectedRecipe, setSelectedRecipe] = useState(null);
 
   useEffect(() => {
     if (open) {
       base44.entities.Recipe.list().then(setRecipes);
-      base44.entities.ProductionProcess.list().then(setProcesses);
     }
   }, [open]);
 
@@ -103,19 +99,7 @@ export default function ProductFormDialog({ open, onClose, onSave, product }) {
     update("recipe_name", recipe?.name || "");
   };
 
-  const handleCreateProcess = async () => {
-    if (!newProcess.name) return;
-    const created = await base44.entities.ProductionProcess.create({
-      name: newProcess.name,
-      description: newProcess.description,
-      steps: newProcess.steps || []
-    });
-    setProcesses(prev => [...prev, created]);
-    update("process_id", created.id);
-    update("process_name", created.name);
-    setProcessMode("select");
-    setNewProcess({ name: "", description: "", steps: [] });
-  };
+
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -209,44 +193,7 @@ export default function ProductFormDialog({ open, onClose, onSave, product }) {
             <Label>Description</Label>
             <Textarea value={form.description} onChange={e => update("description", e.target.value)} placeholder="Product specs and notes..." rows={3} />
           </div>
-          <div className="space-y-2 md:col-span-2">
-            <Label>Production Process</Label>
-            <Tabs value={processMode} onValueChange={setProcessMode}>
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="select">Select Existing</TabsTrigger>
-                <TabsTrigger value="create">Create New</TabsTrigger>
-              </TabsList>
-              <TabsContent value="select" className="space-y-2 mt-2">
-                <Select value={form.process_id || ""} onValueChange={(val) => {
-                  const proc = processes.find(p => p.id === val);
-                  update("process_id", val);
-                  update("process_name", proc?.name || "");
-                }}>
-                  <SelectTrigger><SelectValue placeholder={processes.length === 0 ? "No processes available" : "Select a process..."} /></SelectTrigger>
-                  <SelectContent>
-                    {processes.length === 0 ? (
-                      <div className="p-2 text-sm text-muted-foreground">No processes yet. Create one to get started.</div>
-                    ) : (
-                      processes.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)
-                    )}
-                  </SelectContent>
-                </Select>
-              </TabsContent>
-              <TabsContent value="create" className="space-y-3 mt-2">
-                <div className="space-y-2">
-                  <Label className="text-sm">Process Name *</Label>
-                  <Input value={newProcess.name} onChange={e => setNewProcess(prev => ({ ...prev, name: e.target.value }))} placeholder="e.g. Standard Link & Cook Sausage" />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-sm">Description</Label>
-                  <Textarea value={newProcess.description} onChange={e => setNewProcess(prev => ({ ...prev, description: e.target.value }))} placeholder="Process overview and notes..." rows={2} />
-                </div>
-                <Button type="button" onClick={handleCreateProcess} className="w-full" size="sm" disabled={!newProcess.name}>
-                  Create Process
-                </Button>
-              </TabsContent>
-            </Tabs>
-          </div>
+
           <div className="space-y-2 md:col-span-2">
             <Label>Recipe *</Label>
             <Tabs value={recipeMode} onValueChange={setRecipeMode}>
