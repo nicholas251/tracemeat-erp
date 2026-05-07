@@ -8,6 +8,7 @@ import PageHeader from "@/components/shared/PageHeader";
 import StatusBadge from "@/components/shared/StatusBadge";
 import ProductFormDialog from "@/components/products/ProductFormDialog";
 import ProductSetupWizard from "@/components/products/ProductSetupWizard";
+import RecipeFormDialog from "@/components/recipes/RecipeFormDialog";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
@@ -18,11 +19,17 @@ export default function Products() {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
   const [deleting, setDeleting] = useState(null);
+  const [editingRecipe, setEditingRecipe] = useState(null);
   const queryClient = useQueryClient();
 
   const { data: products = [], isLoading } = useQuery({
     queryKey: ["products"],
     queryFn: () => base44.entities.Product.list("-created_date"),
+  });
+
+  const { data: recipes = [] } = useQuery({
+    queryKey: ["recipes"],
+    queryFn: () => base44.entities.Recipe.list(),
   });
 
   const createMutation = useMutation({
@@ -38,6 +45,15 @@ export default function Products() {
   const deleteMutation = useMutation({
     mutationFn: (id) => base44.entities.Product.delete(id),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["products"] }); setDeleting(null); },
+  });
+
+  const updateRecipeMutation = useMutation({
+    mutationFn: (data) => base44.entities.Recipe.update(editingRecipe.id, data),
+    onSuccess: () => { 
+      queryClient.invalidateQueries({ queryKey: ["recipes"] });
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+      setEditingRecipe(null); 
+    },
   });
 
   return (
@@ -85,6 +101,11 @@ export default function Products() {
                   <Button size="sm" variant="outline" onClick={() => setEditing(product)}>
                     <Pencil className="w-3.5 h-3.5 mr-1" /> Edit
                   </Button>
+                  {product.recipe_id && (
+                    <Button size="sm" variant="outline" onClick={() => setEditingRecipe(recipes.find(r => r.id === product.recipe_id))}>
+                      <Pencil className="w-3.5 h-3.5 mr-1" /> Recipe
+                    </Button>
+                  )}
                   <Button size="sm" variant="ghost" className="text-destructive" onClick={() => setDeleting(product)}>
                     <Trash2 className="w-3.5 h-3.5" />
                   </Button>
@@ -108,6 +129,15 @@ export default function Products() {
       )}
       {editing && (
         <ProductFormDialog open product={editing} onClose={() => setEditing(null)} onSave={(data) => updateMutation.mutate({ id: editing.id, data })} />
+      )}
+      {editingRecipe && (
+        <RecipeFormDialog 
+          open 
+          recipe={editingRecipe} 
+          products={products}
+          onClose={() => setEditingRecipe(null)} 
+          onSave={(data) => updateRecipeMutation.mutate(data)} 
+        />
       )}
 
       <AlertDialog open={!!deleting} onOpenChange={() => setDeleting(null)}>
