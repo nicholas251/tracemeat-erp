@@ -1,0 +1,50 @@
+{
+  "name": "WorkProfile",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Profile name (e.g. 'Smokehouse Operator', 'Linker', 'Packager')"
+    },
+    "description": {
+      "type": "string"
+    },
+    "capability_keys": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "List of capability keys this profile can work"
+    },
+    "assigned_user_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "User IDs assigned to this profile"
+    },
+    "assigned_user_names": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "User names for display"
+    },
+    "color": {
+      "type": "string",
+      "description": "UI color for this profile (hex)"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "inactive"
+      ],
+      "default": "active"
+    }
+  },
+  "required": [
+    "name",
+    "capability_keys"
+  ]
+}

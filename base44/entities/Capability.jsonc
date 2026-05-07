@@ -1,0 +1,91 @@
+{
+  "name": "Capability",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Capability name (e.g. 'Blending', 'Chopping')"
+    },
+    "key": {
+      "type": "string",
+      "description": "Unique machine-readable key (e.g. 'blending', 'chopping')"
+    },
+    "description": {
+      "type": "string"
+    },
+    "icon": {
+      "type": "string",
+      "description": "Lucide icon name for UI"
+    },
+    "consumes": {
+      "type": "string",
+      "enum": [
+        "raw_buckets",
+        "protein_batch",
+        "filling_batches",
+        "racked_units",
+        "cooked_product",
+        "chilled_product",
+        "none"
+      ],
+      "description": "What input this step takes"
+    },
+    "produces": {
+      "type": "string",
+      "enum": [
+        "protein_batch",
+        "filling_batches",
+        "cooking_batches",
+        "racked_units",
+        "cooked_product",
+        "chilled_product",
+        "finished_goods"
+      ],
+      "description": "What output this step creates"
+    },
+    "allows_merge": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether this step can merge multiple input batches"
+    },
+    "tracks_racks": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether this step tracks rack counts"
+    },
+    "tracks_spice_mix": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether this step consumes a spice mix"
+    },
+    "tracks_temp": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether this step records temperature"
+    },
+    "tracks_time": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether this step records duration"
+    },
+    "tracks_weight": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether this step records output weight"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "inactive"
+      ],
+      "default": "active"
+    }
+  },
+  "required": [
+    "name",
+    "key",
+    "consumes",
+    "produces"
+  ]
+}

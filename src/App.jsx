@@ -21,6 +21,10 @@ import ProductionOrders from './pages/ProductionOrders';
 import SpiceMixes from './pages/SpiceMixes';
 import RawInventory from './pages/RawInventory';
 import Suppliers from './pages/Suppliers';
+import FlowBuilder from './pages/FlowBuilder';
+import WorkProfiles from './pages/WorkProfiles';
+import FloorView from './pages/FloorView';
+import MyJobs from './pages/MyJobs';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -64,6 +68,10 @@ const AuthenticatedApp = () => {
         <Route path="/spice-mixes" element={<SpiceMixes />} />
         <Route path="/raw-inventory" element={<RawInventory />} />
         <Route path="/suppliers" element={<Suppliers />} />
+        <Route path="/flow-builder" element={<FlowBuilder />} />
+        <Route path="/work-profiles" element={<WorkProfiles />} />
+        <Route path="/floor-view" element={<FloorView />} />
+        <Route path="/my-jobs" element={<MyJobs />} />
       </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>

@@ -15,7 +15,11 @@ import {
   ChevronLeft,
   ChevronRight,
   Spline,
-  Building2
+  Building2,
+  Workflow,
+  Users,
+  Monitor,
+  Briefcase
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -27,15 +31,17 @@ const navItems = [
   { path: "/receiving", label: "Receiving", icon: Truck },
   { path: "/products", label: "Products", icon: Package },
   { path: "/recipes", label: "Recipes", icon: UtensilsCrossed },
-  { path: "/flows", label: "Production Flows", icon: GitBranch },
-  { path: "/batches", label: "Batches", icon: Factory },
+  { path: "/spice-mixes", label: "Spice Mixes", icon: Spline },
+  { path: "/flow-builder", label: "Flow Builder", icon: Workflow },
+  { path: "/work-profiles", label: "Work Profiles", icon: Users },
+  { path: "/production-orders", label: "Production Orders", icon: Factory },
+  { path: "/floor-view", label: "Floor View", icon: Monitor },
+  { path: "/my-jobs", label: "My Jobs", icon: Briefcase },
   { path: "/hold-release", label: "Hold & Release", icon: ShieldAlert },
   { path: "/traceability", label: "Traceability", icon: Search },
   { path: "/raw-materials", label: "Raw Materials", icon: Warehouse },
   { path: "/raw-inventory", label: "Raw Inventory", icon: Boxes },
   { path: "/inventory", label: "Finished Goods", icon: Boxes },
-  { path: "/production-orders", label: "Production Orders", icon: Factory },
-  { path: "/spice-mixes", label: "Spice Mixes", icon: Spline },
 ];
 
 export default function Sidebar({ collapsed, onToggle }) {

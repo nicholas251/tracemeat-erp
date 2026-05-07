@@ -1,0 +1,133 @@
+{
+  "name": "ProductionStage",
+  "type": "object",
+  "properties": {
+    "order_id": {
+      "type": "string",
+      "description": "Parent ProductionOrder ID"
+    },
+    "order_number": {
+      "type": "string"
+    },
+    "product_name": {
+      "type": "string"
+    },
+    "step_number": {
+      "type": "number"
+    },
+    "capability_id": {
+      "type": "string"
+    },
+    "capability_key": {
+      "type": "string"
+    },
+    "capability_name": {
+      "type": "string"
+    },
+    "work_profile_id": {
+      "type": "string"
+    },
+    "work_profile_name": {
+      "type": "string"
+    },
+    "assigned_user_id": {
+      "type": "string"
+    },
+    "assigned_user_name": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "locked",
+        "available",
+        "in_progress",
+        "completed",
+        "on_hold"
+      ],
+      "default": "locked",
+      "description": "locked = prior step not done; available = ready to start"
+    },
+    "started_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "completed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "input_qty_lbs": {
+      "type": "number",
+      "description": "Quantity received from prior stage"
+    },
+    "output_qty_lbs": {
+      "type": "number",
+      "description": "Quantity passed to next stage"
+    },
+    "spice_mix_id": {
+      "type": "string"
+    },
+    "spice_mix_name": {
+      "type": "string"
+    },
+    "spice_mix_qty_lbs": {
+      "type": "number"
+    },
+    "temperature_c": {
+      "type": "number"
+    },
+    "duration_minutes": {
+      "type": "number"
+    },
+    "racks_count": {
+      "type": "number"
+    },
+    "sub_batches": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "sub_batch_id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string",
+            "description": "e.g. 'Filling Batch #1'"
+          },
+          "qty_lbs": {
+            "type": "number"
+          },
+          "merged_from": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Sub-batch IDs merged into this one"
+          },
+          "racks": {
+            "type": "number"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "merged",
+              "completed"
+            ]
+          }
+        }
+      }
+    },
+    "notes": {
+      "type": "string"
+    },
+    "quality_check_passed": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "order_id",
+    "step_number",
+    "capability_key"
+  ]
+}
