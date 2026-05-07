@@ -58,12 +58,16 @@ export default function SpiceMixFormDialog({ open, onClose, onSave, mix }) {
     setNewIngredient({ ...newIngredient, bucket_id: bucketId, bucket_name: bucket?.name || "" });
   };
 
+  // Auto-calculate total from ingredients
+  const totalFromIngredients = (form.ingredients || []).reduce((sum, i) => sum + Number(i.quantity_lbs || 0), 0);
+
   const handleSave = () => {
-    if (!form.name || !form.quantity_lbs) return;
+    if (!form.name) return;
+    const total = totalFromIngredients || Number(form.quantity_lbs) || 0;
     onSave({
       ...form,
-      quantity_lbs: Number(form.quantity_lbs),
-      available_qty_lbs: mix ? Number(form.available_qty_lbs) : Number(form.quantity_lbs),
+      quantity_lbs: total,
+      available_qty_lbs: mix ? Number(form.available_qty_lbs) : total,
       date_created: mix?.date_created || new Date().toISOString().split('T')[0],
     });
   };
@@ -87,13 +91,9 @@ export default function SpiceMixFormDialog({ open, onClose, onSave, mix }) {
 
           <div className="space-y-2">
             <Label>Batch Quantity (lbs)</Label>
-            <Input
-              type="number"
-              step="0.1"
-              value={form.quantity_lbs}
-              onChange={e => setForm({ ...form, quantity_lbs: e.target.value })}
-              placeholder="50"
-            />
+            <div className="flex h-9 w-full items-center rounded-md border border-input bg-muted px-3 py-1 text-sm text-muted-foreground">
+              {totalFromIngredients > 0 ? `${totalFromIngredients} lbs (auto-calculated from ingredients)` : "Add ingredients below to auto-calculate"}
+            </div>
           </div>
 
           {mix && (
