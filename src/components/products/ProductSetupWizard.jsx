@@ -472,8 +472,8 @@ export default function ProductSetupWizard({ open, onClose, onSave }) {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <Label>Target Internal Temp (°C)</Label>
-                  <Input type="number" value={form.smokehouse_target_temp_c} onChange={e => up("smokehouse_target_temp_c", e.target.value)} placeholder="e.g. 71" />
+                  <Label>Target Internal Temp (°F)</Label>
+                  <Input type="number" value={form.smokehouse_target_temp_c} onChange={e => up("smokehouse_target_temp_c", e.target.value)} placeholder="e.g. 160" />
                 </div>
                 <div className="space-y-1.5">
                   <Label>Expected Duration (min)</Label>
@@ -488,8 +488,8 @@ export default function ProductSetupWizard({ open, onClose, onSave }) {
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">Chilling parameters are standardised across all products. Confirm the target chilling temperature for this product.</p>
               <div className="space-y-1.5">
-                <Label>Target Chill Temp (°C)</Label>
-                <Input type="number" value={form.storage_temp_c} onChange={e => up("storage_temp_c", e.target.value)} placeholder="e.g. 2" />
+                <Label>Target Chill Temp (°F)</Label>
+                <Input type="number" value={form.storage_temp_c} onChange={e => up("storage_temp_c", e.target.value)} placeholder="e.g. 36" />
               </div>
               <div className="bg-blue-50 rounded-lg p-3 text-xs text-blue-700">
                 The product will be chilled to this temperature before packaging. This value also becomes the product's storage temperature.
