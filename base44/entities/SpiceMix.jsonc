@@ -11,8 +11,13 @@
       "items": {
         "type": "object",
         "properties": {
-          "name": {
-            "type": "string"
+          "bucket_id": {
+            "type": "string",
+            "description": "InventoryBucket ID"
+          },
+          "bucket_name": {
+            "type": "string",
+            "description": "Bucket name for display"
           },
           "quantity_lbs": {
             "type": "number",
@@ -20,7 +25,7 @@
           }
         }
       },
-      "description": "List of spices and their quantities per batch"
+      "description": "List of spice/seasoning buckets and their quantities per batch"
     },
     "quantity_lbs": {
       "type": "number",

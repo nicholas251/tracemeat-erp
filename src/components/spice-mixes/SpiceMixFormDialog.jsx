@@ -1,4 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { base44 } from "@/api/base44Client";
+import { useQuery } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,10 +8,10 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
-import { X } from "lucide-react";
+import { X, Plus } from "lucide-react";
 
 export default function SpiceMixFormDialog({ open, onClose, onSave, mix }) {
-  const [form, setForm] = useState(mix || {
+  const [form, setForm] = useState({
     name: "",
     quantity_lbs: "",
     available_qty_lbs: "",
@@ -18,22 +20,42 @@ export default function SpiceMixFormDialog({ open, onClose, onSave, mix }) {
     notes: "",
   });
 
-  const [newIngredient, setNewIngredient] = useState({ name: "", quantity_lbs: "" });
+  const [newIngredient, setNewIngredient] = useState({ bucket_id: "", bucket_name: "", quantity_lbs: "" });
+
+  useEffect(() => {
+    if (mix) {
+      setForm(mix);
+    } else {
+      setForm({ name: "", quantity_lbs: "", available_qty_lbs: "", status: "draft", ingredients: [], notes: "" });
+    }
+  }, [mix, open]);
+
+  const { data: buckets = [] } = useQuery({
+    queryKey: ["spice_buckets"],
+    queryFn: () => base44.entities.InventoryBucket.filter({ status: "active", category: "spice" }),
+    enabled: open,
+  });
 
   const handleAddIngredient = () => {
-    if (!newIngredient.name || !newIngredient.quantity_lbs) return;
+    if (!newIngredient.bucket_id || !newIngredient.quantity_lbs) return;
     setForm({
       ...form,
-      ingredients: [...(form.ingredients || []), { ...newIngredient, quantity_lbs: Number(newIngredient.quantity_lbs) }]
+      ingredients: [...(form.ingredients || []), {
+        bucket_id: newIngredient.bucket_id,
+        bucket_name: newIngredient.bucket_name,
+        quantity_lbs: Number(newIngredient.quantity_lbs)
+      }]
     });
-    setNewIngredient({ name: "", quantity_lbs: "" });
+    setNewIngredient({ bucket_id: "", bucket_name: "", quantity_lbs: "" });
   };
 
   const handleRemoveIngredient = (idx) => {
-    setForm({
-      ...form,
-      ingredients: form.ingredients.filter((_, i) => i !== idx)
-    });
+    setForm({ ...form, ingredients: form.ingredients.filter((_, i) => i !== idx) });
+  };
+
+  const handleBucketSelect = (bucketId) => {
+    const bucket = buckets.find(b => b.id === bucketId);
+    setNewIngredient({ ...newIngredient, bucket_id: bucketId, bucket_name: bucket?.name || "" });
   };
 
   const handleSave = () => {
@@ -41,10 +63,9 @@ export default function SpiceMixFormDialog({ open, onClose, onSave, mix }) {
     onSave({
       ...form,
       quantity_lbs: Number(form.quantity_lbs),
-      available_qty_lbs: mix ? form.available_qty_lbs : Number(form.quantity_lbs),
+      available_qty_lbs: mix ? Number(form.available_qty_lbs) : Number(form.quantity_lbs),
       date_created: mix?.date_created || new Date().toISOString().split('T')[0],
     });
-    setForm({ name: "", quantity_lbs: "", available_qty_lbs: "", status: "draft", ingredients: [], notes: "" });
   };
 
   return (
@@ -57,7 +78,7 @@ export default function SpiceMixFormDialog({ open, onClose, onSave, mix }) {
         <div className="space-y-4">
           <div className="space-y-2">
             <Label>Mix Name</Label>
-            <Input 
+            <Input
               value={form.name}
               onChange={e => setForm({ ...form, name: e.target.value })}
               placeholder="e.g., Classic Hot Dog Blend"
@@ -66,7 +87,7 @@ export default function SpiceMixFormDialog({ open, onClose, onSave, mix }) {
 
           <div className="space-y-2">
             <Label>Batch Quantity (lbs)</Label>
-            <Input 
+            <Input
               type="number"
               step="0.1"
               value={form.quantity_lbs}
@@ -78,7 +99,7 @@ export default function SpiceMixFormDialog({ open, onClose, onSave, mix }) {
           {mix && (
             <div className="space-y-2">
               <Label>Available Quantity (lbs)</Label>
-              <Input 
+              <Input
                 type="number"
                 step="0.1"
                 value={form.available_qty_lbs}
@@ -90,9 +111,7 @@ export default function SpiceMixFormDialog({ open, onClose, onSave, mix }) {
           <div className="space-y-2">
             <Label>Status</Label>
             <Select value={form.status} onValueChange={v => setForm({ ...form, status: v })}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
+              <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="draft">Draft</SelectItem>
                 <SelectItem value="active">Active</SelectItem>
@@ -102,19 +121,15 @@ export default function SpiceMixFormDialog({ open, onClose, onSave, mix }) {
           </div>
 
           <div className="space-y-3">
-            <Label>Ingredients</Label>
+            <Label>Ingredients (Spice Buckets)</Label>
             <div className="space-y-2">
               {form.ingredients?.map((ing, idx) => (
                 <Card key={idx} className="p-3 flex items-center justify-between">
                   <div className="text-sm">
-                    <p className="font-medium">{ing.name}</p>
+                    <p className="font-medium">{ing.bucket_name}</p>
                     <p className="text-muted-foreground">{ing.quantity_lbs} lbs</p>
                   </div>
-                  <Button 
-                    size="icon" 
-                    variant="ghost"
-                    onClick={() => handleRemoveIngredient(idx)}
-                  >
+                  <Button size="icon" variant="ghost" onClick={() => handleRemoveIngredient(idx)}>
                     <X className="w-4 h-4" />
                   </Button>
                 </Card>
@@ -122,28 +137,39 @@ export default function SpiceMixFormDialog({ open, onClose, onSave, mix }) {
             </div>
 
             <div className="space-y-2 pt-2 border-t">
-              <Label className="text-xs">Add Ingredient</Label>
-              <Input 
-                value={newIngredient.name}
-                onChange={e => setNewIngredient({ ...newIngredient, name: e.target.value })}
-                placeholder="Ingredient name"
-              />
-              <Input 
-                type="number"
-                step="0.1"
-                value={newIngredient.quantity_lbs}
-                onChange={e => setNewIngredient({ ...newIngredient, quantity_lbs: e.target.value })}
-                placeholder="Quantity (lbs)"
-              />
-              <Button size="sm" onClick={handleAddIngredient} variant="outline" className="w-full">
-                Add Ingredient
-              </Button>
+              <Label className="text-xs text-muted-foreground">Add Ingredient from Bucket</Label>
+              {buckets.length === 0 ? (
+                <p className="text-xs text-muted-foreground italic">No spice buckets found. Add spice buckets in Inventory first.</p>
+              ) : (
+                <>
+                  <Select value={newIngredient.bucket_id} onValueChange={handleBucketSelect}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select spice bucket..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {buckets.map(b => (
+                        <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    type="number"
+                    step="0.1"
+                    value={newIngredient.quantity_lbs}
+                    onChange={e => setNewIngredient({ ...newIngredient, quantity_lbs: e.target.value })}
+                    placeholder="Quantity (lbs)"
+                  />
+                  <Button size="sm" onClick={handleAddIngredient} variant="outline" className="w-full gap-1">
+                    <Plus className="w-3 h-3" /> Add Ingredient
+                  </Button>
+                </>
+              )}
             </div>
           </div>
 
           <div className="space-y-2">
             <Label>Notes</Label>
-            <Textarea 
+            <Textarea
               value={form.notes}
               onChange={e => setForm({ ...form, notes: e.target.value })}
               placeholder="Any special notes..."
