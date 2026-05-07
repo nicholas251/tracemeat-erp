@@ -31,12 +31,12 @@ export default function UserAssignmentDialog({ open, user, workProfiles, onClose
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md max-h-[80vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Assign Work Profiles</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-3 py-4">
+        <div className="space-y-3 py-4 flex-1 overflow-y-auto">
           <p className="text-sm text-muted-foreground">
             Assign {user?.full_name} to work profiles. They will see jobs for assigned capabilities.
           </p>
