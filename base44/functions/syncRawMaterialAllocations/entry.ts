@@ -31,14 +31,16 @@ Deno.serve(async (req) => {
       const recipe = recipes.find(r => r.id === order.recipe_id);
       if (!recipe || !recipe.ingredients) continue;
 
-      // Apply 95% yield: raw_needed = quantity_to_produce / 0.95
-      const rawNeeded = order.quantity_to_produce / 0.95;
+      // Use recipe yield_percent (e.g. 95 = 95%): raw_needed = quantity_to_produce / (yield_percent / 100)
+      const yieldFactor = (recipe.yield_percent || 95) / 100;
+      const rawNeeded = order.quantity_to_produce / yieldFactor;
 
-      // For each ingredient, calculate based on raw needed and recipe yield
+      // Each ingredient's quantity_lbs is per-batch input. Scale proportionally to rawNeeded.
+      const totalIngredientLbs = recipe.ingredients.reduce((sum, ing) => sum + (ing.quantity_lbs || 0), 0);
       for (const ingredient of recipe.ingredients) {
-        // ingredient.quantity_lbs is the amount per recipe batch (yield_lbs)
-        // Scale it to raw_needed
-        const ingredientNeeded = (ingredient.quantity_lbs / recipe.yield_lbs) * rawNeeded;
+        // What fraction of total input does this ingredient represent?
+        const ingredientFraction = totalIngredientLbs > 0 ? ingredient.quantity_lbs / totalIngredientLbs : 0;
+        const ingredientNeeded = ingredientFraction * rawNeeded;
 
         // Find matching raw material by bucket_id first, then by category
         let material = rawMaterials.find(m => m.id === ingredient.bucket_id);

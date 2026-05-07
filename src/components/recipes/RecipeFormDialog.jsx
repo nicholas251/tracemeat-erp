@@ -17,7 +17,7 @@ export default function RecipeFormDialog({ open, onClose, onSave, recipe, produc
     name: recipe.name,
     product_id: recipe.product_id,
     product_name: recipe.product_name,
-    yield_lbs: recipe.yield_lbs,
+    yield_percent: recipe.yield_percent ?? (recipe.yield_lbs || ""),
     ingredients: recipe.ingredients || [],
     status: recipe.status,
     notes: recipe.notes || "",
@@ -25,7 +25,7 @@ export default function RecipeFormDialog({ open, onClose, onSave, recipe, produc
     name: "",
     product_id: "",
     product_name: "",
-    yield_lbs: "",
+    yield_percent: "",
     ingredients: [],
     status: "draft",
     notes: "",
@@ -79,8 +79,12 @@ export default function RecipeFormDialog({ open, onClose, onSave, recipe, produc
   };
 
   const handleSave = () => {
-    if (!form.name || !form.product_id || !form.yield_lbs) {
-      alert("Recipe name, product, and yield are required");
+    if (!form.name || !form.product_id || !form.yield_percent) {
+      alert("Recipe name, product, and yield % are required");
+      return;
+    }
+    if (form.yield_percent <= 0 || form.yield_percent > 100) {
+      alert("Yield must be between 1 and 100");
       return;
     }
     if (!form.ingredients.every(ing => ing.bucket_id && ing.quantity_lbs > 0)) {
@@ -127,13 +131,21 @@ export default function RecipeFormDialog({ open, onClose, onSave, recipe, produc
               </Select>
             </div>
             <div>
-              <Label>Yield (lbs) *</Label>
-              <Input
-                type="number"
-                step="0.1"
-                value={form.yield_lbs}
-                onChange={e => setForm(prev => ({ ...prev, yield_lbs: parseFloat(e.target.value) || 0 }))}
-              />
+              <Label>Yield % *</Label>
+              <div className="relative">
+                <Input
+                  type="number"
+                  step="0.1"
+                  min="1"
+                  max="100"
+                  value={form.yield_percent}
+                  onChange={e => setForm(prev => ({ ...prev, yield_percent: parseFloat(e.target.value) || 0 }))}
+                  placeholder="e.g. 95"
+                  className="pr-8"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">%</span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">e.g. 95 means 1,000 lbs in → 950 lbs out</p>
             </div>
           </div>
 

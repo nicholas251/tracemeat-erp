@@ -14,9 +14,9 @@
       "type": "string",
       "description": "Finished product name"
     },
-    "yield_lbs": {
+    "yield_percent": {
       "type": "number",
-      "description": "Output quantity in lbs"
+      "description": "Yield as a percentage (e.g. 95 means 95% \u2014 1000 lbs in \u2192 950 lbs out)"
     },
     "ingredients": {
       "type": "array",
@@ -73,7 +73,7 @@
   "required": [
     "name",
     "product_id",
-    "yield_lbs",
+    "yield_percent",
     "ingredients"
   ]
 }
