@@ -373,8 +373,9 @@ export default function ProductSetupWizard({ open, onClose, onSave }) {
               </div>
               {form.chop_spice_mix_id && (
                 <div className="space-y-1.5">
-                  <Label>Spice Mix Quantity per Batch (lbs)</Label>
+                  <Label>How much spice mix is used per chopping batch? (lbs)</Label>
                   <Input type="number" step="0.1" value={form.chop_spice_qty_lbs} onChange={e => up("chop_spice_qty_lbs", e.target.value)} placeholder="e.g. 12.5" />
+                  <p className="text-xs text-muted-foreground">The amount of pre-made spice mix consumed each time a chopping batch is run for this product — not the spice mix recipe size.</p>
                 </div>
               )}
               <div className="bg-blue-50 rounded-lg p-3 text-xs text-blue-700">
