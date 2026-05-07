@@ -26,6 +26,7 @@ import WorkProfiles from './pages/WorkProfiles';
 import FloorView from './pages/FloorView';
 import MyWork from './pages/MyWork';
 import UserManagement from './pages/UserManagement';
+import ProfileCreation from './pages/ProfileCreation';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -75,6 +76,7 @@ const AuthenticatedApp = () => {
         <Route path="/my-work" element={<MyWork />} />
         <Route path="/user-management" element={<UserManagement />} />
       </Route>
+      <Route path="/signup" element={<ProfileCreation />} />
       <Route path="*" element={<PageNotFound />} />
     </Routes>
   );

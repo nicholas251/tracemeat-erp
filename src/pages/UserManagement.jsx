@@ -50,11 +50,25 @@ export default function UserManagement() {
     );
   };
 
+  const signupLink = `${window.location.origin}/signup`;
+
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText(signupLink);
+  };
+
   return (
     <div>
       <PageHeader 
         title="User Management" 
         subtitle="Manage user roles and work profile assignments"
+        actions={
+          <div className="flex items-center gap-2 bg-muted px-3 py-2 rounded-lg">
+            <code className="text-xs text-muted-foreground truncate max-w-xs">{signupLink}</code>
+            <Button size="sm" variant="ghost" onClick={copyToClipboard}>
+              Copy
+            </Button>
+          </div>
+        }
       />
 
       {isLoading ? (
