@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { base44 } from "@/api/base44Client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -25,7 +26,16 @@ export default function UserAssignmentDialog({ open, user, workProfiles, onClose
     );
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    // Check if any selected profile is a supervisor profile
+    const selectedProfiles = workProfiles.filter(p => selectedProfileIds.includes(p.id));
+    const isSupervisor = selectedProfiles.some(p => p.name?.toLowerCase().includes('supervisor'));
+    
+    // Update user role if supervisor profile assigned
+    if (isSupervisor && user.role !== 'supervisor') {
+      await base44.entities.User.update(user.id, { role: 'supervisor' });
+    }
+    
     onSave(selectedProfileIds);
   };
 
