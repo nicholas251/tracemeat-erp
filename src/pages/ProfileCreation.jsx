@@ -56,13 +56,18 @@ export default function ProfileCreation() {
         <Card className="w-full max-w-md">
           <CardContent className="p-8 text-center">
             <CheckCircle2 className="w-12 h-12 text-green-600 mx-auto mb-4" />
-            <h1 className="text-2xl font-bold mb-2">Request Submitted!</h1>
-            <p className="text-muted-foreground mb-6">
-              {selectedProfiles.length > 0 
-                ? "Your profile request has been submitted. An administrator will review your work profile requests shortly."
-                : "Your profile has been created. You can request work profiles anytime."}
+            <h1 className="text-2xl font-bold mb-2">Welcome!</h1>
+            <p className="text-muted-foreground mb-2">
+              Your profile has been created successfully.
             </p>
-            <Button onClick={() => setSuccess(false)}>Create Another Profile</Button>
+            <p className="text-sm text-muted-foreground">
+              {selectedProfiles.length > 0
+                ? "An administrator will review your work profile requests and assign you access shortly. You'll receive a notification once approved."
+                : "You're waiting for an administrator to assign you work profiles and grant access to the system."}
+            </p>
+            <div className="mt-8 p-4 bg-muted/50 rounded-lg">
+              <p className="text-xs text-muted-foreground">⏳ Pending Admin Review</p>
+            </div>
           </CardContent>
         </Card>
       </div>
