@@ -77,12 +77,29 @@ export default function SpiceMixFormDialog({ open, onClose, onSave, mix }) {
     setForm({ ...form, ingredients: form.ingredients.filter((_, i) => i !== idx) });
   };
 
+  // Compute how many full batches can be made from current inventory
+  const maxBatchesFromInventory = () => {
+    if (!form.ingredients?.length || !form.quantity_lbs) return 0;
+    let minBatches = Infinity;
+    for (const ing of form.ingredients) {
+      const avail = availableByBucket[ing.bucket_id] || 0;
+      if (ing.quantity_lbs <= 0) continue;
+      const batches = avail / ing.quantity_lbs;
+      if (batches < minBatches) minBatches = batches;
+    }
+    return minBatches === Infinity ? 0 : minBatches;
+  };
+
+  const maxBatches = maxBatchesFromInventory();
+  const maxProducibleLbs = maxBatches * (Number(form.quantity_lbs) || 0);
+
   const handleSave = () => {
     if (!form.name || !form.quantity_lbs) return;
     onSave({
       ...form,
       quantity_lbs: Number(form.quantity_lbs),
-      available_qty_lbs: mix ? Number(form.available_qty_lbs) : Number(form.quantity_lbs),
+      // On create: always start at 0 — availability only increases when a batch is produced
+      available_qty_lbs: mix ? Number(form.available_qty_lbs) : 0,
       date_created: mix?.date_created || new Date().toISOString().split('T')[0],
     });
   };
@@ -233,6 +250,20 @@ export default function SpiceMixFormDialog({ open, onClose, onSave, mix }) {
               )}
             </div>
           </div>
+
+          {/* Inventory availability summary */}
+          {!mix && form.ingredients?.length > 0 && form.quantity_lbs && (
+            <div className={`rounded-md border p-3 text-sm ${maxBatches >= 1 ? "bg-green-50 border-green-200" : "bg-amber-50 border-amber-200"}`}>
+              <p className="font-medium">
+                {maxBatches >= 1
+                  ? `✓ Inventory can produce ~${maxBatches.toFixed(1)} batches (${maxProducibleLbs.toFixed(1)} lbs)`
+                  : "⚠ Not enough inventory to produce even 1 batch"}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Availability is set to 0 until you produce a batch via the Produce button.
+              </p>
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label>Notes</Label>
