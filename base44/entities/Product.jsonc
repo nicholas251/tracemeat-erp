@@ -39,6 +39,14 @@
       "type": "string",
       "description": "Recipe name for display"
     },
+    "flow_id": {
+      "type": "string",
+      "description": "Linked ProductFlow ID"
+    },
+    "flow_name": {
+      "type": "string",
+      "description": "ProductFlow name for display"
+    },
     "process_id": {
       "type": "string",
       "description": "Linked ProductionProcess template ID"
@@ -57,7 +65,7 @@
     },
     "case_weight_lbs": {
       "type": "number",
-      "description": "Total weight per case in pounds (auto-calculated or manual)"
+      "description": "Total weight per case in pounds"
     },
     "recipe_consumption_per_case_lbs": {
       "type": "number",
@@ -73,6 +81,68 @@
       ],
       "default": "lbs",
       "description": "Unit of measurement for finished product"
+    },
+    "blend_batch_lbs": {
+      "type": "number",
+      "description": "Total protein batch size in lbs (blending step)"
+    },
+    "blend_ingredients": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "bucket_id": {
+            "type": "string"
+          },
+          "bucket_name": {
+            "type": "string"
+          },
+          "quantity_lbs": {
+            "type": "number"
+          },
+          "category": {
+            "type": "string"
+          }
+        }
+      },
+      "description": "Protein buckets and quantities for the blending step"
+    },
+    "chop_spice_mix_id": {
+      "type": "string",
+      "description": "Default spice mix for chopping step"
+    },
+    "chop_spice_mix_name": {
+      "type": "string"
+    },
+    "chop_spice_qty_lbs": {
+      "type": "number",
+      "description": "Spice mix quantity per chopping batch (lbs)"
+    },
+    "link_merge_batches": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether linking merges blending batches"
+    },
+    "link_merge_ratio": {
+      "type": "number",
+      "description": "How many blending batches merge into 1 cook batch"
+    },
+    "smokehouse_cook_method": {
+      "type": "string",
+      "enum": [
+        "steam",
+        "dry_heat",
+        "steam_and_dry_heat"
+      ],
+      "description": "Smokehouse cooking method"
+    },
+    "smokehouse_target_temp_c": {
+      "type": "number",
+      "description": "Smokehouse target internal temperature (\u00b0C)"
+    },
+    "smokehouse_duration_minutes": {
+      "type": "number",
+      "description": "Expected smokehouse duration (minutes)"
     },
     "ingredients": {
       "type": "array",
@@ -137,7 +207,6 @@
     "name",
     "product_number",
     "sku",
-    "category",
-    "recipe_id"
+    "category"
   ]
 }

@@ -7,6 +7,7 @@ import { Plus, Package, Pencil, Trash2 } from "lucide-react";
 import PageHeader from "@/components/shared/PageHeader";
 import StatusBadge from "@/components/shared/StatusBadge";
 import ProductFormDialog from "@/components/products/ProductFormDialog";
+import ProductSetupWizard from "@/components/products/ProductSetupWizard";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
@@ -26,7 +27,7 @@ export default function Products() {
 
   const createMutation = useMutation({
     mutationFn: (data) => base44.entities.Product.create(data),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["products"] }); setShowForm(false); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["products"] }); },
   });
 
   const updateMutation = useMutation({
@@ -76,8 +77,9 @@ export default function Products() {
                 </div>
                 <div className="space-y-1.5 text-sm text-muted-foreground mb-4">
                   <p className="capitalize">{(product.category || "").replace(/_/g, " ")}</p>
-                  {product.weight_kg && <p>{product.weight_kg} kg · {(product.packaging_type || "").replace(/_/g, " ")}</p>}
-                  {product.shelf_life_days && <p>{product.shelf_life_days} day shelf life · {product.storage_temp_c}°C</p>}
+                  {product.packaging_type && <p className="capitalize">{(product.packaging_type || "").replace(/_/g, " ")}{product.package_size ? ` · ${product.package_size} lbs/pack` : ""}</p>}
+                  {product.shelf_life_days && <p>{product.shelf_life_days} day shelf life</p>}
+                  {product.flow_name && <p className="text-xs text-primary font-medium">Flow: {product.flow_name}</p>}
                 </div>
                 <div className="flex gap-2">
                   <Button size="sm" variant="outline" onClick={() => setEditing(product)}>
@@ -94,7 +96,15 @@ export default function Products() {
       )}
 
       {showForm && (
-        <ProductFormDialog open onClose={() => setShowForm(false)} onSave={(data) => createMutation.mutate(data)} />
+        <ProductSetupWizard
+          open
+          onClose={() => setShowForm(false)}
+          onSave={async (data) => {
+            const saved = await createMutation.mutateAsync(data);
+            setShowForm(false);
+            return saved;
+          }}
+        />
       )}
       {editing && (
         <ProductFormDialog open product={editing} onClose={() => setEditing(null)} onSave={(data) => updateMutation.mutate({ id: editing.id, data })} />
