@@ -55,6 +55,7 @@ const EMPTY = {
   package_size: "", package_size_oz: "", packages_per_case: "", packaging_type: "vacuum_sealed",
   finished_product_unit: "lbs", shelf_life_days: "", storage_temp_c: "",
   package_size_unit: "lbs",
+  is_hotdog: false, hotdog_family: "", hotdog_length: "",
 };
 
 export default function ProductSetupWizard({ open, onClose, onSave }) {
@@ -176,6 +177,9 @@ export default function ProductSetupWizard({ open, onClose, onSave }) {
       chop_spice_qty_lbs: form.chop_spice_qty_lbs ? Number(form.chop_spice_qty_lbs) : undefined,
       chop_water_lbs: form.chop_water_lbs ? Number(form.chop_water_lbs) : undefined,
       chop_cure_lbs: form.chop_cure_lbs ? Number(form.chop_cure_lbs) : undefined,
+      is_hotdog: form.is_hotdog,
+      hotdog_family: form.hotdog_family || undefined,
+      hotdog_length: form.hotdog_length || undefined,
       link_merge_ratio: form.link_merge_ratio ? Number(form.link_merge_ratio) : undefined,
       smokehouse_target_temp_c: form.smokehouse_target_temp_c ? Number(form.smokehouse_target_temp_c) : undefined,
       smokehouse_duration_minutes: form.smokehouse_duration_minutes ? Number(form.smokehouse_duration_minutes) : undefined,
@@ -264,18 +268,61 @@ export default function ProductSetupWizard({ open, onClose, onSave }) {
                   </Select>
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Status</Label>
-                  <Select value={form.status} onValueChange={v => up("status", v)}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="draft">Draft</SelectItem>
-                      <SelectItem value="active">Active</SelectItem>
-                    </SelectContent>
-                  </Select>
+                   <Label>Status</Label>
+                   <Select value={form.status} onValueChange={v => up("status", v)}>
+                     <SelectTrigger><SelectValue /></SelectTrigger>
+                     <SelectContent>
+                       <SelectItem value="draft">Draft</SelectItem>
+                       <SelectItem value="active">Active</SelectItem>
+                     </SelectContent>
+                   </Select>
+                 </div>
                 </div>
-              </div>
-            </div>
-          )}
+
+                <div className="flex items-center gap-3 p-3 bg-secondary/50 rounded-md">
+                 <input
+                   type="checkbox"
+                   id="is_hotdog"
+                   checked={form.is_hotdog}
+                   onChange={e => up("is_hotdog", e.target.checked)}
+                   className="w-4 h-4"
+                 />
+                 <Label htmlFor="is_hotdog" className="mb-0 cursor-pointer">This is a hotdog product</Label>
+                </div>
+
+                {form.is_hotdog && (
+                 <div className="grid grid-cols-2 gap-3">
+                   <div className="space-y-1.5">
+                     <Label>Hotdog Family</Label>
+                     <Select value={form.hotdog_family} onValueChange={v => up("hotdog_family", v)}>
+                       <SelectTrigger><SelectValue placeholder="Select family..." /></SelectTrigger>
+                       <SelectContent>
+                         <SelectItem value="Mucke">Mucke</SelectItem>
+                         <SelectItem value="Grote & Weigel">Grote & Weigel</SelectItem>
+                       </SelectContent>
+                     </Select>
+                   </div>
+
+                   <div className="space-y-1.5">
+                     <Label>Hotdog Length</Label>
+                     <Select value={form.hotdog_length} onValueChange={v => up("hotdog_length", v)}>
+                       <SelectTrigger><SelectValue placeholder="Select length..." /></SelectTrigger>
+                       <SelectContent>
+                         <SelectItem value="5">5"</SelectItem>
+                         <SelectItem value="6">6"</SelectItem>
+                         <SelectItem value="7">7"</SelectItem>
+                         <SelectItem value="8">8"</SelectItem>
+                         <SelectItem value="9">9"</SelectItem>
+                         <SelectItem value="10">10"</SelectItem>
+                         <SelectItem value="16">16"</SelectItem>
+                         <SelectItem value="24">24"</SelectItem>
+                       </SelectContent>
+                     </Select>
+                   </div>
+                 </div>
+                )}
+                </div>
+                )}
 
           {/* FLOW */}
           {currentStep.id === "flow" && (
