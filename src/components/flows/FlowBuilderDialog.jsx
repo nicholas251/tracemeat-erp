@@ -117,7 +117,7 @@ export default function FlowBuilderDialog({ open, onClose, onSave, flow, product
                   onClick={() => toggleCapability(cap)}
                 >
                   <span className="text-sm font-medium">{cap.name}</span>
-                  <Switch checked={capabilityEnabled(cap.id)} onCheckedChange={() => toggleCapability(cap)} />
+                  <Switch checked={capabilityEnabled(cap.id)} onCheckedChange={() => toggleCapability(cap)} onClick={e => e.stopPropagation()} />
                 </div>
               ))}
             </div>
