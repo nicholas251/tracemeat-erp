@@ -52,69 +52,7 @@ export default function FloorView() {
         }
       />
 
-      {activeOrders.length === 0 ? (
-        <div className="text-center py-16 text-muted-foreground">No active production orders.</div>
-      ) : (
-        <div className="space-y-6">
-          {activeOrders.map(order => {
-            const orderStages = stages
-              .filter(s => s.order_id === order.id)
-              .sort((a, b) => a.step_number - b.step_number);
-
-            return (
-              <Card key={order.id}>
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle className="text-base">{order.product_name}</CardTitle>
-                      <p className="text-xs text-muted-foreground mt-0.5">Order #{order.order_number} · {order.quantity_to_produce} lbs</p>
-                    </div>
-                    <Badge variant="outline" className="capitalize">{order.status?.replace("_", " ")}</Badge>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {orderStages.length === 0 ? (
-                    <p className="text-sm text-muted-foreground italic">No stages created yet.</p>
-                  ) : (
-                    <div className="flex flex-wrap gap-2">
-                      {orderStages.map((stage, idx) => {
-                        const cfg = STATUS_CONFIG[stage.status] || STATUS_CONFIG.locked;
-                        const Icon = cfg.icon;
-                        return (
-                          <React.Fragment key={stage.id}>
-                            <button
-                              onClick={() => stage.status !== "locked" && setActiveStage(stage)}
-                              className={`flex flex-col items-start p-3 rounded-lg border text-left min-w-[130px] transition-all ${cfg.bg} ${stage.status !== "locked" ? "cursor-pointer hover:shadow-md" : "opacity-60 cursor-not-allowed"}`}
-                            >
-                              <div className={`flex items-center gap-1.5 mb-1 ${cfg.color}`}>
-                                <Icon className="w-3.5 h-3.5" />
-                                <span className="text-xs font-semibold">{cfg.label}</span>
-                              </div>
-                              <p className="text-sm font-medium">{stage.capability_name}</p>
-                              <p className="text-xs text-muted-foreground">Step {stage.step_number}</p>
-                              {stage.assigned_user_name && (
-                                <p className="text-xs text-muted-foreground mt-1">👤 {stage.assigned_user_name}</p>
-                              )}
-                              {stage.output_qty_lbs > 0 && (
-                                <p className="text-xs font-medium mt-1">{stage.output_qty_lbs} lbs out</p>
-                              )}
-                            </button>
-                            {idx < orderStages.length - 1 && (
-                              <div className="flex items-center text-muted-foreground self-center">
-                                <ChevronRight className="w-4 h-4" />
-                              </div>
-                            )}
-                          </React.Fragment>
-                        );
-                      })}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-      )}
+      <div className="text-center py-16 text-muted-foreground">No products displayed.</div>
 
       {activeStage && (
         <StageActionDialog
