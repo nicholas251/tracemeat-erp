@@ -25,6 +25,7 @@ import FlowBuilder from './pages/FlowBuilder';
 import WorkProfiles from './pages/WorkProfiles';
 import FloorView from './pages/FloorView';
 import MyWork from './pages/MyWork';
+import UserManagement from './pages/UserManagement';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -72,6 +73,7 @@ const AuthenticatedApp = () => {
         <Route path="/work-profiles" element={<WorkProfiles />} />
         <Route path="/floor-view" element={<FloorView />} />
         <Route path="/my-work" element={<MyWork />} />
+        <Route path="/user-management" element={<UserManagement />} />
       </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>
