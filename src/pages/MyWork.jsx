@@ -68,20 +68,31 @@ export default function MyWork() {
     // Stages assigned to this user's capabilities
     const myStages = stages.filter(s => capabilityKeys.includes(s.capability_key) && s.status !== "locked");
     
-    // Get incoming stages - find stages that are in_progress and come right before this user's stages
+    // Get incoming stages - show top 3 in_progress stages from other departments
     const incomingStages = stages
       .filter(s => s.status === "in_progress")
       .filter(s => !capabilityKeys.includes(s.capability_key))
       .sort((a, b) => a.step_number - b.step_number)
-      .slice(0, 3); // Show top 3 incoming
+      .slice(0, 3);
 
     const inProgress = myStages.filter(s => s.status === "in_progress");
     const available = myStages.filter(s => s.status === "available");
 
+    const dashboardTitles = {
+      "Packing Operator": "Packing Dashboard",
+      "Smokehouse Operator": "Smokehouse Dashboard",
+      "Raw Material Operator": "Raw Material Dashboard",
+      "Linking Operator": "Linking Dashboard",
+      "Bowl Chopper": "Chopping Dashboard",
+      "Blending": "Blending Dashboard",
+    };
+    
+    const dashboardTitle = dashboardTitles[myProfile.name] || `${myProfile.name} Dashboard`;
+
     return (
       <div className="p-4 md:p-6 max-w-4xl mx-auto">
         <PageHeader 
-          title="My Work"
+          title={dashboardTitle}
           subtitle={`${myProfile.name} · ${new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}`}
         />
 
