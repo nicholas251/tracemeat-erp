@@ -1,5 +1,6 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
+import { base44 } from "@/api/base44Client";
 import { 
   LayoutDashboard, 
   Package, 
@@ -24,28 +25,50 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-const navItems = [
-  { path: "/", label: "Dashboard", icon: LayoutDashboard },
-  { path: "/suppliers", label: "Suppliers", icon: Building2 },
-  { path: "/purchase-orders", label: "Purchase Orders", icon: ShoppingCart },
-  { path: "/receiving", label: "Receiving", icon: Truck },
-  { path: "/products", label: "Products", icon: Package },
-  { path: "/recipes", label: "Recipes", icon: UtensilsCrossed },
-  { path: "/spice-mixes", label: "Spice Mixes", icon: Spline },
-  { path: "/flow-builder", label: "Flow Builder", icon: Workflow },
-  { path: "/work-profiles", label: "Work Profiles", icon: Users },
-  { path: "/production-orders", label: "Production Orders", icon: Factory },
-  { path: "/floor-view", label: "Floor View", icon: Monitor },
-  { path: "/my-jobs", label: "My Jobs", icon: Briefcase },
-  { path: "/hold-release", label: "Hold & Release", icon: ShieldAlert },
-  { path: "/traceability", label: "Traceability", icon: Search },
-  { path: "/raw-materials", label: "Raw Materials", icon: Warehouse },
-  { path: "/raw-inventory", label: "Raw Inventory", icon: Boxes },
-  { path: "/inventory", label: "Finished Goods", icon: Boxes },
+const allNavItems = [
+  { path: "/", label: "Dashboard", icon: LayoutDashboard, roles: ["admin", "supervisor", "quality_control"] },
+  { path: "/my-work", label: "My Work", icon: Briefcase, roles: ["all"] },
+  { path: "/suppliers", label: "Suppliers", icon: Building2, roles: ["admin", "supervisor"] },
+  { path: "/purchase-orders", label: "Purchase Orders", icon: ShoppingCart, roles: ["admin", "supervisor", "warehouse_operator"] },
+  { path: "/receiving", label: "Receiving", icon: Truck, roles: ["admin", "supervisor", "warehouse_operator"] },
+  { path: "/products", label: "Products", icon: Package, roles: ["admin", "supervisor"] },
+  { path: "/recipes", label: "Recipes", icon: UtensilsCrossed, roles: ["admin", "supervisor"] },
+  { path: "/spice-mixes", label: "Spice Mixes", icon: Spline, roles: ["admin", "supervisor"] },
+  { path: "/flow-builder", label: "Flow Builder", icon: Workflow, roles: ["admin", "supervisor"] },
+  { path: "/work-profiles", label: "Work Profiles", icon: Users, roles: ["admin"] },
+  { path: "/production-orders", label: "Production Orders", icon: Factory, roles: ["admin", "supervisor"] },
+  { path: "/floor-view", label: "Floor View", icon: Monitor, roles: ["admin", "supervisor", "quality_control"] },
+  { path: "/hold-release", label: "Hold & Release", icon: ShieldAlert, roles: ["admin", "supervisor", "quality_control"] },
+  { path: "/traceability", label: "Traceability", icon: Search, roles: ["admin", "supervisor"] },
+  { path: "/raw-materials", label: "Raw Materials", icon: Warehouse, roles: ["admin", "supervisor", "warehouse_operator"] },
+  { path: "/raw-inventory", label: "Raw Inventory", icon: Boxes, roles: ["admin", "supervisor", "warehouse_operator"] },
+  { path: "/inventory", label: "Finished Goods", icon: Boxes, roles: ["admin", "supervisor", "warehouse_operator"] },
 ];
 
 export default function Sidebar({ collapsed, onToggle }) {
   const location = useLocation();
+  const [user, setUser] = useState(null);
+  const [profiles, setProfiles] = useState([]);
+
+  useEffect(() => {
+    Promise.all([
+      base44.auth.me().then(u => setUser(u)).catch(() => setUser(null)),
+      base44.entities.WorkProfile.filter({ status: "active" }).then(setProfiles).catch(() => setProfiles([])),
+    ]);
+  }, []);
+
+  // Get user's work profile
+  const userProfile = profiles.find(p => (p.assigned_user_ids || []).includes(user?.id));
+  const userRole = user?.role || "user";
+  
+  // Determine visible items
+  const visibleItems = allNavItems.filter(item => {
+    if (item.roles.includes("all")) return true;
+    if (userRole === "admin") return true; // Admin sees everything
+    if (item.roles.includes(userRole)) return true;
+    if (userProfile && item.roles.includes("warehouse_operator") && userProfile.name === "Warehouse Operator") return true;
+    return false;
+  });
 
   return (
     <aside className={cn(
@@ -67,7 +90,7 @@ export default function Sidebar({ collapsed, onToggle }) {
 
       {/* Navigation */}
       <nav className="flex-1 py-4 px-2 space-y-1 overflow-y-auto">
-        {navItems.map((item) => {
+        {visibleItems.map((item) => {
           const isActive = location.pathname === item.path || 
             (item.path !== "/" && location.pathname.startsWith(item.path));
           return (
