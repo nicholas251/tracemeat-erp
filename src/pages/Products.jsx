@@ -76,11 +76,11 @@ export default function Products() {
                   <StatusBadge status={product.status} />
                 </div>
                 <div className="space-y-1.5 text-sm text-muted-foreground mb-4">
-                  <p className="capitalize">{(product.category || "").replace(/_/g, " ")}</p>
-                  {product.packaging_type && <p className="capitalize">{(product.packaging_type || "").replace(/_/g, " ")}{product.package_size ? ` · ${product.package_size} lbs/pack` : ""}</p>}
-                  {product.shelf_life_days && <p>{product.shelf_life_days} day shelf life</p>}
-                  {product.flow_name && <p className="text-xs text-primary font-medium">Flow: {product.flow_name}</p>}
-                </div>
+                   <p className="capitalize">{(product.category || "").replace(/_/g, " ")}</p>
+                   {product.packaging_type && <p className="capitalize">{(product.packaging_type || "").replace(/_/g, " ")}{product.package_size ? ` · ${product.package_size < 1 ? (product.package_size * 16).toFixed(0) + " oz" : product.package_size + " lbs"}/pack` : ""}</p>}
+                   {product.shelf_life_days && <p>{product.shelf_life_days} day shelf life</p>}
+                   {product.flow_name && <p className="text-xs text-primary font-medium">Flow: {product.flow_name}</p>}
+                 </div>
                 <div className="flex gap-2">
                   <Button size="sm" variant="outline" onClick={() => setEditing(product)}>
                     <Pencil className="w-3.5 h-3.5 mr-1" /> Edit
