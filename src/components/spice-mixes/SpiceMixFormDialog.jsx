@@ -98,10 +98,19 @@ export default function SpiceMixFormDialog({ open, onClose, onSave, mix }) {
 
   const handleSave = () => {
     if (!form.name || !form.quantity_lbs) return;
+    // Auto-add any pending ingredient that has a bucket selected and quantity entered
+    let finalIngredients = [...(form.ingredients || [])];
+    if (newIng.bucket_id && (newIng.lbs || newIng.oz)) {
+      finalIngredients = [...finalIngredients, {
+        bucket_id: newIng.bucket_id,
+        bucket_name: newIng.bucket_name,
+        quantity_lbs: lbsOzToLbs(newIng.lbs, newIng.oz),
+      }];
+    }
     onSave({
       ...form,
+      ingredients: finalIngredients,
       quantity_lbs: Number(form.quantity_lbs),
-      // On create: always start at 0 — availability only increases when a batch is produced
       available_qty_lbs: mix ? Number(form.available_qty_lbs) : 0,
       date_created: mix?.date_created || new Date().toISOString().split('T')[0],
     });

@@ -41,6 +41,7 @@ export default function SpiceMixes() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['spiceMixes'] });
       setEditingMix(null);
+      setShowForm(false);
     },
   });
 
