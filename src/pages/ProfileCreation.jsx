@@ -1,19 +1,20 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { AlertCircle, CheckCircle2 } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 
 export default function ProfileCreation() {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState(false);
   const [selectedProfiles, setSelectedProfiles] = useState([]);
 
   const { data: workProfiles = [] } = useQuery({
@@ -33,10 +34,7 @@ export default function ProfileCreation() {
         requestedProfileIds: selectedProfiles,
         requestedProfileNames: workProfiles.filter(p => selectedProfiles.includes(p.id)).map(p => p.name)
       });
-      setSuccess(true);
-      setFullName("");
-      setEmail("");
-      setSelectedProfiles([]);
+      navigate('/waiting-for-access');
     } catch (err) {
       setError(err.response?.data?.error || err.message || "Failed to create profile");
     } finally {
@@ -49,30 +47,6 @@ export default function ProfileCreation() {
       prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]
     );
   };
-
-  if (success) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted p-4">
-        <Card className="w-full max-w-md">
-          <CardContent className="p-8 text-center">
-            <CheckCircle2 className="w-12 h-12 text-green-600 mx-auto mb-4" />
-            <h1 className="text-2xl font-bold mb-2">Welcome!</h1>
-            <p className="text-muted-foreground mb-2">
-              Your profile has been created successfully.
-            </p>
-            <p className="text-sm text-muted-foreground">
-              {selectedProfiles.length > 0
-                ? "An administrator will review your work profile requests and assign you access shortly. You'll receive a notification once approved."
-                : "You're waiting for an administrator to assign you work profiles and grant access to the system."}
-            </p>
-            <div className="mt-8 p-4 bg-muted/50 rounded-lg">
-              <p className="text-xs text-muted-foreground">⏳ Pending Admin Review</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted p-4">

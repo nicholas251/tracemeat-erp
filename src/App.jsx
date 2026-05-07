@@ -27,6 +27,7 @@ import FloorView from './pages/FloorView';
 import MyWork from './pages/MyWork';
 import UserManagement from './pages/UserManagement';
 import ProfileCreation from './pages/ProfileCreation';
+import WaitingForAccess from './pages/WaitingForAccess';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -77,6 +78,7 @@ const AuthenticatedApp = () => {
         <Route path="/user-management" element={<UserManagement />} />
       </Route>
       <Route path="/signup" element={<ProfileCreation />} />
+      <Route path="/waiting-for-access" element={<WaitingForAccess />} />
       <Route path="*" element={<PageNotFound />} />
     </Routes>
   );
