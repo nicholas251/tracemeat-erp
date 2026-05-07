@@ -95,6 +95,10 @@ export default function Products() {
                    <p className="capitalize">{(product.category || "").replace(/_/g, " ")}</p>
                    {product.packaging_type && <p className="capitalize">{(product.packaging_type || "").replace(/_/g, " ")}{product.package_size ? ` · ${product.package_size < 1 ? (product.package_size * 16).toFixed(0) + " oz" : product.package_size + " lbs"}/pack` : ""}</p>}
                    {product.shelf_life_days && <p>{product.shelf_life_days} day shelf life</p>}
+                   {product.recipe_id && (() => {
+                     const recipe = recipes.find(r => r.id === product.recipe_id);
+                     return recipe?.yield_percent ? <p className="text-xs text-amber-600 font-medium">Yield: {recipe.yield_percent}%</p> : null;
+                   })()}
                    {product.flow_name && <p className="text-xs text-primary font-medium">Flow: {product.flow_name}</p>}
                  </div>
                 <div className="flex gap-2">
