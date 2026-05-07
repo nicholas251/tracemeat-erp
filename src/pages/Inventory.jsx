@@ -131,12 +131,14 @@ export default function Inventory() {
     activeOrders.forEach(order => {
       const recipe = recipes.find(r => r.id === order.recipe_id);
       if (recipe && recipe.ingredients) {
-        const yieldPercent = recipe.yield_lbs / 100;
-        const rawNeeded = order.quantity_to_produce / yieldPercent;
+        const yieldFactor = (recipe.yield_percent || 95) / 100;
+        const rawNeeded = order.quantity_to_produce / yieldFactor;
+        const totalIngredientLbs = recipe.ingredients.reduce((sum, ing) => sum + (ing.quantity_lbs || 0), 0);
 
         recipe.ingredients.forEach(ingredient => {
           const key = ingredient.bucket_id || ingredient.category;
-          needs[key] = (needs[key] || 0) + ingredient.quantity_lbs * (rawNeeded / recipe.yield_lbs);
+          const fraction = totalIngredientLbs > 0 ? ingredient.quantity_lbs / totalIngredientLbs : 0;
+          needs[key] = (needs[key] || 0) + fraction * rawNeeded;
         });
       }
     });
