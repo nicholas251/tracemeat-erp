@@ -28,12 +28,15 @@ export default function SpiceMixFormDialog({ open, onClose, onSave, mix }) {
 
   useEffect(() => {
     if (mix) {
-      setForm(mix);
+      setForm({
+        ...mix,
+        ingredients: mix.ingredients ? mix.ingredients.map(i => ({ ...i })) : [],
+      });
     } else {
       setForm({ name: "", quantity_lbs: "", available_qty_lbs: "", status: "draft", ingredients: [], notes: "" });
     }
     setNewIng({ bucket_id: "", bucket_name: "", lbs: "", oz: "" });
-  }, [mix, open]);
+  }, [mix?.id, open]);
 
   const { data: buckets = [] } = useQuery({
     queryKey: ["spice_buckets"],
