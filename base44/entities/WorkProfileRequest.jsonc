@@ -1,0 +1,49 @@
+{
+  "name": "WorkProfileRequest",
+  "type": "object",
+  "properties": {
+    "user_email": {
+      "type": "string",
+      "description": "Email of the user requesting profiles"
+    },
+    "user_id": {
+      "type": "string",
+      "description": "User ID once account is created"
+    },
+    "requested_profile_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "IDs of work profiles requested"
+    },
+    "requested_profile_names": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Names of requested profiles for display"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "approved",
+        "rejected"
+      ],
+      "default": "pending",
+      "description": "Request status"
+    },
+    "approved_by": {
+      "type": "string",
+      "description": "Admin email who approved"
+    },
+    "approval_date": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "user_email"
+  ]
+}
