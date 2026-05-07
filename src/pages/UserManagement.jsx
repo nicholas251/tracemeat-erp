@@ -122,61 +122,73 @@ export default function UserManagement() {
       )}
 
       {editing && (
-        <UserAssignmentDialog
-          open
-          user={editing}
-          workProfiles={workProfiles}
-          onClose={() => setEditing(null)}
-          onSave={(workProfileIds) => {
-            const updatedProfiles = workProfiles.filter(p => workProfileIds.includes(p.id));
-            const assignedUserIds = new Set();
-            const assignedUserNames = new Set();
+       <UserAssignmentDialog
+         open
+         user={editing}
+         workProfiles={workProfiles}
+         onClose={() => setEditing(null)}
+         onSave={(workProfileIds) => {
+           const selectedProfiles = workProfiles.filter(p => workProfileIds.includes(p.id));
+           const isSupervisor = selectedProfiles.some(p => p.name?.toLowerCase().includes('supervisor'));
 
-            updatedProfiles.forEach(profile => {
-              (profile.assigned_user_ids || []).forEach(id => {
-                if (id !== editing.id) assignedUserIds.add(id);
-              });
-              (profile.assigned_user_names || []).forEach(name => {
-                if (name !== editing.full_name) assignedUserNames.add(name);
-              });
-            });
+           // FIRST: Update user role based on supervisor profile assignment
+           const roleUpdatePromise = base44.entities.User.update(editing.id, {
+             role: isSupervisor ? 'supervisor' : 'user'
+           }).catch(err => console.error('Failed to update role:', err));
 
-            // Add current user to selected profiles
-            assignedUserIds.add(editing.id);
-            assignedUserNames.add(editing.full_name);
+           roleUpdatePromise.then(() => {
+             // THEN: Update profile assignments
+             const assignedUserIds = new Set();
+             const assignedUserNames = new Set();
 
-            const updatePromises = workProfileIds.map(profileId => {
-              const profile = workProfiles.find(p => p.id === profileId);
-              return base44.entities.WorkProfile.update(profileId, {
-                assigned_user_ids: Array.from(assignedUserIds),
-                assigned_user_names: Array.from(assignedUserNames),
-              });
-            });
+             selectedProfiles.forEach(profile => {
+               (profile.assigned_user_ids || []).forEach(id => {
+                 if (id !== editing.id) assignedUserIds.add(id);
+               });
+               (profile.assigned_user_names || []).forEach(name => {
+                 if (name !== editing.full_name) assignedUserNames.add(name);
+               });
+             });
 
-            // Remove user from unselected profiles
-            const unselectedProfileIds = workProfiles
-              .filter(p => !workProfileIds.includes(p.id))
-              .map(p => p.id);
+             // Add current user to selected profiles
+             assignedUserIds.add(editing.id);
+             assignedUserNames.add(editing.full_name);
 
-            unselectedProfileIds.forEach(profileId => {
-              const profile = workProfiles.find(p => p.id === profileId);
-              const ids = (profile.assigned_user_ids || []).filter(id => id !== editing.id);
-              const names = (profile.assigned_user_names || []).filter(name => name !== editing.full_name);
-              updatePromises.push(
-                base44.entities.WorkProfile.update(profileId, {
-                  assigned_user_ids: ids,
-                  assigned_user_names: names,
-                })
-              );
-            });
+             const updatePromises = workProfileIds.map(profileId => {
+               return base44.entities.WorkProfile.update(profileId, {
+                 assigned_user_ids: Array.from(assignedUserIds),
+                 assigned_user_names: Array.from(assignedUserNames),
+               });
+             });
 
-            Promise.all(updatePromises).then(() => {
-              queryClient.invalidateQueries({ queryKey: ["workProfiles"] });
-              queryClient.invalidateQueries({ queryKey: ["users"] });
-              setEditing(null);
-            });
-          }}
-        />
+             // Remove user from unselected profiles
+             const unselectedProfileIds = workProfiles
+               .filter(p => !workProfileIds.includes(p.id))
+               .map(p => p.id);
+
+             unselectedProfileIds.forEach(profileId => {
+               const profile = workProfiles.find(p => p.id === profileId);
+               const ids = (profile.assigned_user_ids || []).filter(id => id !== editing.id);
+               const names = (profile.assigned_user_names || []).filter(name => name !== editing.full_name);
+               updatePromises.push(
+                 base44.entities.WorkProfile.update(profileId, {
+                   assigned_user_ids: ids,
+                   assigned_user_names: names,
+                 })
+               );
+             });
+
+             // Wait for all profile updates, then invalidate caches
+             Promise.all(updatePromises).then(() => {
+               queryClient.invalidateQueries({ queryKey: ["workProfiles"] });
+               queryClient.invalidateQueries({ queryKey: ["users"] });
+               setEditing(null);
+             }).catch(err => {
+               console.error('Failed to update profiles:', err);
+             });
+           });
+         }}
+       />
       )}
 
       <AlertDialog open={!!deleting} onOpenChange={() => setDeleting(null)}>

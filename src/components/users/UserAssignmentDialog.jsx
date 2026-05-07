@@ -26,29 +26,8 @@ export default function UserAssignmentDialog({ open, user, workProfiles, onClose
     );
   };
 
-  const handleSave = async () => {
-    // Check if any selected profile is a supervisor profile
-    const selectedProfiles = workProfiles.filter(p => selectedProfileIds.includes(p.id));
-    const isSupervisor = selectedProfiles.some(p => p.name?.toLowerCase().includes('supervisor'));
-    
-    // Update user role if supervisor profile assigned (before profile updates)
-    if (isSupervisor && user.role !== 'supervisor') {
-      try {
-        await base44.entities.User.update(user.id, { role: 'supervisor' });
-      } catch (error) {
-        console.error('Failed to update user role:', error);
-      }
-    }
-    
-    // Also remove supervisor role if supervisor profile is being unassigned
-    if (!isSupervisor && user.role === 'supervisor') {
-      try {
-        await base44.entities.User.update(user.id, { role: 'user' });
-      } catch (error) {
-        console.error('Failed to update user role:', error);
-      }
-    }
-    
+  const handleSave = () => {
+    // Just pass selected profiles - role update happens in UserManagement
     onSave(selectedProfileIds);
   };
 
