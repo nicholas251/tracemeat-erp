@@ -28,10 +28,10 @@ const cookMethods = [
 
 const packagingTypes = [
   { value: "vacuum_sealed", label: "Vacuum Sealed" },
-  { value: "tray_wrap",     label: "Tray Wrap" },
+  { value: "gaylord",       label: "Gaylord" },
   { value: "bulk_box",      label: "Bulk Box" },
   { value: "retail_pack",   label: "Retail Pack" },
-  { value: "case_ready",    label: "Case Ready" },
+  { value: "other",         label: "Other" },
   { value: "chub",          label: "Chub" },
 ];
 
@@ -52,8 +52,9 @@ const EMPTY = {
   chop_spice_mix_id: "", chop_spice_mix_name: "", chop_spice_qty_lbs: "",
   link_merge_batches: false, link_merge_ratio: 2,
   smokehouse_cook_method: "steam", smokehouse_target_temp_c: "", smokehouse_duration_minutes: "",
-  package_size: "", packages_per_case: "", packaging_type: "vacuum_sealed",
+  package_size: "", package_size_oz: "", packages_per_case: "", packaging_type: "vacuum_sealed",
   finished_product_unit: "lbs", shelf_life_days: "", storage_temp_c: "",
+  package_size_unit: "lbs",
 };
 
 export default function ProductSetupWizard({ open, onClose, onSave }) {
@@ -163,8 +164,8 @@ export default function ProductSetupWizard({ open, onClose, onSave }) {
       recipeName = recipe.name;
     }
 
-    const caseWeight = form.package_size && form.packages_per_case
-      ? Number(form.package_size) * Number(form.packages_per_case)
+    const caseWeight = packSizeNum && form.packages_per_case
+      ? packSizeNum * Number(form.packages_per_case)
       : undefined;
 
     const productData = {
@@ -176,7 +177,7 @@ export default function ProductSetupWizard({ open, onClose, onSave }) {
       link_merge_ratio: form.link_merge_ratio ? Number(form.link_merge_ratio) : undefined,
       smokehouse_target_temp_c: form.smokehouse_target_temp_c ? Number(form.smokehouse_target_temp_c) : undefined,
       smokehouse_duration_minutes: form.smokehouse_duration_minutes ? Number(form.smokehouse_duration_minutes) : undefined,
-      package_size: form.package_size ? Number(form.package_size) : undefined,
+      package_size: packSizeNum || undefined,
       packages_per_case: form.packages_per_case ? Number(form.packages_per_case) : undefined,
       case_weight_lbs: caseWeight,
       shelf_life_days: form.shelf_life_days ? Number(form.shelf_life_days) : undefined,
@@ -195,6 +196,11 @@ export default function ProductSetupWizard({ open, onClose, onSave }) {
 
     setSaving(false);
   };
+
+  // Calculate pack size in lbs for display and calculations
+  const packSizeNum = form.package_size_unit === "lbs_oz"
+    ? (Number(form.package_size) || 0) + (Number(form.package_size_oz) || 0) / 16
+    : Number(form.package_size);
 
   const canNext = () => {
     if (currentStep.id === "basics") return form.name && form.product_number && form.sku && form.category;
@@ -518,8 +524,25 @@ export default function ProductSetupWizard({ open, onClose, onSave }) {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <Label>Pack Size (lbs) *</Label>
-                  <Input type="number" step="0.1" value={form.package_size} onChange={e => up("package_size", e.target.value)} placeholder="e.g. 2.0" />
+                  <Label>Pack Size *</Label>
+                  <div className="flex gap-2">
+                    {form.package_size_unit === "lbs" ? (
+                      <Input type="number" step="0.1" value={form.package_size} onChange={e => up("package_size", e.target.value)} placeholder="e.g. 2.0" className="flex-1" />
+                    ) : (
+                      <>
+                        <Input type="number" value={form.package_size} onChange={e => up("package_size", e.target.value)} placeholder="lbs" className="flex-1" />
+                        <Input type="number" value={form.package_size_oz} onChange={e => up("package_size_oz", e.target.value)} placeholder="oz" className="flex-1" />
+                      </>
+                    )}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => up("package_size_unit", form.package_size_unit === "lbs" ? "lbs_oz" : "lbs")}
+                      className="whitespace-nowrap text-xs"
+                    >
+                      {form.package_size_unit === "lbs" ? "Add oz" : "Decimal"}
+                    </Button>
+                  </div>
                 </div>
                 <div className="space-y-1.5">
                   <Label>Packs per Case *</Label>
@@ -542,9 +565,9 @@ export default function ProductSetupWizard({ open, onClose, onSave }) {
                   </Select>
                 </div>
               </div>
-              {form.package_size && form.packages_per_case && (
+              {packSizeNum && form.packages_per_case && (
                 <div className="bg-muted/40 rounded-lg p-3 text-xs">
-                  Case weight: <span className="font-semibold">{(Number(form.package_size) * Number(form.packages_per_case)).toFixed(1)} lbs</span>
+                  Case weight: <span className="font-semibold">{(packSizeNum * Number(form.packages_per_case)).toFixed(1)} lbs</span>
                 </div>
               )}
             </div>
