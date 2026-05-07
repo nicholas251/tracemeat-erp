@@ -152,7 +152,7 @@ export default function ProductSetupWizard({ open, onClose, onSave }) {
         name: recipeName,
         product_id: "",
         product_name: form.name,
-        yield_percent: 95,
+        yield_percent: form.is_hotdog ? 80 : 95,
         ingredients: form.blend_ingredients.map(i => ({
           bucket_id: i.bucket_id,
           bucket_name: i.bucket_name,
