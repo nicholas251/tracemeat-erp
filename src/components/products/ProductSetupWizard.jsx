@@ -73,7 +73,7 @@ export default function ProductSetupWizard({ open, onClose, onSave }) {
       Promise.all([
         base44.entities.ProductFlow.list(),
         base44.entities.InventoryBucket.filter({ category: "protein" }),
-        base44.entities.SpiceMix.filter({ status: "active" }),
+        base44.entities.SpiceMix.list(),
       ]).then(([f, b, s]) => {
         setFlows(f);
         setBuckets(b);
@@ -364,7 +364,7 @@ export default function ProductSetupWizard({ open, onClose, onSave }) {
                 <Select value={form.chop_spice_mix_id} onValueChange={handleSelectSpiceMix}>
                   <SelectTrigger><SelectValue placeholder="Select spice mix..." /></SelectTrigger>
                   <SelectContent>
-                    {spiceMixes.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
+                   {spiceMixes.filter(m => m.status !== "archived").map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
                 {spiceMixes.length === 0 && (
