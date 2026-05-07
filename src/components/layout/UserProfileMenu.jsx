@@ -16,10 +16,18 @@ export default function UserProfileMenu() {
   const [profiles, setProfiles] = useState([]);
 
   useEffect(() => {
-    Promise.all([
-      base44.auth.me().then(setUser).catch(() => setUser(null)),
-      base44.entities.WorkProfile.filter({ status: "active" }).then(setProfiles).catch(() => setProfiles([])),
-    ]);
+    const fetchData = () => {
+      Promise.all([
+        base44.auth.me().then(setUser).catch(() => setUser(null)),
+        base44.entities.WorkProfile.filter({ status: "active" }).then(setProfiles).catch(() => setProfiles([])),
+      ]);
+    };
+    
+    fetchData();
+    
+    // Refetch when window regains focus to pick up role changes
+    window.addEventListener("focus", fetchData);
+    return () => window.removeEventListener("focus", fetchData);
   }, []);
 
   if (!user) return null;

@@ -53,10 +53,18 @@ export default function Sidebar({ collapsed, onToggle }) {
   const [profiles, setProfiles] = useState([]);
 
   useEffect(() => {
-    Promise.all([
-      base44.auth.me().then(u => setUser(u)).catch(() => setUser(null)),
-      base44.entities.WorkProfile.filter({ status: "active" }).then(setProfiles).catch(() => setProfiles([])),
-    ]);
+    const fetchData = () => {
+      Promise.all([
+        base44.auth.me().then(u => setUser(u)).catch(() => setUser(null)),
+        base44.entities.WorkProfile.filter({ status: "active" }).then(setProfiles).catch(() => setProfiles([])),
+      ]);
+    };
+    
+    fetchData();
+    
+    // Refetch when window regains focus to pick up role changes
+    window.addEventListener("focus", fetchData);
+    return () => window.removeEventListener("focus", fetchData);
   }, []);
 
   // Get user's work profile
