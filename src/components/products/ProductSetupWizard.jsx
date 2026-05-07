@@ -49,7 +49,7 @@ const EMPTY = {
   name: "", product_number: "", sku: "", category: "mixed", description: "", status: "draft",
   flow_id: "", flow_name: "",
   blend_batch_lbs: "", blend_ingredients: [],
-  chop_spice_mix_id: "", chop_spice_mix_name: "", chop_spice_qty_lbs: "", chop_water_lbs: "",
+  chop_spice_mix_id: "", chop_spice_mix_name: "", chop_spice_qty_lbs: "", chop_water_lbs: "", chop_cure_lbs: "",
   link_merge_batches: false, link_merge_ratio: 2,
   smokehouse_cook_method: "steam", smokehouse_target_temp_c: "", smokehouse_duration_minutes: "",
   package_size: "", package_size_oz: "", packages_per_case: "", packaging_type: "vacuum_sealed",
@@ -175,6 +175,7 @@ export default function ProductSetupWizard({ open, onClose, onSave }) {
       blend_batch_lbs: form.blend_batch_lbs ? Number(form.blend_batch_lbs) : undefined,
       chop_spice_qty_lbs: form.chop_spice_qty_lbs ? Number(form.chop_spice_qty_lbs) : undefined,
       chop_water_lbs: form.chop_water_lbs ? Number(form.chop_water_lbs) : undefined,
+      chop_cure_lbs: form.chop_cure_lbs ? Number(form.chop_cure_lbs) : undefined,
       link_merge_ratio: form.link_merge_ratio ? Number(form.link_merge_ratio) : undefined,
       smokehouse_target_temp_c: form.smokehouse_target_temp_c ? Number(form.smokehouse_target_temp_c) : undefined,
       smokehouse_duration_minutes: form.smokehouse_duration_minutes ? Number(form.smokehouse_duration_minutes) : undefined,
@@ -425,6 +426,16 @@ export default function ProductSetupWizard({ open, onClose, onSave }) {
                         value={form.chop_water_lbs}
                         onChange={e => up("chop_water_lbs", e.target.value)}
                         placeholder="e.g. 10"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Cure added per chopping batch (lbs)</Label>
+                      <Input
+                        type="number"
+                        step="0.1"
+                        value={form.chop_cure_lbs}
+                        onChange={e => up("chop_cure_lbs", e.target.value)}
+                        placeholder="e.g. 2.5"
                       />
                     </div>
                   </div>
