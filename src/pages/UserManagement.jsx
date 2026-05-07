@@ -28,6 +28,16 @@ export default function UserManagement() {
     queryFn: () => base44.entities.WorkProfile.list(),
   });
 
+  const updateRoleMutation = useMutation({
+    mutationFn: ({ userId, role }) => base44.auth.updateMe({ role }).catch(() => 
+      // Fallback: if updateMe fails, try direct user update
+      base44.entities.User.update(userId, { role })
+    ),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+    },
+  });
+
   const updateMutation = useMutation({
     mutationFn: ({ userId, data }) => base44.entities.User.update(userId, data),
     onSuccess: () => {
@@ -106,6 +116,16 @@ export default function UserManagement() {
                       </div>
                     </div>
                     <div className="flex gap-2 ml-4">
+                      <select 
+                        value={user.role || "user"}
+                        onChange={(e) => updateRoleMutation.mutate({ userId: user.id, role: e.target.value })}
+                        className="px-2 py-1 text-sm border rounded bg-background"
+                      >
+                        <option value="user">User</option>
+                        <option value="supervisor">Supervisor</option>
+                        <option value="admin">Admin</option>
+                        <option value="quality_control">Quality Control</option>
+                      </select>
                       <Button size="sm" variant="outline" onClick={() => setEditing(user)}>
                         <Pencil className="w-3.5 h-3.5 mr-1" /> Assign
                       </Button>
