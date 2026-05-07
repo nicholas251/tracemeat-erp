@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Outlet } from "react-router-dom";
 import Sidebar from "./Sidebar";
 import BottomNav from "./BottomNav";
+import UserProfileMenu from "./UserProfileMenu";
 import { cn } from "@/lib/utils";
 
 export default function AppLayout() {
@@ -22,6 +23,9 @@ export default function AppLayout() {
         // On tablet/mobile, no left margin but add bottom padding for bottom nav
         "pb-24 lg:pb-0"
       )}>
+        <div className="flex justify-end p-3 sm:p-4 md:p-6 lg:p-8 mb-4">
+          <UserProfileMenu />
+        </div>
         <div className="p-3 sm:p-4 md:p-6 lg:p-8 max-w-[1600px]">
           <Outlet />
         </div>
