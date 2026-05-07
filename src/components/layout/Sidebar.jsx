@@ -35,7 +35,7 @@ const allNavItems = [
   { path: "/recipes", label: "Recipes", icon: UtensilsCrossed, roles: ["admin", "supervisor"] },
   { path: "/spice-mixes", label: "Spice Mixes", icon: Spline, roles: ["admin", "supervisor"] },
   { path: "/flow-builder", label: "Flow Builder", icon: Workflow, roles: ["admin", "supervisor"] },
-  { path: "/work-profiles", label: "Work Profiles", icon: Users, roles: ["admin"] },
+  { path: "/work-profiles", label: "Work Profiles", icon: Users, roles: ["admin", "supervisor"] },
   { path: "/user-management", label: "User Management", icon: Users, roles: ["admin", "supervisor"] },
   { path: "/production-orders", label: "Production Orders", icon: Factory, roles: ["admin", "supervisor"] },
   { path: "/floor-view", label: "Floor View", icon: Monitor, roles: ["admin", "supervisor", "quality_control"] },
