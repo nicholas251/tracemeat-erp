@@ -44,6 +44,7 @@ const allNavItems = [
   { path: "/raw-materials", label: "Raw Materials", icon: Warehouse, roles: ["admin", "supervisor", "warehouse_operator"] },
   { path: "/raw-inventory", label: "Raw Inventory", icon: Boxes, roles: ["admin", "supervisor", "warehouse_operator"] },
   { path: "/inventory", label: "Finished Goods", icon: Boxes, roles: ["admin", "supervisor", "warehouse_operator"] },
+  { path: "/batches", label: "Batches", icon: Factory, roles: ["admin", "supervisor"] },
 ];
 
 export default function Sidebar({ collapsed, onToggle }) {
