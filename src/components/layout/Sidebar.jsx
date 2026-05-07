@@ -64,7 +64,7 @@ export default function Sidebar({ collapsed, onToggle }) {
   // Determine visible items
   const visibleItems = allNavItems.filter(item => {
     if (item.roles.includes("all")) return true;
-    if (userRole === "admin") return true; // Admin sees everything
+    if (["admin", "quality_control", "supervisor"].includes(userRole)) return true; // Full access
     if (item.roles.includes(userRole)) return true;
     if (userProfile && item.roles.includes("warehouse_operator") && userProfile.name === "Warehouse Operator") return true;
     return false;
