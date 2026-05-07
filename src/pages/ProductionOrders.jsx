@@ -186,19 +186,29 @@ export default function ProductionOrders() {
               <CardContent>
                 <div className="space-y-3">
                   <div className="flex items-center justify-between text-sm">
-                     <span className="text-muted-foreground">Quantity:</span>
-                     <div className="text-right">
-                       <span className="font-medium">{order.quantity_to_produce} {products.find(p => p.id === order.product_id)?.finished_product_unit || 'lbs'}</span>
-                       <p className="text-xs text-muted-foreground">
-                         {(() => {
-                           const product = products.find(p => p.id === order.product_id);
-                           if (!product) return '';
-                           const consumedLbs = order.quantity_to_produce * (product.recipe_consumption_per_case_lbs || 0);
-                           return consumedLbs > 0 ? `${consumedLbs.toFixed(2)} lbs consumed` : '';
-                         })()}
-                       </p>
-                     </div>
-                   </div>
+                    <span className="text-muted-foreground">Quantity:</span>
+                    <div className="text-right">
+                      <span className="font-medium">{order.quantity_to_produce} {products.find(p => p.id === order.product_id)?.finished_product_unit || 'lbs'}</span>
+                      <p className="text-xs text-muted-foreground">
+                        {(() => {
+                          const recipe = recipes.find(r => r.id === order.recipe_id);
+                          const product = products.find(p => p.id === order.product_id);
+                          if (!recipe || !product) return '';
+                          const unit = product.finished_product_unit || 'lbs';
+                          // Convert quantity to lbs if needed
+                          let qtyLbs = order.quantity_to_produce;
+                          if (unit === 'cases' && product.case_weight_lbs) {
+                            qtyLbs = order.quantity_to_produce * product.case_weight_lbs;
+                          } else if (unit === 'gaylords' && product.case_weight_lbs) {
+                            qtyLbs = order.quantity_to_produce * product.case_weight_lbs;
+                          }
+                          const yieldFactor = (recipe.yield_percent || 95) / 100;
+                          const rawNeeded = qtyLbs / yieldFactor;
+                          return rawNeeded > 0 ? `${rawNeeded.toLocaleString(undefined, {maximumFractionDigits: 0})} lbs raw needed` : '';
+                        })()}
+                      </p>
+                    </div>
+                  </div>
                   <div className="space-y-2">
                     <p className="text-sm font-medium">Production Pipeline</p>
                     <div className="flex flex-wrap gap-2">
