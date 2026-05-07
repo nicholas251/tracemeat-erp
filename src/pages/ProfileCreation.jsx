@@ -20,15 +20,13 @@ export default function ProfileCreation() {
     setLoading(true);
 
     try {
-      // User will be created with default "user" role
-      // Admins/Supervisors can assign work profiles later
-      await base44.auth.signUp(email, password, fullName);
+      await base44.functions.invoke('signupUser', { fullName, email, password });
       setSuccess(true);
       setFullName("");
       setEmail("");
       setPassword("");
     } catch (err) {
-      setError(err.message || "Failed to create profile");
+      setError(err.response?.data?.error || err.message || "Failed to create profile");
     } finally {
       setLoading(false);
     }
