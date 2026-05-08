@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Settings, Search, Beef, FlaskConical, Package, Plus } from "lucide-react";
+import { Settings, Search, Beef, FlaskConical, Package, Unlink, Plus } from "lucide-react";
 import { format } from "date-fns";
 import PageHeader from "@/components/shared/PageHeader";
 import StatusBadge from "@/components/shared/StatusBadge";
@@ -18,6 +18,7 @@ const CATEGORY_LABELS = {
   protein: { label: "Protein", icon: Beef, color: "text-chart-4" },
   spice: { label: "Spice", icon: FlaskConical, color: "text-chart-3" },
   packaging: { label: "Packaging", icon: Package, color: "text-chart-1" },
+  casing: { label: "Casing", icon: Unlink, color: "text-chart-5" },
 };
 
 function BucketCard({ bucket, lots }) {
@@ -200,6 +201,7 @@ export default function RawInventoryPage() {
   const totalProtein = lots.filter(l => l.bucket_category === "protein" && l.status === "available").reduce((s, l) => s + (l.available_qty || 0), 0);
   const totalSpice = lots.filter(l => l.bucket_category === "spice" && l.status === "available").reduce((s, l) => s + (l.available_qty || 0), 0);
   const totalPackaging = lots.filter(l => l.bucket_category === "packaging" && l.status === "available").reduce((s, l) => s + (l.available_qty || 0), 0);
+  const totalCasing = lots.filter(l => l.bucket_category === "casing" && l.status === "available").reduce((s, l) => s + (l.available_qty || 0), 0);
 
   return (
     <div>
@@ -236,6 +238,13 @@ export default function RawInventoryPage() {
           </div>
           <p className="text-2xl font-bold">{totalPackaging.toLocaleString()} <span className="text-sm font-normal text-muted-foreground">units</span></p>
         </Card>
+        <Card className="p-4">
+          <div className="flex items-center gap-2 mb-1">
+            <Unlink className="w-4 h-4 text-chart-5" />
+            <p className="text-xs text-muted-foreground uppercase tracking-wide">Casing On Hand</p>
+          </div>
+          <p className="text-2xl font-bold">{totalCasing.toLocaleString()} <span className="text-sm font-normal text-muted-foreground">lbs</span></p>
+        </Card>
       </div>
 
       <Tabs defaultValue="protein">
@@ -244,6 +253,7 @@ export default function RawInventoryPage() {
             <TabsTrigger value="protein">Protein</TabsTrigger>
             <TabsTrigger value="spice">Spice</TabsTrigger>
             <TabsTrigger value="packaging">Packaging</TabsTrigger>
+            <TabsTrigger value="casing">Casing</TabsTrigger>
             <TabsTrigger value="ledger">All Lots</TabsTrigger>
           </TabsList>
           <div className="relative">
@@ -260,6 +270,9 @@ export default function RawInventoryPage() {
         </TabsContent>
         <TabsContent value="packaging">
           <CategoryTab category="packaging" buckets={buckets} allLots={lots} search={search} />
+        </TabsContent>
+        <TabsContent value="casing">
+          <CategoryTab category="casing" buckets={buckets} allLots={lots} search={search} />
         </TabsContent>
         <TabsContent value="ledger">
           <LotLedger allLots={lots} buckets={buckets} />
