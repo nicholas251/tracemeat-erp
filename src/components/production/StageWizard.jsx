@@ -302,14 +302,9 @@ export default function StageWizard({ stage, open, onClose, onCompleted }) {
         queryClient.invalidateQueries({ queryKey: ["productionOrders"] });
         queryClient.invalidateQueries({ queryKey: ["blendingStages"] });
 
-        if (isLastBatch) {
-          onCompleted?.();
-          onClose();
-        } else {
-          // Reset wizard for next batch
-          setStep(1);
-          setForm({});
-        }
+        // Close wizard after each batch completion
+        onCompleted?.();
+        onClose();
       } else {
         // For non-blending stages: complete the whole stage
         const updates = {
