@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import InventoryShortageCheck from "./InventoryShortageCheck";
 
 export default function ProductionOrderFormDialog({ open, onClose, onSave, order, products, flows, suppliers, recipes }) {
   const [form, setForm] = useState({
@@ -205,6 +206,10 @@ export default function ProductionOrderFormDialog({ open, onClose, onSave, order
               </div>
             )}
           </div>
+
+          {selectedRecipe && rawInputLbs > 0 && (
+            <InventoryShortageCheck recipe={selectedRecipe} rawInputLbs={rawInputLbs} />
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
