@@ -6,6 +6,7 @@ import PageHeader from "@/components/shared/PageHeader";
 import StatCard from "@/components/dashboard/StatCard";
 import ActiveHolds from "@/components/dashboard/ActiveHolds";
 import ActiveOrdersList from "@/components/dashboard/ActiveOrdersList";
+import { isUserAdminOrSupervisor } from "@/lib/accessControl";
 
 export default function Dashboard() {
   const [user, setUser] = useState(null);
@@ -13,6 +14,15 @@ export default function Dashboard() {
   useEffect(() => {
     base44.auth.me().then(u => setUser(u)).catch(() => setUser(null));
   }, []);
+
+  const { data: allProfiles = [] } = useQuery({
+    queryKey: ["allWorkProfiles"],
+    queryFn: () => base44.entities.WorkProfile.filter({ status: "active" }),
+    enabled: !!user,
+  });
+
+  const myProfiles = allProfiles.filter(p => (p.assigned_user_ids || []).includes(user?.id));
+  const showManagement = isUserAdminOrSupervisor(myProfiles);
 
   const { data: orders = [] } = useQuery({
     queryKey: ["productionOrders"],
@@ -45,9 +55,6 @@ export default function Dashboard() {
   const activeProducts = products.filter(p => p.status === "active").length;
   const inventoryLbs = inventory.filter(i => i.status === "available").reduce((sum, i) => sum + (i.quantity_lbs || 0), 0);
 
-  // Hide dashboard cards and order list for blenders (production workers)
-  const isOperator = user?.role === "user";
-
   return (
     <div>
       <PageHeader 
@@ -55,7 +62,7 @@ export default function Dashboard() {
         subtitle="Overview of your meat processing operations" 
       />
 
-      {!isOperator && (
+      {showManagement && (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-4 mb-8">
           <StatCard label="Active Orders" value={activeOrders} icon={Factory} color="text-chart-1" link="/production-orders" />
           <StatCard label="Pending Orders" value={pendingOrders} icon={Factory} color="text-accent" link="/production-orders" />
@@ -65,7 +72,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      {!isOperator && (
+      {showManagement && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2">
             <ActiveOrdersList orders={orders} />
