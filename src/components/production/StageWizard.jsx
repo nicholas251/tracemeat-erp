@@ -63,7 +63,7 @@ function buildIngredientBatches(stage, product, capKey) {
 }
 
 // ─── Build measurement steps for cooking / chilling / linking / packaging ────
-function buildMeasurementSteps(stage, product, capKey, spiceMixes) {
+function buildMeasurementSteps(stage, product, capKey, spiceMixes, casingBuckets = []) {
   const steps = [];
 
   if (capKey === "chopping") {
@@ -85,6 +85,8 @@ function buildMeasurementSteps(stage, product, capKey, spiceMixes) {
       id: "linking",
       label: "Linking",
       fields: [
+        { key: "casing_bucket_id", label: "Casings Used", type: "casing_select", options: casingBuckets },
+        { key: "casing_qty_lbs", label: "Casing Qty Used (lbs)", type: "number" },
         { key: "output_qty_lbs", label: "Output Qty (lbs)", type: "number" },
         { key: "notes", label: "Notes / Observations", type: "textarea" },
       ],
@@ -169,6 +171,12 @@ export default function StageWizard({ stage, open, onClose, onCompleted }) {
     enabled: open && capKey === "chopping",
   });
 
+  const { data: casingBuckets = [] } = useQuery({
+    queryKey: ["casingBuckets"],
+    queryFn: () => base44.entities.InventoryBucket.filter({ category: "packaging" }),
+    enabled: open && capKey === "linking",
+  });
+
   // For ingredient-batch stages (blending)
   const resolvedBatches = usesIngredientBatches
     ? (batches || (product !== undefined ? buildIngredientBatches(stage, product, capKey) : null))
@@ -176,7 +184,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted }) {
 
   // For measurement stages
   const measureSteps = !usesIngredientBatches
-    ? buildMeasurementSteps(stage, product, capKey, spiceMixes)
+    ? buildMeasurementSteps(stage, product, capKey, spiceMixes, casingBuckets)
     : [];
 
   // ── Navigation boundaries ──
@@ -354,6 +362,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted }) {
             form={form}
             setForm={setForm}
             spiceMixes={spiceMixes}
+            casingBuckets={casingBuckets}
             onBack={() => setStep(s => s - 1)}
             onNext={() => setStep(s => s + 1)}
             isLast={step === totalMeasureSteps}
@@ -508,7 +517,7 @@ function BatchConfirmStep({ batch, batchIdx, totalBatches, progressPct, onUpdate
   );
 }
 
-function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form, setForm, spiceMixes, onBack, onNext, isLast }) {
+function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form, setForm, spiceMixes, casingBuckets, onBack, onNext, isLast }) {
   const allFilled = stepDef.fields
     .filter(f => f.type !== "boolean" && f.type !== "textarea")
     .every(f => form[f.key] !== undefined && form[f.key] !== "" && form[f.key] !== null);
@@ -528,8 +537,10 @@ function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form, setFor
             field={field}
             value={form[field.key]}
             spiceMixes={spiceMixes}
+            casingBuckets={casingBuckets}
             onChange={val => setForm(f => ({ ...f, [field.key]: val }))}
             onSpiceSelect={(id, name) => setForm(f => ({ ...f, spice_mix_id: id, spice_mix_name: name }))}
+            onCasingSelect={(id, name) => setForm(f => ({ ...f, casing_bucket_id: id, casing_bucket_name: name }))}
           />
         ))}
       </div>
@@ -544,7 +555,23 @@ function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form, setFor
   );
 }
 
-function FieldInput({ field, value, onChange, spiceMixes, onSpiceSelect }) {
+function FieldInput({ field, value, onChange, spiceMixes, casingBuckets = [], onSpiceSelect, onCasingSelect }) {
+  if (field.type === "casing_select") {
+    return (
+      <div className="space-y-1.5">
+        <Label>{field.label}</Label>
+        <Select value={value || ""} onValueChange={v => {
+          const bucket = (field.options || casingBuckets).find(b => b.id === v);
+          onCasingSelect(v, bucket?.name || "");
+        }}>
+          <SelectTrigger><SelectValue placeholder="Select casings..." /></SelectTrigger>
+          <SelectContent>
+            {(field.options || casingBuckets).map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </div>
+    );
+  }
   if (field.type === "spice_select") {
     return (
       <div className="space-y-1.5">
