@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 
 const EMPTY = { name: "", code: "", category: "protein", description: "", unit: "lbs", status: "active" };
 
-const categoryIcons = { protein: Beef, spice: FlaskConical, packaging: Package };
+const categoryIcons = { protein: Beef, spice: FlaskConical, packaging: Package, casing: Package };
 
 export default function BucketFormDialog({ open, bucket, onClose, onSave, allBuckets = [], onEdit }) {
   const [form, setForm] = useState(bucket || EMPTY);
@@ -32,7 +32,7 @@ export default function BucketFormDialog({ open, bucket, onClose, onSave, allBuc
     onEdit(b);
   };
 
-  const categories = ["protein", "spice", "packaging"];
+  const categories = ["protein", "spice", "packaging", "casing"];
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -120,6 +120,7 @@ export default function BucketFormDialog({ open, bucket, onClose, onSave, allBuc
                     <SelectItem value="protein">Protein</SelectItem>
                     <SelectItem value="spice">Spice</SelectItem>
                     <SelectItem value="packaging">Packaging</SelectItem>
+                    <SelectItem value="casing">Casing</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
