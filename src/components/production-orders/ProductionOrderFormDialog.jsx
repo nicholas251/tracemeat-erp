@@ -207,8 +207,15 @@ export default function ProductionOrderFormDialog({ open, onClose, onSave, order
             )}
           </div>
 
-          {selectedRecipe && rawInputLbs > 0 && (
-            <InventoryShortageCheck recipe={selectedRecipe} rawInputLbs={rawInputLbs} />
+          {selectedProduct && rawInputLbs > 0 && (
+            <InventoryShortageCheck
+              product={selectedProduct}
+              recipe={selectedRecipe}
+              rawInputLbs={rawInputLbs}
+              onProductUpdated={() => {
+                // re-derive selectedProduct from the updated list — parent will refetch
+              }}
+            />
           )}
 
           <div className="grid grid-cols-2 gap-3">

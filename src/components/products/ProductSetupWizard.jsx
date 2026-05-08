@@ -50,7 +50,9 @@ const EMPTY = {
   flow_id: "", flow_name: "",
   blend_batch_lbs: "", blend_ingredients: [],
   chop_spice_mix_id: "", chop_spice_mix_name: "", chop_spice_qty_lbs: "", chop_water_lbs: "", chop_cure_lbs: "",
+  cure_bucket_id: "", cure_bucket_name: "",
   link_merge_batches: false, link_merge_ratio: 2,
+  casing_bucket_id: "", casing_bucket_name: "", casing_qty_per_batch_lbs: "",
   smokehouse_cook_method: "steam", smokehouse_target_temp_c: "", smokehouse_duration_minutes: "",
   package_size: "", package_size_oz: "", packages_per_case: "", packaging_type: "vacuum_sealed",
   finished_product_unit: "lbs", shelf_life_days: "", storage_temp_c: "",
@@ -74,7 +76,7 @@ export default function ProductSetupWizard({ open, onClose, onSave }) {
       setForm({ ...EMPTY });
       Promise.all([
         base44.entities.ProductFlow.list(),
-        base44.entities.InventoryBucket.filter({ category: "protein" }),
+        base44.entities.InventoryBucket.list(),
         base44.entities.SpiceMix.filter({ status: "active" }),
       ]).then(([f, b, s]) => {
         setFlows(f);
@@ -177,6 +179,11 @@ export default function ProductSetupWizard({ open, onClose, onSave }) {
       chop_spice_qty_lbs: form.chop_spice_qty_lbs ? Number(form.chop_spice_qty_lbs) : undefined,
       chop_water_lbs: form.chop_water_lbs ? Number(form.chop_water_lbs) : undefined,
       chop_cure_lbs: form.chop_cure_lbs ? Number(form.chop_cure_lbs) : undefined,
+      cure_bucket_id: form.cure_bucket_id || undefined,
+      cure_bucket_name: form.cure_bucket_name || undefined,
+      casing_bucket_id: form.casing_bucket_id || undefined,
+      casing_bucket_name: form.casing_bucket_name || undefined,
+      casing_qty_per_batch_lbs: form.casing_qty_per_batch_lbs ? Number(form.casing_qty_per_batch_lbs) : undefined,
       is_hotdog: form.is_hotdog,
       hotdog_family: form.hotdog_family || undefined,
       hotdog_length: form.hotdog_length || undefined,
@@ -497,6 +504,24 @@ export default function ProductSetupWizard({ open, onClose, onSave }) {
                         placeholder="e.g. 2.5"
                       />
                     </div>
+                    {form.chop_cure_lbs && (
+                      <div className="space-y-1.5">
+                        <Label>Cure Inventory Bucket <span className="text-muted-foreground font-normal">(for stock tracking)</span></Label>
+                        <Select
+                          value={form.cure_bucket_id || ""}
+                          onValueChange={v => {
+                            const b = buckets.find(x => x.id === v);
+                            up("cure_bucket_id", v);
+                            up("cure_bucket_name", b?.name || "");
+                          }}
+                        >
+                          <SelectTrigger><SelectValue placeholder="Select cure bucket..." /></SelectTrigger>
+                          <SelectContent>
+                            {buckets.map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
                   </div>
                 );
               })()}
@@ -531,6 +556,40 @@ export default function ProductSetupWizard({ open, onClose, onSave }) {
                   <p className="text-xs text-muted-foreground">e.g. enter 2 if 2 filling batches → 1 cook batch</p>
                 </div>
               )}
+
+              <div className="border-t pt-4 space-y-3">
+                <p className="text-sm font-medium">Casing Inventory</p>
+                <p className="text-xs text-muted-foreground">Link an inventory bucket for casings so stock levels can be tracked.</p>
+                <div className="space-y-1.5">
+                  <Label>Casing Bucket</Label>
+                  <Select
+                    value={form.casing_bucket_id || ""}
+                    onValueChange={v => {
+                      const b = buckets.find(x => x.id === v) || { id: v, name: "" };
+                      // look in all buckets including non-protein
+                      const allBucketsList = [...buckets];
+                      const found = allBucketsList.find(x => x.id === v);
+                      up("casing_bucket_id", v);
+                      up("casing_bucket_name", found?.name || "");
+                    }}
+                  >
+                    <SelectTrigger><SelectValue placeholder="Select casing bucket..." /></SelectTrigger>
+                    <SelectContent>
+                      {buckets.map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Casing qty per batch (lbs)</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={form.casing_qty_per_batch_lbs || ""}
+                    onChange={e => up("casing_qty_per_batch_lbs", e.target.value)}
+                    placeholder="e.g. 5.0"
+                  />
+                </div>
+              </div>
             </div>
           )}
 

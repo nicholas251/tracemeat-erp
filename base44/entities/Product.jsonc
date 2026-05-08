@@ -32,44 +32,34 @@
       "description": "Product description and specs"
     },
     "recipe_id": {
-      "type": "string",
-      "description": "Linked recipe ID"
+      "type": "string"
     },
     "recipe_name": {
-      "type": "string",
-      "description": "Recipe name for display"
+      "type": "string"
     },
     "flow_id": {
-      "type": "string",
-      "description": "Linked ProductFlow ID"
+      "type": "string"
     },
     "flow_name": {
-      "type": "string",
-      "description": "ProductFlow name for display"
+      "type": "string"
     },
     "process_id": {
-      "type": "string",
-      "description": "Linked ProductionProcess template ID"
+      "type": "string"
     },
     "process_name": {
-      "type": "string",
-      "description": "ProductionProcess name for display"
+      "type": "string"
     },
     "package_size": {
-      "type": "number",
-      "description": "Size of each package in lbs"
+      "type": "number"
     },
     "packages_per_case": {
-      "type": "number",
-      "description": "Number of packages per case"
+      "type": "number"
     },
     "case_weight_lbs": {
-      "type": "number",
-      "description": "Total weight per case in pounds"
+      "type": "number"
     },
     "recipe_consumption_per_case_lbs": {
-      "type": "number",
-      "description": "Amount of recipe needed to produce one case (in lbs)"
+      "type": "number"
     },
     "finished_product_unit": {
       "type": "string",
@@ -79,8 +69,7 @@
         "gaylords",
         "packs"
       ],
-      "default": "lbs",
-      "description": "Unit of measurement for finished product"
+      "default": "lbs"
     },
     "blend_batch_lbs": {
       "type": "number",
@@ -108,8 +97,7 @@
       "description": "Protein buckets and quantities for the blending step"
     },
     "chop_spice_mix_id": {
-      "type": "string",
-      "description": "Default spice mix for chopping step"
+      "type": "string"
     },
     "chop_spice_mix_name": {
       "type": "string"
@@ -118,14 +106,40 @@
       "type": "number",
       "description": "Spice mix quantity per chopping batch (lbs)"
     },
+    "chop_water_lbs": {
+      "type": "number",
+      "description": "Water added per chopping batch (lbs)"
+    },
+    "chop_cure_lbs": {
+      "type": "number",
+      "description": "Cure added per chopping batch (lbs)"
+    },
+    "cure_bucket_id": {
+      "type": "string",
+      "description": "InventoryBucket ID for cure ingredient"
+    },
+    "cure_bucket_name": {
+      "type": "string",
+      "description": "Cure bucket name for display"
+    },
+    "casing_bucket_id": {
+      "type": "string",
+      "description": "InventoryBucket ID for casings (linking step)"
+    },
+    "casing_bucket_name": {
+      "type": "string",
+      "description": "Casing bucket name for display"
+    },
+    "casing_qty_per_batch_lbs": {
+      "type": "number",
+      "description": "Casings quantity consumed per linking batch (lbs)"
+    },
     "link_merge_batches": {
       "type": "boolean",
-      "default": false,
-      "description": "Whether linking merges blending batches"
+      "default": false
     },
     "link_merge_ratio": {
-      "type": "number",
-      "description": "How many blending batches merge into 1 cook batch"
+      "type": "number"
     },
     "smokehouse_cook_method": {
       "type": "string",
@@ -133,16 +147,13 @@
         "steam",
         "dry_heat",
         "steam_and_dry_heat"
-      ],
-      "description": "Smokehouse cooking method"
+      ]
     },
     "smokehouse_target_temp_c": {
-      "type": "number",
-      "description": "Smokehouse target internal temperature (\u00b0C)"
+      "type": "number"
     },
     "smokehouse_duration_minutes": {
-      "type": "number",
-      "description": "Expected smokehouse duration (minutes)"
+      "type": "number"
     },
     "ingredients": {
       "type": "array",
@@ -156,8 +167,7 @@
             "type": "number"
           }
         }
-      },
-      "description": "Ingredient list with percentages"
+      }
     },
     "packaging_type": {
       "type": "string",
@@ -168,16 +178,13 @@
         "retail_pack",
         "case_ready",
         "chub"
-      ],
-      "description": "Packaging format"
+      ]
     },
     "shelf_life_days": {
-      "type": "number",
-      "description": "Shelf life in days"
+      "type": "number"
     },
     "storage_temp_c": {
-      "type": "number",
-      "description": "Required storage temperature in Celsius"
+      "type": "number"
     },
     "status": {
       "type": "string",
@@ -192,15 +199,31 @@
       "type": "array",
       "items": {
         "type": "string"
-      },
-      "description": "List of allergens"
+      }
     },
     "regulatory_codes": {
       "type": "array",
       "items": {
         "type": "string"
-      },
-      "description": "USDA/FSIS establishment or product codes"
+      }
+    },
+    "is_hotdog": {
+      "type": "boolean"
+    },
+    "hotdog_family": {
+      "type": "string"
+    },
+    "hotdog_length": {
+      "type": "string"
+    },
+    "hotdog_casing": {
+      "type": "string"
+    },
+    "package_size_oz": {
+      "type": "number"
+    },
+    "package_size_unit": {
+      "type": "string"
     }
   },
   "required": [
