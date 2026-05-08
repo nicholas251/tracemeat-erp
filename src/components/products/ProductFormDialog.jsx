@@ -53,8 +53,15 @@ export default function ProductFormDialog({ open, onClose, onSave, product }) {
     if (open) {
       base44.entities.Recipe.list().then(setRecipes);
       setTab("basic");
+      setForm(product || {
+        name: "", product_number: "", sku: "", category: "beef", description: "",
+        packaging_type: "vacuum_sealed", package_size: "", packages_per_case: "",
+        case_weight_lbs: "", shelf_life_days: "", storage_temp_c: "", status: "draft",
+        allergens: [], regulatory_codes: [], ingredients: [], recipe_id: "", recipe_name: "",
+        recipe_consumption_per_case_lbs: "", process_id: "", process_name: "", finished_product_unit: "lbs"
+      });
     }
-  }, [open]);
+  }, [open, product]);
 
   const { data: spiceMixes = [] } = useQuery({
     queryKey: ["spiceMixes"],
