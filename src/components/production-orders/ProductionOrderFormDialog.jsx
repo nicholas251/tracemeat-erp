@@ -89,7 +89,12 @@ export default function ProductionOrderFormDialog({ open, onClose, onSave, order
 
   const handleSave = () => {
     if (!form.order_number || !form.product_id || !form.quantity_to_produce) return;
-    onSave({ ...form, quantity_to_produce: Number(form.quantity_to_produce) });
+    onSave({
+      ...form,
+      quantity_to_produce: Number(form.quantity_to_produce),
+      flow_id: form.flow_id || "",
+      flow_name: form.flow_name || ""
+    });
   };
 
   return (

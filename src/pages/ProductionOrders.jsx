@@ -116,8 +116,12 @@ export default function ProductionOrders() {
   });
 
   const handleSave = (data) => {
-    if (editingOrder) updateMutation.mutate({ id: editingOrder.id, data });
-    else createMutation.mutate(data);
+    if (editingOrder) {
+      // When updating, ensure flow info is preserved
+      updateMutation.mutate({ id: editingOrder.id, data: { ...data, flow_id: data.flow_id, flow_name: data.flow_name } });
+    } else {
+      createMutation.mutate(data);
+    }
   };
 
   const STATUS_COLORS = {
