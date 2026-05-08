@@ -170,7 +170,20 @@ export default function StageWizard({ stage, open, onClose, onCompleted }) {
     enabled: open && capKey === "linking",
   });
 
+  const { data: allBlendingStages = [] } = useQuery({
+    queryKey: ["allBlendingStages", stage?.order_id],
+    queryFn: () => base44.entities.ProductionStage.filter({ 
+      order_id: stage.order_id,
+      capability_key: "blending"
+    }),
+    enabled: open && capKey === "blending",
+  });
+
   // For ingredient-batch stages (blending)
+  // For blending: show current batch # and total # of blending stages in the order
+  const totalBlendingStages = usesIngredientBatches ? allBlendingStages.length : 0;
+  const currentBatchNum = usesIngredientBatches && stage ? allBlendingStages.findIndex(s => s.id === stage.id) + 1 : 1;
+  
   const resolvedBatches = usesIngredientBatches
     ? (batches || (product !== undefined ? buildIngredientBatches(stage, product, capKey) : null))
     : null;
@@ -326,6 +339,8 @@ export default function StageWizard({ stage, open, onClose, onCompleted }) {
             saving={saving}
             onStart={handleStart}
             usesIngredientBatches={usesIngredientBatches}
+            currentBatchNum={currentBatchNum}
+            totalBlendingStages={totalBlendingStages}
           />
         )}
 
@@ -382,7 +397,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted }) {
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function IntroStep({ stage, capKey, stageLabel, resolvedBatches, measureSteps, product, saving, onStart, usesIngredientBatches }) {
+function IntroStep({ stage, capKey, stageLabel, resolvedBatches, measureSteps, product, saving, onStart, usesIngredientBatches, currentBatchNum, totalBlendingStages }) {
   const isAlreadyStarted = stage?.status === "in_progress";
   return (
     <div className="space-y-4">
@@ -395,13 +410,12 @@ function IntroStep({ stage, capKey, stageLabel, resolvedBatches, measureSteps, p
         </p>
         {usesIngredientBatches && resolvedBatches && (
           <div className="space-y-1 pt-1">
-            {resolvedBatches.map(b => (
-              <div key={b.batchNumber} className="flex items-center gap-2 text-sm">
-                <span className="w-5 h-5 rounded-full bg-chart-1/20 text-chart-1 text-xs flex items-center justify-center font-bold">{b.batchNumber}</span>
-                <span>{b.batchLbs} lbs</span>
-                <span className="text-muted-foreground">· {b.ingredients.length} ingredient{b.ingredients.length !== 1 ? "s" : ""}</span>
-              </div>
-            ))}
+            <div className="flex items-center gap-2 text-sm">
+              <span className="w-5 h-5 rounded-full bg-chart-1/20 text-chart-1 text-xs flex items-center justify-center font-bold">{currentBatchNum}</span>
+              <span>{resolvedBatches[0]?.batchLbs} lbs</span>
+              <span className="text-muted-foreground">· {resolvedBatches[0]?.ingredients.length} ingredient{resolvedBatches[0]?.ingredients.length !== 1 ? "s" : ""}</span>
+              <span className="text-muted-foreground ml-auto">Batch {currentBatchNum} of {totalBlendingStages}</span>
+            </div>
           </div>
         )}
         {!usesIngredientBatches && measureSteps.length > 0 && (
