@@ -273,29 +273,27 @@ export default function StageWizard({ stage, open, onClose, onCompleted }) {
           ingredients: batchIngredients,
         }).catch(err => console.warn("Inventory deduction failed:", err));
 
-        // If last batch, create the chopping stage
-        if (isLastBatch) {
-          const order = await base44.entities.ProductionOrder.filter({ id: stage.order_id }).then(r => r?.[0]);
-          if (order) {
-            const nextStepNum = (stage.step_number || 1) + 1;
-            const nextFlow = await base44.entities.ProductFlow.filter({ id: order.flow_id }).then(r => r?.[0]);
-            const nextStep = nextFlow?.steps?.find(s => s.step_number === nextStepNum);
+        // Create chopping stage for this batch
+        const order = await base44.entities.ProductionOrder.filter({ id: stage.order_id }).then(r => r?.[0]);
+        if (order) {
+          const nextStepNum = (stage.step_number || 1) + 1;
+          const nextFlow = await base44.entities.ProductFlow.filter({ id: order.flow_id }).then(r => r?.[0]);
+          const nextStep = nextFlow?.steps?.find(s => s.step_number === nextStepNum);
 
-            if (nextStep) {
-              await base44.entities.ProductionStage.create({
-                order_id: stage.order_id,
-                order_number: stage.order_number,
-                product_name: stage.product_name,
-                step_number: nextStepNum,
-                capability_id: nextStep.capability_id,
-                capability_key: nextStep.capability_key,
-                capability_name: nextStep.capability_name,
-                work_profile_id: nextStep.work_profile_id,
-                work_profile_name: nextStep.work_profile_name,
-                status: "available",
-                input_qty_lbs: stage.input_qty_lbs,
-              });
-            }
+          if (nextStep) {
+            await base44.entities.ProductionStage.create({
+              order_id: stage.order_id,
+              order_number: stage.order_number,
+              product_name: stage.product_name,
+              step_number: nextStepNum,
+              capability_id: nextStep.capability_id,
+              capability_key: nextStep.capability_key,
+              capability_name: nextStep.capability_name,
+              work_profile_id: nextStep.work_profile_id,
+              work_profile_name: nextStep.work_profile_name,
+              status: "available",
+              input_qty_lbs: currentBatch.batchLbs,
+            });
           }
         }
 
