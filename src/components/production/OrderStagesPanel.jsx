@@ -3,7 +3,7 @@ import { base44 } from "@/api/base44Client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Lock, CheckCircle2, Clock, ChevronRight, AlertCircle } from "lucide-react";
-import StageActionDialog from "./StageActionDialog";
+import StageWizard from "./StageWizard";
 
 const STATUS_CONFIG = {
   locked:      { icon: Lock,         color: "text-muted-foreground",  bg: "bg-muted/30 border-dashed" },
@@ -61,16 +61,15 @@ export default function OrderStagesPanel({ orderId, allowedCapabilityKeys = null
       </div>
 
       {activeStage && (
-        <StageActionDialog
+        <StageWizard
           stage={activeStage}
           open={!!activeStage}
           onClose={() => setActiveStage(null)}
-          onUpdated={() => {
+          onCompleted={() => {
             queryClient.invalidateQueries({ queryKey: ["orderStages", orderId] });
             queryClient.invalidateQueries({ queryKey: ["productionStages"] });
             setActiveStage(null);
           }}
-          allowedCapabilityKeys={allowedCapabilityKeys}
         />
       )}
     </>

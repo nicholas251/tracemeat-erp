@@ -6,8 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, CheckCircle2, Clock, Play, Briefcase } from "lucide-react";
 import PageHeader from "@/components/shared/PageHeader";
-import StageActionDialog from "@/components/production/StageActionDialog";
-import BlendingWizard from "@/components/blending/BlendingWizard";
+import StageWizard from "@/components/production/StageWizard";
 
 export default function StageDashboard({ user, profile, onBack, singleProfile = false }) {
   const [activeStage, setActiveStage] = useState(null);
@@ -129,20 +128,12 @@ export default function StageDashboard({ user, profile, onBack, singleProfile = 
         </div>
       )}
 
-      {activeStage && activeStage.capability_key === "blending" ? (
-        <BlendingWizard
+      {activeStage && (
+        <StageWizard
           stage={activeStage}
           open={!!activeStage}
           onClose={() => setActiveStage(null)}
           onCompleted={handleUpdated}
-        />
-      ) : activeStage && (
-        <StageActionDialog
-          stage={activeStage}
-          open={!!activeStage}
-          onClose={() => setActiveStage(null)}
-          onUpdated={handleUpdated}
-          allowedCapabilityKeys={capKeys}
         />
       )}
     </div>
