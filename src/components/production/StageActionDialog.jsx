@@ -12,7 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { CheckCircle2, Clock, Play } from "lucide-react";
 import SubBatchManager from "./SubBatchManager";
 
-export default function StageActionDialog({ stage, open, onClose, onUpdated }) {
+export default function StageActionDialog({ stage, open, onClose, onUpdated, allowedCapabilityKeys = null }) {
   const [form, setForm] = useState({});
   const [saving, setSaving] = useState(false);
 
@@ -73,10 +73,12 @@ export default function StageActionDialog({ stage, open, onClose, onUpdated }) {
     onUpdated();
   };
 
-  const isLocked = stage?.status === "locked";
   const isAvailable = stage?.status === "available";
   const isInProgress = stage?.status === "in_progress";
   const isCompleted = stage?.status === "completed";
+
+  // If allowedCapabilityKeys is provided, block editing stages outside the operator's role
+  const isReadOnly = allowedCapabilityKeys !== null && !allowedCapabilityKeys.includes(stage?.capability_key);
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -89,17 +91,16 @@ export default function StageActionDialog({ stage, open, onClose, onUpdated }) {
           <p className="text-sm text-muted-foreground">{stage?.product_name} · Order #{stage?.order_number} · Step {stage?.step_number}</p>
         </DialogHeader>
 
-        {isLocked && (
-          <div className="py-6 text-center text-muted-foreground">
-            <Clock className="w-8 h-8 mx-auto mb-2 opacity-40" />
-            <p className="font-medium">Waiting on prior stage</p>
-            <p className="text-sm mt-1">This stage will unlock once the previous step is completed.</p>
-          </div>
-        )}
+        <div className="space-y-4">
+          {/* Access guard */}
+          {isReadOnly && (
+            <div className="rounded-md bg-muted px-4 py-3 text-sm text-muted-foreground border">
+              This stage belongs to a different work role. You can view it but cannot make changes.
+            </div>
+          )}
 
-        {!isLocked && <div className="space-y-4">
           {/* Status Actions */}
-          {!isCompleted && (
+          {!isCompleted && !isReadOnly && (
             <div className="flex gap-2">
               {isAvailable && (
                 <Button onClick={() => handleStatusChange("in_progress")} className="gap-2 flex-1" disabled={saving}>
@@ -120,7 +121,7 @@ export default function StageActionDialog({ stage, open, onClose, onUpdated }) {
           )}
 
           {/* Weight tracking */}
-          {(isInProgress || isCompleted) && (
+          {!isReadOnly && (isInProgress || isCompleted) && (
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>Input Qty (lbs)</Label>
@@ -134,7 +135,7 @@ export default function StageActionDialog({ stage, open, onClose, onUpdated }) {
           )}
 
           {/* Spice mix (chopping) */}
-          {cap?.tracks_spice_mix && isInProgress && (
+          {!isReadOnly && cap?.tracks_spice_mix && isInProgress && (
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>Spice Mix</Label>
@@ -154,7 +155,7 @@ export default function StageActionDialog({ stage, open, onClose, onUpdated }) {
           )}
 
           {/* Temp tracking */}
-          {cap?.tracks_temp && isInProgress && (
+          {!isReadOnly && cap?.tracks_temp && isInProgress && (
             <div className="space-y-1.5">
               <Label>Temperature (°C)</Label>
               <Input type="number" step="0.1" value={form.temperature_c || ""} onChange={e => setForm(f => ({ ...f, temperature_c: Number(e.target.value) }))} />
@@ -162,7 +163,7 @@ export default function StageActionDialog({ stage, open, onClose, onUpdated }) {
           )}
 
           {/* Time tracking */}
-          {cap?.tracks_time && isInProgress && (
+          {!isReadOnly && cap?.tracks_time && isInProgress && (
             <div className="space-y-1.5">
               <Label>Duration (minutes)</Label>
               <Input type="number" value={form.duration_minutes || ""} onChange={e => setForm(f => ({ ...f, duration_minutes: Number(e.target.value) }))} />
@@ -170,7 +171,7 @@ export default function StageActionDialog({ stage, open, onClose, onUpdated }) {
           )}
 
           {/* Rack tracking */}
-          {cap?.tracks_racks && isInProgress && (
+          {!isReadOnly && cap?.tracks_racks && isInProgress && (
             <div className="space-y-1.5">
               <Label>Rack Count</Label>
               <Input type="number" value={form.racks_count || ""} onChange={e => setForm(f => ({ ...f, racks_count: Number(e.target.value) }))} />
@@ -178,7 +179,7 @@ export default function StageActionDialog({ stage, open, onClose, onUpdated }) {
           )}
 
           {/* Sub-batch manager for linking/merge steps */}
-          {(cap?.allows_merge || stage?.capability_key === "linking") && isInProgress && (
+          {!isReadOnly && (cap?.allows_merge || stage?.capability_key === "linking") && isInProgress && (
             <SubBatchManager
               stage={stage}
               subBatches={form.sub_batches || []}
@@ -187,7 +188,7 @@ export default function StageActionDialog({ stage, open, onClose, onUpdated }) {
           )}
 
           {/* Quality check */}
-          {isInProgress && (
+          {!isReadOnly && isInProgress && (
             <div className="flex items-center gap-3">
               <Switch
                 checked={form.quality_check_passed || false}
@@ -198,15 +199,17 @@ export default function StageActionDialog({ stage, open, onClose, onUpdated }) {
           )}
 
           {/* Notes */}
-          <div className="space-y-1.5">
-            <Label>Notes</Label>
-            <Textarea value={form.notes || ""} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} className="h-16" placeholder="Any observations..." />
-          </div>
-        </div>}
+          {!isReadOnly && (
+            <div className="space-y-1.5">
+              <Label>Notes</Label>
+              <Textarea value={form.notes || ""} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} className="h-16" placeholder="Any observations..." />
+            </div>
+          )}
+        </div>
 
         <DialogFooter className="gap-2 mt-4">
           <Button variant="outline" onClick={onClose}>Close</Button>
-          {!isLocked && (isInProgress || isCompleted) && (
+          {!isReadOnly && (isInProgress || isCompleted) && (
             <Button onClick={handleSave} disabled={saving}>Save Changes</Button>
           )}
         </DialogFooter>

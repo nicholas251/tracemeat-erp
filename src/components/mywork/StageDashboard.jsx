@@ -27,20 +27,23 @@ export default function StageDashboard({ user, profile, onBack, singleProfile = 
     setActiveStage(null);
   };
 
-  // Stages assigned to THIS specific profile (isolated view)
-  const myStages = allStages.filter(s =>
-    s.work_profile_id === profile.id && capKeys.includes(s.capability_key)
-  );
+  // Stages that belong to this profile's capabilities
+  const myStages = allStages.filter(s => capKeys.includes(s.capability_key));
 
   // In Progress: stages this profile is actively working
   const inProgress = myStages.filter(s => s.status === "in_progress");
 
-  // Available queue (FIFO): status=available, ordered by created_date
+  // Available queue (FIFO): status=available, ordered by when they became available
+  // We approximate FIFO order using created_date of the stage record
   const availableQueue = myStages
     .filter(s => s.status === "available")
-    .sort((a, b) => new Date(a.created_date) - new Date(b.created_date));
+    .sort((a, b) => {
+      // Sort by when prior stage completed (stage created_date is a reasonable proxy)
+      return new Date(a.created_date) - new Date(b.created_date);
+    });
 
-  // On Deck: locked stages assigned to this profile whose prior step is in_progress
+  // On Deck: stages where the PRIOR step (step_number - 1) is in_progress at another capability
+  // These are locked stages whose predecessor is actively being worked
   const onDeck = myStages
     .filter(s => s.status === "locked")
     .filter(stage => {
@@ -84,19 +87,12 @@ export default function StageDashboard({ user, profile, onBack, singleProfile = 
         </Section>
       )}
 
-      {/* Available Queue (FIFO) — hidden for single-profile users */}
-      {!singleProfile && availableQueue.length > 0 && (
+      {/* Available Queue (FIFO) */}
+      {availableQueue.length > 0 && (
         <Section title={`Queue — ${availableQueue.length} job${availableQueue.length > 1 ? "s" : ""} (FIFO)`} color="text-chart-1">
           {availableQueue.map((stage, idx) => (
             <StageJobCard key={stage.id} stage={stage} status="ready" position={idx + 1} onClick={() => setActiveStage(stage)} />
           ))}
-        </Section>
-      )}
-
-      {/* Single-profile: show next available job if nothing in progress */}
-      {singleProfile && inProgress.length === 0 && availableQueue.length > 0 && (
-        <Section title="Up Next" color="text-chart-1">
-          <StageJobCard stage={availableQueue[0]} status="ready" onClick={() => setActiveStage(availableQueue[0])} />
         </Section>
       )}
 
@@ -115,8 +111,8 @@ export default function StageDashboard({ user, profile, onBack, singleProfile = 
         </Section>
       )}
 
-      {/* Completed — hidden for single-profile users */}
-      {!singleProfile && completed.length > 0 && (
+      {/* Completed */}
+      {completed.length > 0 && (
         <Section title="Completed" color="text-chart-2">
           {completed.map(stage => (
             <StageJobCard key={stage.id} stage={stage} status="done" onClick={() => setActiveStage(stage)} />
@@ -138,6 +134,7 @@ export default function StageDashboard({ user, profile, onBack, singleProfile = 
           open={!!activeStage}
           onClose={() => setActiveStage(null)}
           onUpdated={handleUpdated}
+          allowedCapabilityKeys={capKeys}
         />
       )}
     </div>

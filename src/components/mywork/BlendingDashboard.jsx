@@ -8,7 +8,7 @@ import { ChevronLeft, Factory, CheckCircle2, Clock, Play } from "lucide-react";
 import PageHeader from "@/components/shared/PageHeader";
 import StageActionDialog from "@/components/production/StageActionDialog";
 
-export default function BlendingDashboard({ user, profile, onBack, singleProfile = false }) {
+export default function BlendingDashboard({ user, profile, onBack }) {
   const [activeStage, setActiveStage] = useState(null);
   const queryClient = useQueryClient();
 
@@ -28,14 +28,11 @@ export default function BlendingDashboard({ user, profile, onBack, singleProfile
     }, "created_date", 200),
   });
 
-  const myStages = stages.filter(s => s.work_profile_id === profile.id);
-
-  const inProgress = myStages.filter(s => s.status === "in_progress");
-  const available = myStages.filter(s => s.status === "available");
-  const completed = myStages.filter(s => s.status === "completed");
+  const inProgress = stages.filter(s => s.status === "in_progress");
+  const available = stages.filter(s => s.status === "available");
+  const completed = stages.filter(s => s.status === "completed");
 
   const getOrderForStage = (stage) => orders.find(o => o.id === stage.order_id);
-
 
   const handleUpdated = () => {
     queryClient.invalidateQueries({ queryKey: ["blendingStages"] });
@@ -72,7 +69,7 @@ export default function BlendingDashboard({ user, profile, onBack, singleProfile
       )}
 
       {/* Available / Ready to Start */}
-      {!singleProfile && available.length > 0 && (
+      {available.length > 0 && (
         <Section title="Ready to Start" color="text-chart-1">
           {available.map(stage => (
             <OrderStageCard
@@ -86,20 +83,8 @@ export default function BlendingDashboard({ user, profile, onBack, singleProfile
         </Section>
       )}
 
-      {/* Single-profile: show only next job if nothing in progress */}
-      {singleProfile && inProgress.length === 0 && available.length > 0 && (
-        <Section title="Up Next" color="text-chart-1">
-          <OrderStageCard
-            stage={available[0]}
-            order={getOrderForStage(available[0])}
-            status="ready"
-            onClick={() => setActiveStage(available[0])}
-          />
-        </Section>
-      )}
-
-      {/* Completed — hidden for single-profile users */}
-      {!singleProfile && completed.length > 0 && (
+      {/* Completed today */}
+      {completed.length > 0 && (
         <Section title="Completed" color="text-chart-2">
           {completed.map(stage => (
             <OrderStageCard
@@ -127,6 +112,7 @@ export default function BlendingDashboard({ user, profile, onBack, singleProfile
           open={!!activeStage}
           onClose={() => setActiveStage(null)}
           onUpdated={handleUpdated}
+          allowedCapabilityKeys={["blending"]}
         />
       )}
     </div>
