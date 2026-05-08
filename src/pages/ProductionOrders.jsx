@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,25 @@ export default function ProductionOrders() {
   const [showForm, setShowForm] = useState(false);
   const [editingOrder, setEditingOrder] = useState(null);
   const [viewingOrder, setViewingOrder] = useState(null);
+  const [currentUser, setCurrentUser] = useState(null);
   const queryClient = useQueryClient();
+
+  useEffect(() => {
+    base44.auth.me().then(setCurrentUser).catch(() => setCurrentUser(null));
+  }, []);
+
+  const { data: allProfiles = [] } = useQuery({
+    queryKey: ["allWorkProfiles"],
+    queryFn: () => base44.entities.WorkProfile.filter({ status: "active" }),
+    enabled: !!currentUser,
+  });
+
+  // Compute allowed capability keys for the current user
+  const userProfiles = allProfiles.filter(p => (p.assigned_user_ids || []).includes(currentUser?.id));
+  const allowedCapabilityKeys = userProfiles.flatMap(p => p.capability_keys || []);
+  const isAdminOrSupervisor = ["admin", "supervisor", "quality_control"].includes(currentUser?.role);
+  // null means no restriction (admin sees all); array restricts to specific capabilities
+  const capabilityKeyFilter = isAdminOrSupervisor ? null : (allowedCapabilityKeys.length > 0 ? allowedCapabilityKeys : []);
 
   const { data: orders = [], isLoading } = useQuery({
     queryKey: ["productionOrders"],
@@ -105,9 +123,11 @@ export default function ProductionOrders() {
         title="Production Orders"
         subtitle="Create and track production orders through each stage of the flow"
         actions={
-          <Button onClick={() => { setEditingOrder(null); setShowForm(true); }} className="gap-2">
-            <Plus className="w-4 h-4" /> New Order
-          </Button>
+          isAdminOrSupervisor && (
+            <Button onClick={() => { setEditingOrder(null); setShowForm(true); }} className="gap-2">
+              <Plus className="w-4 h-4" /> New Order
+            </Button>
+          )
         }
       />
 
@@ -131,6 +151,11 @@ export default function ProductionOrders() {
                     <Badge variant="outline" className={`capitalize text-xs ${STATUS_COLORS[order.status]}`}>
                       {order.status?.replace("_", " ")}
                     </Badge>
+                    {isAdminOrSupervisor && (
+                      <Button size="icon" variant="ghost" className="w-7 h-7" onClick={() => { setEditingOrder(order); setShowForm(true); }}>
+                        <Plus className="w-3.5 h-3.5 rotate-45" />
+                      </Button>
+                    )}
                     <Button size="sm" variant="outline" onClick={() => setViewingOrder(viewingOrder?.id === order.id ? null : order)} className="gap-1">
                       <Eye className="w-3.5 h-3.5" /> {viewingOrder?.id === order.id ? "Hide" : "Stages"}
                     </Button>
@@ -140,7 +165,7 @@ export default function ProductionOrders() {
 
               {viewingOrder?.id === order.id && (
                 <CardContent>
-                  <OrderStagesPanel orderId={order.id} />
+                  <OrderStagesPanel orderId={order.id} allowedCapabilityKeys={capabilityKeyFilter} />
                 </CardContent>
               )}
             </Card>

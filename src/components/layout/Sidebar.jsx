@@ -26,24 +26,24 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 const allNavItems = [
-  { path: "/", label: "Dashboard", icon: LayoutDashboard, roles: ["admin", "supervisor", "quality_control"] },
+  { path: "/", label: "Dashboard", icon: LayoutDashboard, roles: ["admin", "supervisor", "quality_control", "production_worker"] },
   { path: "/my-work", label: "My Work", icon: Briefcase, roles: ["all"] },
   { path: "/suppliers", label: "Suppliers", icon: Building2, roles: ["admin", "supervisor"] },
   { path: "/purchase-orders", label: "Purchase Orders", icon: ShoppingCart, roles: ["admin", "supervisor", "warehouse_operator"] },
   { path: "/receiving", label: "Receiving", icon: Truck, roles: ["admin", "supervisor", "warehouse_operator"] },
-  { path: "/products", label: "Products", icon: Package, roles: ["admin", "supervisor"] },
+  { path: "/products", label: "Products", icon: Package, roles: ["admin", "supervisor", "production_worker"] },
   { path: "/recipes", label: "Recipes", icon: UtensilsCrossed, roles: ["admin", "supervisor"] },
   { path: "/spice-mixes", label: "Spice Mixes", icon: Spline, roles: ["admin", "supervisor"] },
   { path: "/flow-builder", label: "Flow Builder", icon: Workflow, roles: ["admin", "supervisor"] },
   { path: "/work-profiles", label: "Work Profiles", icon: Users, roles: ["admin", "supervisor"] },
   { path: "/user-management", label: "User Management", icon: Users, roles: ["admin", "supervisor"] },
-  { path: "/production-orders", label: "Production Orders", icon: Factory, roles: ["admin", "supervisor"] },
+  { path: "/production-orders", label: "Production Orders", icon: Factory, roles: ["admin", "supervisor", "production_worker"] },
   { path: "/floor-view", label: "Floor View", icon: Monitor, roles: ["admin", "supervisor", "quality_control"] },
-  { path: "/hold-release", label: "Hold & Release", icon: ShieldAlert, roles: ["admin", "supervisor", "quality_control"] },
+  { path: "/hold-release", label: "Hold & Release", icon: ShieldAlert, roles: ["admin", "supervisor", "quality_control", "production_worker"] },
   { path: "/traceability", label: "Traceability", icon: Search, roles: ["admin", "supervisor"] },
   { path: "/raw-materials", label: "Raw Materials", icon: Warehouse, roles: ["admin", "supervisor", "warehouse_operator"] },
   { path: "/raw-inventory", label: "Raw Inventory", icon: Boxes, roles: ["admin", "supervisor", "warehouse_operator"] },
-  { path: "/inventory", label: "Finished Goods", icon: Boxes, roles: ["admin", "supervisor", "warehouse_operator"] },
+  { path: "/inventory", label: "Finished Goods", icon: Boxes, roles: ["admin", "supervisor", "warehouse_operator", "production_worker"] },
 ];
 
 export default function Sidebar({ collapsed, onToggle }) {
@@ -66,17 +66,21 @@ export default function Sidebar({ collapsed, onToggle }) {
     return () => window.removeEventListener("focus", fetchData);
   }, []);
 
-  // Get user's work profile
-  const userProfile = profiles.find(p => (p.assigned_user_ids || []).includes(user?.id));
+  // Get user's work profiles
+  const userProfiles = profiles.filter(p => (p.assigned_user_ids || []).includes(user?.id));
   const userRole = user?.role || "user";
-  
+  const isWarehouseOperator = userProfiles.length === 1 && userProfiles[0]?.name === "Warehouse Operator";
+  // Any user with a work profile that isn't exclusively warehouse is a production worker
+  const isProductionWorker = userProfiles.length > 0 && !isWarehouseOperator;
+
   // Determine visible items
   const visibleItems = allNavItems.filter(item => {
     if (item.roles.includes("all")) return true;
     // Supervisors, admins, and QC see everything - no restrictions
     if (["supervisor", "admin", "quality_control"].includes(userRole)) return true;
     if (item.roles.includes(userRole)) return true;
-    if (userProfile && item.roles.includes("warehouse_operator") && userProfile.name === "Warehouse Operator") return true;
+    if (isWarehouseOperator && item.roles.includes("warehouse_operator")) return true;
+    if (isProductionWorker && item.roles.includes("production_worker")) return true;
     return false;
   });
 

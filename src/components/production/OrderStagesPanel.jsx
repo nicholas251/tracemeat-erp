@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
@@ -13,7 +13,7 @@ const STATUS_CONFIG = {
   on_hold:     { icon: AlertCircle,  color: "text-destructive",       bg: "bg-destructive/10 border-destructive/30" },
 };
 
-export default function OrderStagesPanel({ orderId }) {
+export default function OrderStagesPanel({ orderId, allowedCapabilityKeys = null }) {
   const [activeStage, setActiveStage] = useState(null);
   const queryClient = useQueryClient();
 
@@ -70,6 +70,7 @@ export default function OrderStagesPanel({ orderId }) {
             queryClient.invalidateQueries({ queryKey: ["productionStages"] });
             setActiveStage(null);
           }}
+          allowedCapabilityKeys={allowedCapabilityKeys}
         />
       )}
     </>
