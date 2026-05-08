@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, Factory, CheckCircle2, Clock, Play } from "lucide-react";
 import PageHeader from "@/components/shared/PageHeader";
-import StageActionDialog from "@/components/production/StageActionDialog";
+import BlendingWizard from "@/components/blending/BlendingWizard";
 
 export default function BlendingDashboard({ user, profile, onBack }) {
   const [activeStage, setActiveStage] = useState(null);
@@ -107,12 +107,11 @@ export default function BlendingDashboard({ user, profile, onBack }) {
       )}
 
       {activeStage && (
-        <StageActionDialog
+        <BlendingWizard
           stage={activeStage}
           open={!!activeStage}
           onClose={() => setActiveStage(null)}
-          onUpdated={handleUpdated}
-          allowedCapabilityKeys={["blending"]}
+          onCompleted={handleUpdated}
         />
       )}
     </div>
