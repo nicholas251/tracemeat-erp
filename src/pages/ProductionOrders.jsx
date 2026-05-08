@@ -64,7 +64,15 @@ export default function ProductionOrders() {
 
   const createMutation = useMutation({
     mutationFn: async (data) => {
-      const order = await base44.entities.ProductionOrder.create(data);
+      // Ensure flow_id, flow_name, recipe_id are included
+      const orderData = {
+        ...data,
+        flow_id: data.flow_id || "",
+        flow_name: data.flow_name || "",
+        recipe_id: data.recipe_id || "",
+        recipe_name: data.recipe_name || ""
+      };
+      const order = await base44.entities.ProductionOrder.create(orderData);
       // Create locked stages from flow
       if (data.flow_id) {
         const flow = flows.find(f => f.id === data.flow_id);
