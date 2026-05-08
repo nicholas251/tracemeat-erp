@@ -49,6 +49,9 @@ export default function ProductionOrderFormDialog({ open, onClose, onSave, order
   const finishedLbs = parseFloat(form.quantity_to_produce) || 0;
   // raw input needed accounting for yield loss
   const rawInputLbs = yieldPct && finishedLbs ? (finishedLbs / (yieldPct / 100)) : finishedLbs;
+  // blending batch count
+  const blendBatchLbs = selectedProduct?.blend_batch_lbs;
+  const numBlendBatches = blendBatchLbs && rawInputLbs ? Math.ceil(rawInputLbs / blendBatchLbs) : null;
 
   const handleProductSelect = (pid) => {
     const p = products.find(prod => prod.id === pid);
@@ -203,6 +206,12 @@ export default function ProductionOrderFormDialog({ open, onClose, onSave, order
                       <span className="font-semibold text-foreground">Raw input needed:</span>
                       <span className="font-bold text-accent">{rawInputLbs.toFixed(1)} lbs</span>
                     </div>
+                    {numBlendBatches && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Blending batches ({blendBatchLbs} lbs each):</span>
+                        <span className="font-bold text-foreground">{numBlendBatches} batch{numBlendBatches > 1 ? "es" : ""}</span>
+                      </div>
+                    )}
                   </>
                 ) : (
                   <p className="text-muted-foreground italic">Link a recipe to the product to calculate yield-adjusted raw input.</p>
