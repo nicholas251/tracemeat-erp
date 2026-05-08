@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -141,6 +141,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted }) {
   const [batches, setBatches] = useState(null);
   const [form, setForm] = useState({});
   const [saving, setSaving] = useState(false);
+  const queryClient = useQueryClient();
 
   const capKey = stage?.capability_key;
   const usesIngredientBatches = capKey === "blending";
@@ -236,70 +237,111 @@ export default function StageWizard({ stage, open, onClose, onCompleted }) {
   // ── Complete ──
   const handleComplete = async () => {
     setSaving(true);
-    const updates = {
-      status: "completed",
-      completed_at: new Date().toISOString(),
-      ...form,
-    };
+    const currentBatchIdx = step - 1;
+    const currentBatch = resolvedBatches?.[currentBatchIdx];
+    const isLastBatch = currentBatchIdx === (resolvedBatches?.length - 1);
 
-    if (usesIngredientBatches && resolvedBatches) {
-      // Generate lot number from today's date (YYYYMMDD format)
-      const today = new Date().toISOString().split('T')[0].replace(/-/g, '');
-      const lotNumber = `BLEND-${today}`;
-      
-      updates.output_qty_lbs = resolvedBatches.reduce((s, b) => s + b.batchLbs, 0);
-      updates.lot_number = lotNumber;
-      updates.sub_batches = resolvedBatches.map(b => ({
-        sub_batch_id: `${capKey}-${b.batchNumber}`,
-        label: `Batch #${b.batchNumber}`,
-        qty_lbs: b.batchLbs,
-        ingredients: b.ingredients.map(ing => ({
-          bucket_name: ing.bucket_name,
-          lot_number: ing.lot_number,
-          actual_lbs: ing.actual_lbs,
-        })),
-        status: "completed",
-      }));
+    try {
+      if (usesIngredientBatches && currentBatch) {
+        // For blending: complete one batch at a time
+        const batchLbs = currentBatch.batchLbs;
+        const subBatch = {
+          sub_batch_id: `batch-${currentBatch.batchNumber}-${Date.now()}`,
+          label: `Blending Batch #${currentBatch.batchNumber}`,
+          qty_lbs: batchLbs,
+          status: "completed",
+        };
 
-      // Deduct raw inventory for all confirmed ingredients across all batches
-      const allIngredients = resolvedBatches.flatMap(b =>
-        b.ingredients.map(ing => ({
+        // Update stage with this completed batch
+        const updatedSubBatches = [...(stage.sub_batches || []), subBatch];
+        const newStatus = isLastBatch ? "completed" : "in_progress";
+
+        await base44.entities.ProductionStage.update(stage.id, {
+          sub_batches: updatedSubBatches,
+          status: newStatus,
+          completed_at: isLastBatch ? new Date().toISOString() : stage.completed_at,
+        });
+
+        // Deduct raw materials for this batch only
+        const batchIngredients = currentBatch.ingredients.map(ing => ({
           bucket_id: ing.bucket_id,
           bucket_name: ing.bucket_name,
           actual_lbs: ing.actual_lbs,
-        }))
-      );
-      // Aggregate by bucket_id
-      const aggregated = Object.values(
-        allIngredients.reduce((acc, ing) => {
-          if (!acc[ing.bucket_id]) acc[ing.bucket_id] = { ...ing };
-          else acc[ing.bucket_id].actual_lbs += ing.actual_lbs;
-          return acc;
-        }, {})
-      );
-      base44.functions.invoke("deductRawInventoryOnBatchComplete", {
-        stage_id: stage.id,
-        ingredients: aggregated,
-      }).catch(err => console.warn("Inventory deduction failed:", err));
+        }));
+        base44.functions.invoke("deductRawInventoryOnBatchComplete", {
+          stage_id: stage.id,
+          ingredients: batchIngredients,
+        }).catch(err => console.warn("Inventory deduction failed:", err));
+
+        // If last batch, create the chopping stage
+        if (isLastBatch) {
+          const order = await base44.entities.ProductionOrder.filter({ id: stage.order_id }).then(r => r?.[0]);
+          if (order) {
+            const nextStepNum = (stage.step_number || 1) + 1;
+            const nextFlow = await base44.entities.ProductFlow.filter({ id: order.flow_id }).then(r => r?.[0]);
+            const nextStep = nextFlow?.steps?.find(s => s.step_number === nextStepNum);
+
+            if (nextStep) {
+              await base44.entities.ProductionStage.create({
+                order_id: stage.order_id,
+                order_number: stage.order_number,
+                product_name: stage.product_name,
+                step_number: nextStepNum,
+                capability_id: nextStep.capability_id,
+                capability_key: nextStep.capability_key,
+                capability_name: nextStep.capability_name,
+                work_profile_id: nextStep.work_profile_id,
+                work_profile_name: nextStep.work_profile_name,
+                status: "available",
+                input_qty_lbs: stage.input_qty_lbs,
+              });
+            }
+          }
+        }
+
+        // Invalidate queries
+        queryClient.invalidateQueries({ queryKey: ["allStages"] });
+        queryClient.invalidateQueries({ queryKey: ["productionOrders"] });
+        queryClient.invalidateQueries({ queryKey: ["blendingStages"] });
+
+        if (isLastBatch) {
+          onCompleted?.();
+          onClose();
+        } else {
+          // Reset wizard for next batch
+          setStep(1);
+          setForm({});
+        }
+      } else {
+        // For non-blending stages: complete the whole stage
+        const updates = {
+          status: "completed",
+          completed_at: new Date().toISOString(),
+          ...form,
+        };
+
+        await base44.entities.ProductionStage.update(stage.id, updates);
+
+        // Unlock next stage
+        const allStages = await base44.entities.ProductionStage.filter({ order_id: stage.order_id });
+        const nextStage = allStages.find(s => s.step_number === stage.step_number + 1);
+        if (nextStage?.status === "locked") {
+          await base44.entities.ProductionStage.update(nextStage.id, {
+            status: "available",
+            input_qty_lbs: updates.output_qty_lbs || stage.input_qty_lbs || 0,
+            input_lot_number: updates.lot_number || "",
+          });
+        }
+
+        queryClient.invalidateQueries({ queryKey: ["allStages"] });
+        queryClient.invalidateQueries({ queryKey: ["productionOrders"] });
+
+        onCompleted?.();
+        onClose();
+      }
+    } finally {
+      setSaving(false);
     }
-
-    await base44.entities.ProductionStage.update(stage.id, updates);
-
-    // Unlock next stage for next work profile
-    const allStages = await base44.entities.ProductionStage.filter({ order_id: stage.order_id });
-    const nextStage = allStages.find(s => s.step_number === stage.step_number + 1);
-    if (nextStage?.status === "locked") {
-      await base44.entities.ProductionStage.update(nextStage.id, {
-        status: "available",
-        input_qty_lbs: updates.output_qty_lbs || stage.input_qty_lbs || 0,
-        input_lot_number: updates.lot_number || "",
-      });
-    }
-
-    setSaving(false);
-    onCompleted();
-    // Close wizard so blender returns to dashboard (completed stages won't appear)
-    onClose();
   };
 
   const progressPct = lastStep > 1 ? Math.round(((step - 1) / (lastStep - 1)) * 100) : 0;
