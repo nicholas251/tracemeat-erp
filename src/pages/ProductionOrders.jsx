@@ -10,6 +10,7 @@ import StatusBadge from "@/components/shared/StatusBadge";
 import ProductionOrderFormDialog from "@/components/production-orders/ProductionOrderFormDialog";
 import OrderStagesPanel from "@/components/production/OrderStagesPanel";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { isUserAdmin } from "@/lib/accessControl";
 
 export default function ProductionOrders() {
   const [showForm, setShowForm] = useState(false);
@@ -29,10 +30,10 @@ export default function ProductionOrders() {
     enabled: !!currentUser,
   });
 
-  // Compute allowed capability keys for the current user
+  // Compute allowed capability keys and admin status based on work profiles
   const userProfiles = allProfiles.filter(p => (p.assigned_user_ids || []).includes(currentUser?.id));
   const allowedCapabilityKeys = userProfiles.flatMap(p => p.capability_keys || []);
-  const isAdminOrSupervisor = ["admin", "supervisor", "quality_control"].includes(currentUser?.role);
+  const isAdminOrSupervisor = isUserAdmin(userProfiles);
   // null means no restriction (admin sees all); array restricts to specific capabilities
   const capabilityKeyFilter = isAdminOrSupervisor ? null : (allowedCapabilityKeys.length > 0 ? allowedCapabilityKeys : []);
 

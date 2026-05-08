@@ -8,6 +8,7 @@ import StageDashboard from "@/components/mywork/StageDashboard";
 import WarehouseOperatorView from "@/components/mywork/WarehouseOperatorView";
 import AdminView from "@/components/mywork/AdminView";
 import { Briefcase } from "lucide-react";
+import { isUserAdmin } from "@/lib/accessControl";
 
 const FIRST_STEP_KEY = "blending";
 
@@ -38,11 +39,11 @@ export default function MyWork() {
 
   if (!user) return <div className="p-8 text-center text-muted-foreground">Loading...</div>;
 
-  if (["admin", "supervisor", "quality_control"].includes(user?.role)) {
+  const myProfiles = profiles.filter(p => (p.assigned_user_ids || []).includes(user.id));
+
+  if (isUserAdmin(myProfiles)) {
     return <AdminView user={user} />;
   }
-
-  const myProfiles = profiles.filter(p => (p.assigned_user_ids || []).includes(user.id));
 
   if (myProfiles.length === 0) {
     return (
@@ -54,7 +55,7 @@ export default function MyWork() {
     );
   }
 
-  const warehouseProfile = myProfiles.find(p => p.name === "Warehouse Operator");
+  const warehouseProfile = myProfiles.find(p => p.name?.toLowerCase() === "warehouse operator");
   if (warehouseProfile && myProfiles.length === 1) {
     return <WarehouseOperatorView user={user} />;
   }
