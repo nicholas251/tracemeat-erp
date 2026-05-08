@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Users, Pencil, Trash2 } from "lucide-react";
 import PageHeader from "@/components/shared/PageHeader";
-import { isUserAdminOrSupervisor } from "@/lib/accessControl";
+import { getPlatformRole } from "@/lib/accessControl";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
@@ -171,7 +171,7 @@ export default function UserManagement() {
 
            // Determine platform role from selected profiles
            const selectedProfileObjects = workProfiles.filter(p => workProfileIds.includes(p.id));
-           const platformRole = isUserAdminOrSupervisor(selectedProfileObjects) ? "admin" : "user";
+           const platformRole = getPlatformRole(selectedProfileObjects);
            updatePromises.push(
              base44.entities.User.update(editing.id, { role: platformRole })
            );
