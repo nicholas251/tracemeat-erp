@@ -251,6 +251,27 @@ export default function StageWizard({ stage, open, onClose, onCompleted }) {
         })),
         status: "completed",
       }));
+
+      // Deduct raw inventory for all confirmed ingredients across all batches
+      const allIngredients = resolvedBatches.flatMap(b =>
+        b.ingredients.map(ing => ({
+          bucket_id: ing.bucket_id,
+          bucket_name: ing.bucket_name,
+          actual_lbs: ing.actual_lbs,
+        }))
+      );
+      // Aggregate by bucket_id
+      const aggregated = Object.values(
+        allIngredients.reduce((acc, ing) => {
+          if (!acc[ing.bucket_id]) acc[ing.bucket_id] = { ...ing };
+          else acc[ing.bucket_id].actual_lbs += ing.actual_lbs;
+          return acc;
+        }, {})
+      );
+      base44.functions.invoke("deductRawInventoryOnBatchComplete", {
+        stage_id: stage.id,
+        ingredients: aggregated,
+      }).catch(err => console.warn("Inventory deduction failed:", err));
     }
 
     await base44.entities.ProductionStage.update(stage.id, updates);
