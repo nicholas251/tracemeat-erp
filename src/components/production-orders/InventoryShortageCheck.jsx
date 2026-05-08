@@ -39,7 +39,7 @@ function CreateBucketDialog({ open, onClose, onCreated, suggestedName, category 
               <SelectContent>
                 <SelectItem value="protein">Protein</SelectItem>
                 <SelectItem value="spice">Spice / Cure</SelectItem>
-                <SelectItem value="packaging">Packaging / Casings</SelectItem>
+                <SelectItem value="packaging">Packaging</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -211,7 +211,7 @@ export default function InventoryShortageCheck({ product: productProp, recipe, r
         linkAction: {
           label: "Link casing bucket",
           suggestedName: "Casings",
-          category: "packaging",
+          category: "spice",
           fieldId: "casing",
           fieldName: "casing_bucket",
         },

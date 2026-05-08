@@ -173,7 +173,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted }) {
 
   const { data: casingBuckets = [] } = useQuery({
     queryKey: ["casingBuckets"],
-    queryFn: () => base44.entities.InventoryBucket.filter({ category: "packaging" }),
+    queryFn: () => base44.entities.InventoryBucket.filter({ category: "spice" }),
     enabled: open && capKey === "linking",
   });
 
