@@ -75,6 +75,7 @@ function buildMeasurementSteps(stage, product, capKey, spiceMixes) {
         { key: "spice_mix_id", label: "Spice Mix", type: "spice_select", options: spiceMixes },
         { key: "spice_mix_qty_lbs", label: "Spice Mix Amount (lbs)", type: "number" },
         { key: "water_amount_lbs", label: "Water Amount Added (lbs)", type: "number" },
+        { key: "cure_amount_lbs", label: "Cure Added (lbs)", type: "number" },
       ],
     });
   }
