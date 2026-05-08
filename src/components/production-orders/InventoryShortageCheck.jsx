@@ -142,7 +142,7 @@ function CureCasingConfigDialog({ open, onClose, product, allBuckets, onSaved })
   );
 }
 
-export default function InventoryShortageCheck({ product: productProp, recipe, rawInputLbs, onProductUpdated }) {
+export default function InventoryShortageCheck({ product: productProp, recipe, rawInputLbs, numBatches, onProductUpdated }) {
   const queryClient = useQueryClient();
   const [createBucketFor, setCreateBucketFor] = useState(null);
   const [showCureCasingConfig, setShowCureCasingConfig] = useState(false);
@@ -204,10 +204,8 @@ export default function InventoryShortageCheck({ product: productProp, recipe, r
   });
 
   // ── 2. Spice mix (chopping) ──
-  // SpiceMix tracks available_qty_lbs at the mix level
-  // We need: numChopBatches * chop_spice_qty_lbs
-  const blendBatchLbs = product.blend_batch_lbs || rawInputLbs;
-  const numChopBatches = blendBatchLbs > 0 ? Math.ceil(rawInputLbs / blendBatchLbs) : 1;
+  // Use numBatches from parent (accounts for full chop weight incl. water/spice/cure)
+  const numChopBatches = numBatches || 1;
   const spiceChecks = [];
 
   if (product.chop_spice_mix_id) {

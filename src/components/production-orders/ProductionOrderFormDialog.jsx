@@ -268,6 +268,7 @@ export default function ProductionOrderFormDialog({ open, onClose, onSave, order
               product={selectedProduct}
               recipe={selectedRecipe}
               rawInputLbs={rawInputLbs}
+              numBatches={numBlendBatches}
               onProductUpdated={() => {
                 // re-derive selectedProduct from the updated list — parent will refetch
               }}
