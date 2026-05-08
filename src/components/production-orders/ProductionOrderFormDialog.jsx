@@ -110,22 +110,7 @@ export default function ProductionOrderFormDialog({ open, onClose, onSave, order
             <Input value={form.order_number} onChange={e => setForm(f => ({ ...f, order_number: e.target.value }))} />
           </div>
 
-          {/* Show status only when editing an existing order */}
-          {order && (
-            <div className="space-y-1.5">
-              <Label>Status</Label>
-              <Select value={form.status} onValueChange={v => setForm(f => ({ ...f, status: v }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="in_progress">In Progress</SelectItem>
-                  <SelectItem value="paused">Paused</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                  <SelectItem value="cancelled">Cancelled</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          )}
+
 
           <div className="space-y-1.5">
             <Label>Product</Label>
