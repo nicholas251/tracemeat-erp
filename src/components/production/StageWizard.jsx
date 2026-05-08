@@ -382,8 +382,8 @@ export default function StageWizard({ stage, open, onClose, onCompleted }) {
             onConfirmIngredient={confirmIngredient}
             allConfirmed={allConfirmedInBatch(currentBatch)}
             onBack={() => setStep(s => s - 1)}
-            onNext={() => setStep(s => s + 1)}
-            isLast={step === totalBatches}
+            onComplete={handleComplete}
+            saving={saving}
           />
         )}
 
@@ -473,7 +473,7 @@ function IntroStep({ stage, capKey, stageLabel, resolvedBatches, measureSteps, p
   );
 }
 
-function BatchConfirmStep({ batch, batchIdx, totalBatches, progressPct, onUpdateIngredient, onConfirmIngredient, allConfirmed, onBack, onNext, isLast }) {
+function BatchConfirmStep({ batch, batchIdx, totalBatches, progressPct, onUpdateIngredient, onConfirmIngredient, allConfirmed, onBack, onComplete, saving }) {
   return (
     <div className="space-y-4">
       <ProgressBar current={batch.batchNumber} total={totalBatches} pct={progressPct} label="Batch" />
@@ -543,12 +543,18 @@ function BatchConfirmStep({ batch, batchIdx, totalBatches, progressPct, onUpdate
         </>
       )}
 
-      <NavButtons
-        onBack={onBack}
-        onNext={onNext}
-        nextDisabled={!allConfirmed}
-        nextLabel={isLast ? "Review & Complete" : "Next Batch"}
-      />
+      <div className="flex gap-2 pt-2">
+        <Button variant="outline" className="gap-1" onClick={onBack} disabled={saving}>
+          <ChevronLeft className="w-4 h-4" /> Back
+        </Button>
+        <Button 
+          className="flex-1 gap-1 bg-chart-2 hover:bg-chart-2/90" 
+          disabled={!allConfirmed || saving} 
+          onClick={onComplete}
+        >
+          <CheckCircle2 className="w-4 h-4" /> Complete Batch #{batch.batchNumber}
+        </Button>
+      </div>
     </div>
   );
 }
