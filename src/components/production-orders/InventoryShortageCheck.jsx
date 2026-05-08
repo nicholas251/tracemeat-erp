@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, CheckCircle2, Loader2, Plus, Link2Off } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Loader2, Plus, Link2Off, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -61,9 +61,91 @@ function CreateBucketDialog({ open, onClose, onCreated, suggestedName, category 
  *   rawInputLbs  - yield-adjusted raw input lbs needed
  *   onProductUpdated - called after linking a bucket to the product
  */
+// ─── Inline cure/casing config dialog ────────────────────────────────────────
+function CureCasingConfigDialog({ open, onClose, product, allBuckets, onSaved }) {
+  const [curePerBatch, setCurePerBatch] = useState(product?.chop_cure_lbs || "");
+  const [cureBucketId, setCureBucketId] = useState(product?.cure_bucket_id || "");
+  const [casingPerBatch, setCasingPerBatch] = useState(product?.casing_qty_per_batch_lbs || "");
+  const [casingBucketId, setCasingBucketId] = useState(product?.casing_bucket_id || "");
+  const [saving, setSaving] = useState(false);
+
+  const hasChopping = !!product?.chop_spice_mix_id;
+  const hasLinking = !!product?.link_merge_batches || !!product?.casing_bucket_id;
+
+  const handleSave = async () => {
+    setSaving(true);
+    const updates = {};
+    if (hasChopping) {
+      if (curePerBatch) updates.chop_cure_lbs = Number(curePerBatch);
+      if (cureBucketId) {
+        const b = allBuckets.find(x => x.id === cureBucketId);
+        updates.cure_bucket_id = cureBucketId;
+        updates.cure_bucket_name = b?.name || "";
+      }
+    }
+    if (casingPerBatch) updates.casing_qty_per_batch_lbs = Number(casingPerBatch);
+    if (casingBucketId) {
+      const b = allBuckets.find(x => x.id === casingBucketId);
+      updates.casing_bucket_id = casingBucketId;
+      updates.casing_bucket_name = b?.name || "";
+    }
+    await base44.entities.Product.update(product.id, updates);
+    setSaving(false);
+    onSaved();
+    onClose();
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Set Cure & Casing Quantities</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-2 text-sm">
+          {hasChopping && (
+            <div className="space-y-2">
+              <p className="font-medium text-xs text-muted-foreground uppercase tracking-wide">Cure (Chopping)</p>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Cure per chopping batch (lbs)</Label>
+                <Input type="number" step="0.1" value={curePerBatch} onChange={e => setCurePerBatch(e.target.value)} placeholder="e.g. 2.5" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Cure Inventory Bucket</Label>
+                <Select value={cureBucketId} onValueChange={setCureBucketId}>
+                  <SelectTrigger><SelectValue placeholder="Select bucket..." /></SelectTrigger>
+                  <SelectContent>{allBuckets.map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+          <div className="space-y-2">
+            <p className="font-medium text-xs text-muted-foreground uppercase tracking-wide">Casings (Linking)</p>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Casings per linking batch (lbs)</Label>
+              <Input type="number" step="0.01" value={casingPerBatch} onChange={e => setCasingPerBatch(e.target.value)} placeholder="e.g. 5.0" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Casing Inventory Bucket</Label>
+              <Select value={casingBucketId} onValueChange={setCasingBucketId}>
+                <SelectTrigger><SelectValue placeholder="Select bucket..." /></SelectTrigger>
+                <SelectContent>{allBuckets.map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button onClick={handleSave} disabled={saving}>{saving ? "Saving..." : "Save"}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function InventoryShortageCheck({ product: productProp, recipe, rawInputLbs, onProductUpdated }) {
   const queryClient = useQueryClient();
   const [createBucketFor, setCreateBucketFor] = useState(null);
+  const [showCureCasingConfig, setShowCureCasingConfig] = useState(false);
 
   const product = productProp;
 
@@ -143,6 +225,9 @@ export default function InventoryShortageCheck({ product: productProp, recipe, r
   }
 
   // ── 3. Cure (chopping) ──
+  const missingCureConfig = product.chop_spice_mix_id && !product.chop_cure_lbs;
+  const missingCasingConfig = !product.casing_qty_per_batch_lbs;
+
   const cureChecks = [];
   if (product.chop_cure_lbs) {
     const cureNeeded = parseFloat(((product.chop_cure_lbs || 0) * numChopBatches).toFixed(2));
@@ -218,6 +303,11 @@ export default function InventoryShortageCheck({ product: productProp, recipe, r
   const hasShortage = allChecks.some(c => !c.linked || c.shortfall > 0);
   const hasUnlinked = allChecks.some(c => !c.linked);
 
+  const handleCureCasingConfigSaved = () => {
+    queryClient.invalidateQueries({ queryKey: ["freshProductForOrder", product.id] });
+    onProductUpdated?.();
+  };
+
   // ── Handlers ──
   const handleLinkExistingBucket = async (fieldId, bucketId) => {
     const bucket = allBuckets.find(b => b.id === bucketId);
@@ -257,6 +347,17 @@ export default function InventoryShortageCheck({ product: productProp, recipe, r
             : <><CheckCircle2 className="w-3.5 h-3.5" /> All Ingredients Available</>
           }
         </div>
+
+        {(missingCureConfig || missingCasingConfig) && (
+          <div className="flex items-center justify-between gap-2 px-3 py-2 bg-amber-50 border-b border-amber-200/60">
+            <span className="text-amber-700 text-xs">
+              {[missingCureConfig && "cure", missingCasingConfig && "casings"].filter(Boolean).join(" & ")} quantities not configured on this product
+            </span>
+            <Button size="sm" variant="outline" className="h-6 text-xs gap-1 px-2 border-amber-300 text-amber-700 hover:bg-amber-100" onClick={() => setShowCureCasingConfig(true)}>
+              <Settings className="w-3 h-3" /> Set Up
+            </Button>
+          </div>
+        )}
 
         {stages.map(stageName => {
           const stageChecks = allChecks.filter(c => c.stage === stageName);
@@ -311,6 +412,16 @@ export default function InventoryShortageCheck({ product: productProp, recipe, r
           );
         })}
       </div>
+
+      {showCureCasingConfig && (
+        <CureCasingConfigDialog
+          open={showCureCasingConfig}
+          onClose={() => setShowCureCasingConfig(false)}
+          product={product}
+          allBuckets={allBuckets}
+          onSaved={handleCureCasingConfigSaved}
+        />
+      )}
 
       {createBucketFor && (
         <CreateBucketDialog
