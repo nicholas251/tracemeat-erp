@@ -22,6 +22,14 @@
       "type": "string",
       "description": "Recipe name for display"
     },
+    "flow_id": {
+      "type": "string",
+      "description": "Production flow ID"
+    },
+    "flow_name": {
+      "type": "string",
+      "description": "Production flow name for display"
+    },
     "supplier_id": {
       "type": "string",
       "description": "Supplier ID"
