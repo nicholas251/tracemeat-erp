@@ -160,11 +160,15 @@ export default function ProductionOrderFormDialog({ open, onClose, onSave, order
           <div className="space-y-1.5">
             <Label>
               Quantity to Produce
-              {unitLabel !== "lbs" && caseWeightLbs
-                ? ` (${unitLabel.charAt(0).toUpperCase() + unitLabel.slice(1)})`
-                : " (lbs)"}
+              {!selectedProduct
+                ? ""
+                : unitLabel !== "lbs" && caseWeightLbs
+                  ? ` (${unitLabel.charAt(0).toUpperCase() + unitLabel.slice(1)})`
+                  : " (lbs)"}
             </Label>
-            {unitLabel !== "lbs" && caseWeightLbs ? (
+            {!selectedProduct ? (
+              <Input disabled placeholder="Select a product first" />
+            ) : unitLabel !== "lbs" && caseWeightLbs ? (
               <div className="space-y-1">
                 <Input
                   type="number"
