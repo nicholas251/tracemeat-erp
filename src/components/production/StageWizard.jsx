@@ -254,11 +254,10 @@ export default function StageWizard({ stage, open, onClose, onCompleted }) {
 
         // Update stage with this completed batch
         const updatedSubBatches = [...(stage.sub_batches || []), subBatch];
-        const newStatus = isLastBatch ? "completed" : "in_progress";
 
         await base44.entities.ProductionStage.update(stage.id, {
           sub_batches: updatedSubBatches,
-          status: newStatus,
+          status: "in_progress",
           completed_at: isLastBatch ? new Date().toISOString() : stage.completed_at,
         });
 
