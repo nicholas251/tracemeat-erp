@@ -40,6 +40,7 @@ function CreateBucketDialog({ open, onClose, onCreated, suggestedName, category 
                 <SelectItem value="protein">Protein</SelectItem>
                 <SelectItem value="spice">Spice / Cure</SelectItem>
                 <SelectItem value="packaging">Packaging</SelectItem>
+                <SelectItem value="casing">Casing</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -223,8 +224,7 @@ export default function InventoryShortageCheck({ product: productProp, recipe, r
   }
 
   // ── 3. Cure (chopping) ──
-  const missingCureConfig = product.chop_spice_mix_id && !product.chop_cure_lbs;
-  const missingCasingConfig = !product.casing_qty_per_batch_lbs;
+   const missingCasingConfig = !product.casing_qty_per_batch_lbs;
 
   const cureChecks = [];
   if (product.chop_cure_lbs) {
@@ -285,12 +285,12 @@ export default function InventoryShortageCheck({ product: productProp, recipe, r
         shortfall: casingNeeded,
         linked: false,
         linkAction: {
-          label: "Link casing bucket",
-          suggestedName: "Casings",
-          category: "spice",
-          fieldId: "casing",
-          fieldName: "casing_bucket",
-        },
+           label: "Link casing bucket",
+           suggestedName: "Casings",
+           category: "casing",
+           fieldId: "casing",
+           fieldName: "casing_bucket",
+         },
       });
     }
   }
@@ -346,16 +346,16 @@ export default function InventoryShortageCheck({ product: productProp, recipe, r
           }
         </div>
 
-        {(missingCureConfig || missingCasingConfig) && (
-          <div className="flex items-center justify-between gap-2 px-3 py-2 bg-amber-50 border-b border-amber-200/60">
-            <span className="text-amber-700 text-xs">
-              {[missingCureConfig && "cure", missingCasingConfig && "casings"].filter(Boolean).join(" & ")} quantities not configured on this product
-            </span>
-            <Button size="sm" variant="outline" className="h-6 text-xs gap-1 px-2 border-amber-300 text-amber-700 hover:bg-amber-100" onClick={() => setShowCureCasingConfig(true)}>
-              <Settings className="w-3 h-3" /> Set Up
-            </Button>
-          </div>
-        )}
+        {missingCasingConfig && (
+           <div className="flex items-center justify-between gap-2 px-3 py-2 bg-amber-50 border-b border-amber-200/60">
+             <span className="text-amber-700 text-xs">
+               Casings quantity not configured on this product
+             </span>
+             <Button size="sm" variant="outline" className="h-6 text-xs gap-1 px-2 border-amber-300 text-amber-700 hover:bg-amber-100" onClick={() => setShowCureCasingConfig(true)}>
+               <Settings className="w-3 h-3" /> Link Casing Bucket
+             </Button>
+           </div>
+         )}
 
         {stages.map(stageName => {
           const stageChecks = allChecks.filter(c => c.stage === stageName);
