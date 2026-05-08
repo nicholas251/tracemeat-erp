@@ -73,6 +73,7 @@ export default function StageActionDialog({ stage, open, onClose, onUpdated }) {
     onUpdated();
   };
 
+  const isLocked = stage?.status === "locked";
   const isAvailable = stage?.status === "available";
   const isInProgress = stage?.status === "in_progress";
   const isCompleted = stage?.status === "completed";
@@ -88,7 +89,15 @@ export default function StageActionDialog({ stage, open, onClose, onUpdated }) {
           <p className="text-sm text-muted-foreground">{stage?.product_name} · Order #{stage?.order_number} · Step {stage?.step_number}</p>
         </DialogHeader>
 
-        <div className="space-y-4">
+        {isLocked && (
+          <div className="py-6 text-center text-muted-foreground">
+            <Clock className="w-8 h-8 mx-auto mb-2 opacity-40" />
+            <p className="font-medium">Waiting on prior stage</p>
+            <p className="text-sm mt-1">This stage will unlock once the previous step is completed.</p>
+          </div>
+        )}
+
+        {!isLocked && <div className="space-y-4">
           {/* Status Actions */}
           {!isCompleted && (
             <div className="flex gap-2">
@@ -193,11 +202,11 @@ export default function StageActionDialog({ stage, open, onClose, onUpdated }) {
             <Label>Notes</Label>
             <Textarea value={form.notes || ""} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} className="h-16" placeholder="Any observations..." />
           </div>
-        </div>
+        </div>}
 
         <DialogFooter className="gap-2 mt-4">
           <Button variant="outline" onClick={onClose}>Close</Button>
-          {(isInProgress || isCompleted) && (
+          {!isLocked && (isInProgress || isCompleted) && (
             <Button onClick={handleSave} disabled={saving}>Save Changes</Button>
           )}
         </DialogFooter>
