@@ -65,14 +65,7 @@ export default function InventoryShortageCheck({ product: productProp, recipe, r
   const queryClient = useQueryClient();
   const [createBucketFor, setCreateBucketFor] = useState(null);
 
-  // Always fetch a fresh copy of the product so bucket links are up-to-date
-  const { data: freshProduct } = useQuery({
-    queryKey: ["productForShortageCheck", productProp?.id],
-    queryFn: () => base44.entities.Product.filter({ id: productProp.id }),
-    enabled: !!productProp?.id,
-    select: d => d[0] || productProp,
-  });
-  const product = freshProduct || productProp;
+  const product = productProp;
 
   const { data: rawInventory = [], isLoading } = useQuery({
     queryKey: ["rawInventoryAvailable"],
@@ -234,7 +227,7 @@ export default function InventoryShortageCheck({ product: productProp, recipe, r
       : { casing_bucket_id: bucketId, casing_bucket_name: bucket.name };
     await base44.entities.Product.update(product.id, updates);
     queryClient.invalidateQueries({ queryKey: ["rawInventoryAvailable"] });
-    queryClient.invalidateQueries({ queryKey: ["productForShortageCheck", product.id] });
+    queryClient.invalidateQueries({ queryKey: ["freshProductForOrder", product.id] });
     onProductUpdated?.();
   };
 
@@ -248,7 +241,7 @@ export default function InventoryShortageCheck({ product: productProp, recipe, r
     await base44.entities.Product.update(product.id, updates);
     queryClient.invalidateQueries({ queryKey: ["rawInventoryAvailable"] });
     queryClient.invalidateQueries({ queryKey: ["allBuckets"] });
-    queryClient.invalidateQueries({ queryKey: ["productForShortageCheck", product.id] });
+    queryClient.invalidateQueries({ queryKey: ["freshProductForOrder", product.id] });
     onProductUpdated?.();
   };
 
