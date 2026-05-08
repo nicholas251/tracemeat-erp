@@ -8,8 +8,6 @@ import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import AppLayout from './components/layout/AppLayout';
 import Dashboard from './pages/Dashboard';
 import Products from './pages/Products';
-import ProductionFlows from './pages/ProductionFlows';
-import Batches from './pages/Batches';
 import HoldRelease from './pages/HoldRelease';
 import Traceability from './pages/Traceability';
 import RawMaterials from './pages/RawMaterials';
@@ -58,8 +56,6 @@ const AuthenticatedApp = () => {
       <Route element={<AppLayout />}>
         <Route path="/" element={<Dashboard />} />
         <Route path="/products" element={<Products />} />
-        <Route path="/flows" element={<ProductionFlows />} />
-        <Route path="/batches" element={<Batches />} />
         <Route path="/hold-release" element={<HoldRelease />} />
         <Route path="/traceability" element={<Traceability />} />
         <Route path="/raw-materials" element={<RawMaterials />} />
