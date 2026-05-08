@@ -74,7 +74,6 @@ export default function StageDashboard({ user, profile, onBack, singleProfile = 
           open={!!activeStage}
           onClose={() => setActiveStage(null)}
           onCompleted={handleUpdated}
-          allowedCapabilityKeys={capKeys}
         />
       )}
     </div>

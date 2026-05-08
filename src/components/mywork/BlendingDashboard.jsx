@@ -81,7 +81,6 @@ export default function BlendingDashboard({ user, profile, onBack }) {
           open={!!activeStage}
           onClose={() => setActiveStage(null)}
           onCompleted={handleUpdated}
-          allowedCapabilityKeys={profile.capability_keys}
         />
       )}
     </div>

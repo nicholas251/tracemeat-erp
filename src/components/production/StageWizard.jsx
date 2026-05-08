@@ -134,7 +134,7 @@ function buildMeasurementSteps(stage, product, capKey, spiceMixes) {
 }
 
 // ─── Main wizard ─────────────────────────────────────────────────────────────
-export default function StageWizard({ stage, open, onClose, onCompleted, allowedCapabilityKeys = null }) {
+export default function StageWizard({ stage, open, onClose, onCompleted }) {
   const [step, setStep] = useState(0);
   const [batches, setBatches] = useState(null);
   const [form, setForm] = useState({});
@@ -142,9 +142,6 @@ export default function StageWizard({ stage, open, onClose, onCompleted, allowed
 
   const capKey = stage?.capability_key;
   const usesIngredientBatches = capKey === "blending";
-  
-  // Check if user has permission to edit this stage
-  const isReadOnly = allowedCapabilityKeys !== null && !allowedCapabilityKeys.includes(capKey);
 
   const { data: product } = useQuery({
     queryKey: ["wizardProduct", stage?.order_id],
@@ -209,7 +206,6 @@ export default function StageWizard({ stage, open, onClose, onCompleted, allowed
 
   // ── Start ──
   const handleStart = async () => {
-    if (isReadOnly) return;
     if (stage.status !== "in_progress") {
       setSaving(true);
       await base44.entities.ProductionStage.update(stage.id, {
@@ -223,7 +219,6 @@ export default function StageWizard({ stage, open, onClose, onCompleted, allowed
 
   // ── Complete ──
   const handleComplete = async () => {
-    if (isReadOnly) return;
     setSaving(true);
     const updates = {
       status: "completed",
@@ -281,12 +276,6 @@ export default function StageWizard({ stage, open, onClose, onCompleted, allowed
           </p>
         </DialogHeader>
 
-        {isReadOnly && (
-          <div className="rounded-md bg-muted px-4 py-3 text-sm text-muted-foreground border">
-            This stage is outside your work scope. You can view it but cannot make changes.
-          </div>
-        )}
-
         {/* ── INTRO ── */}
         {step === 0 && (
           <IntroStep
@@ -299,7 +288,6 @@ export default function StageWizard({ stage, open, onClose, onCompleted, allowed
             saving={saving}
             onStart={handleStart}
             usesIngredientBatches={usesIngredientBatches}
-            isReadOnly={isReadOnly}
           />
         )}
 
@@ -346,7 +334,6 @@ export default function StageWizard({ stage, open, onClose, onCompleted, allowed
             saving={saving}
             onBack={() => setStep(lastStep - 1)}
             onComplete={handleComplete}
-            isReadOnly={isReadOnly}
           />
         )}
       </DialogContent>
@@ -356,7 +343,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted, allowed
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function IntroStep({ stage, capKey, stageLabel, resolvedBatches, measureSteps, product, saving, onStart, usesIngredientBatches, isReadOnly }) {
+function IntroStep({ stage, capKey, stageLabel, resolvedBatches, measureSteps, product, saving, onStart, usesIngredientBatches }) {
   const isAlreadyStarted = stage?.status === "in_progress";
   return (
     <div className="space-y-4">
@@ -395,31 +382,14 @@ function IntroStep({ stage, capKey, stageLabel, resolvedBatches, measureSteps, p
       <Button
         className="w-full gap-2"
         onClick={onStart}
-        disabled={saving || (usesIngredientBatches && !resolvedBatches) || isReadOnly}
+        disabled={saving || (usesIngredientBatches && !resolvedBatches)}
       >
         <Play className="w-4 h-4" />
         {isAlreadyStarted ? `Continue ${stageLabel}` : `Start ${stageLabel}`}
       </Button>
-        </div>
-        );
-        }
-
-        function IntroStepWrapper({ stage, capKey, stageLabel, resolvedBatches, measureSteps, product, saving, onStart, usesIngredientBatches, isReadOnly }) {
-        return (
-        <IntroStep
-        stage={stage}
-        capKey={capKey}
-        stageLabel={stageLabel}
-        resolvedBatches={resolvedBatches}
-        measureSteps={measureSteps}
-        product={product}
-        saving={saving}
-        onStart={onStart}
-        usesIngredientBatches={usesIngredientBatches}
-        isReadOnly={isReadOnly}
-        />
-        );
-        }
+    </div>
+  );
+}
 
 function BatchConfirmStep({ batch, batchIdx, totalBatches, progressPct, onUpdateIngredient, onConfirmIngredient, allConfirmed, onBack, onNext, isLast }) {
   return (
@@ -589,7 +559,7 @@ function FieldInput({ field, value, onChange, spiceMixes, onSpiceSelect }) {
   );
 }
 
-function FinalStep({ stage, capKey, stageLabel, resolvedBatches, form, saving, onBack, onComplete, isReadOnly }) {
+function FinalStep({ stage, capKey, stageLabel, resolvedBatches, form, saving, onBack, onComplete }) {
   const outputLbs = resolvedBatches
     ? resolvedBatches.reduce((s, b) => s + b.batchLbs, 0)
     : form.output_qty_lbs || stage?.input_qty_lbs || 0;
@@ -642,7 +612,7 @@ function FinalStep({ stage, capKey, stageLabel, resolvedBatches, form, saving, o
         <Button
           className="flex-1 gap-1 bg-chart-2 hover:bg-chart-2/90"
           onClick={onComplete}
-          disabled={saving || isReadOnly}
+          disabled={saving}
         >
           <CheckCircle2 className="w-4 h-4" /> Complete {stageLabel}
         </Button>
