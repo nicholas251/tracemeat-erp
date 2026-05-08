@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { base44 } from "@/api/base44Client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useQuery } from "@tanstack/react-query";
 
 const categories = [
   { value: "beef", label: "Beef" },
@@ -46,12 +47,20 @@ export default function ProductFormDialog({ open, onClose, onSave, product }) {
   const [recipeMode, setRecipeMode] = useState("select");
   const [newRecipe, setNewRecipe] = useState({ name: "", yield_lbs: "", ingredients: [] });
   const [selectedRecipe, setSelectedRecipe] = useState(null);
+  const [tab, setTab] = useState("basic");
 
   useEffect(() => {
     if (open) {
       base44.entities.Recipe.list().then(setRecipes);
+      setTab("basic");
     }
   }, [open]);
+
+  const { data: spiceMixes = [] } = useQuery({
+    queryKey: ["spiceMixes"],
+    queryFn: () => base44.entities.SpiceMix.list(),
+    enabled: open,
+  });
 
   // Auto-calculate recipe consumption when package size/case quantity changes
   useEffect(() => {
@@ -69,6 +78,10 @@ export default function ProductFormDialog({ open, onClose, onSave, product }) {
       case_weight_lbs: form.case_weight_lbs ? Number(form.case_weight_lbs) : undefined,
       shelf_life_days: form.shelf_life_days ? Number(form.shelf_life_days) : undefined,
       storage_temp_c: form.storage_temp_c ? Number(form.storage_temp_c) : undefined,
+      blend_batch_lbs: form.blend_batch_lbs ? Number(form.blend_batch_lbs) : undefined,
+      chop_spice_qty_lbs: form.chop_spice_qty_lbs ? Number(form.chop_spice_qty_lbs) : undefined,
+      chop_water_lbs: form.chop_water_lbs ? Number(form.chop_water_lbs) : undefined,
+      chop_cure_lbs: form.chop_cure_lbs ? Number(form.chop_cure_lbs) : undefined,
     });
   };
 
@@ -107,6 +120,62 @@ export default function ProductFormDialog({ open, onClose, onSave, product }) {
         <DialogHeader>
           <DialogTitle>{product ? "Edit Product" : "New Product"}</DialogTitle>
         </DialogHeader>
+
+        <Tabs value={tab} onValueChange={setTab} className="mt-2">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="basic">Basic Info</TabsTrigger>
+            <TabsTrigger value="chopping">Chopping</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="chopping" className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Blend Batch Size (lbs protein)</Label>
+              <Input type="number" step="0.1" value={form.blend_batch_lbs || ""} onChange={e => update("blend_batch_lbs", e.target.value)} placeholder="e.g. 240" />
+              <p className="text-xs text-muted-foreground">Total protein weight per blending batch.</p>
+            </div>
+            <div className="space-y-2">
+              <Label>Spice Mix</Label>
+              <Select value={form.chop_spice_mix_id || ""} onValueChange={v => {
+                const m = spiceMixes.find(x => x.id === v);
+                update("chop_spice_mix_id", v);
+                update("chop_spice_mix_name", m?.name || "");
+              }}>
+                <SelectTrigger><SelectValue placeholder="Select spice mix..." /></SelectTrigger>
+                <SelectContent>{spiceMixes.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Spice Mix per Batch (lbs)</Label>
+              <Input type="number" step="0.01" value={form.chop_spice_qty_lbs || ""} onChange={e => update("chop_spice_qty_lbs", e.target.value)} placeholder="e.g. 12.19" />
+            </div>
+            <div className="space-y-2">
+              <Label>Water per Batch (lbs)</Label>
+              <Input type="number" step="0.1" value={form.chop_water_lbs || ""} onChange={e => update("chop_water_lbs", e.target.value)} placeholder="e.g. 61" />
+            </div>
+            <div className="space-y-2">
+              <Label>Cure per Batch (lbs)</Label>
+              <Input type="number" step="0.01" value={form.chop_cure_lbs || ""} onChange={e => update("chop_cure_lbs", e.target.value)} placeholder="e.g. 0.56" />
+            </div>
+            {form.blend_batch_lbs && (
+              <div className="bg-muted/40 rounded-lg p-3 text-xs space-y-1">
+                <p className="font-semibold text-foreground">Batch weight summary</p>
+                <p className="text-muted-foreground">Protein: <span className="font-medium text-foreground">{Number(form.blend_batch_lbs).toFixed(2)} lbs</span></p>
+                {form.chop_spice_qty_lbs > 0 && <p className="text-muted-foreground">Spice: <span className="font-medium text-foreground">{Number(form.chop_spice_qty_lbs).toFixed(2)} lbs</span></p>}
+                {form.chop_water_lbs > 0 && <p className="text-muted-foreground">Water: <span className="font-medium text-foreground">{Number(form.chop_water_lbs).toFixed(2)} lbs</span></p>}
+                {form.chop_cure_lbs > 0 && <p className="text-muted-foreground">Cure: <span className="font-medium text-foreground">{Number(form.chop_cure_lbs).toFixed(2)} lbs</span></p>}
+                <p className="font-semibold text-foreground border-t pt-1 mt-1">
+                  Total chop batch: {(
+                    (Number(form.blend_batch_lbs) || 0) +
+                    (Number(form.chop_spice_qty_lbs) || 0) +
+                    (Number(form.chop_water_lbs) || 0) +
+                    (Number(form.chop_cure_lbs) || 0)
+                  ).toFixed(2)} lbs
+                </p>
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="basic">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
           <div className="space-y-2">
             <Label>Product Name *</Label>
@@ -225,6 +294,9 @@ export default function ProductFormDialog({ open, onClose, onSave, product }) {
             </Tabs>
           </div>
         </div>
+          </TabsContent>
+        </Tabs>
+
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
           <Button onClick={handleSave} disabled={!form.name || !form.product_number || !form.sku || !form.recipe_id || !form.package_size || !form.packages_per_case}>
