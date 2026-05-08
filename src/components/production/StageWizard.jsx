@@ -28,28 +28,21 @@ const STAGE_ICONS = {
 // ─── Build ingredient batches (blending / chopping) ───────────────────────────
 function buildIngredientBatches(stage, product, capKey) {
   const totalLbs = stage.input_qty_lbs || 0;
-  let batchSize, ingredients;
+  let ingredients;
 
   if (capKey === "blending") {
-    batchSize = product?.blend_batch_lbs || totalLbs;
     ingredients = product?.blend_ingredients || [];
   } else {
     // chopping: single batch, spice mix as "ingredient"
-    batchSize = totalLbs;
     ingredients = [];
   }
 
-  // Calculate number of full+partial batches needed
-  const effectiveBatchSize = batchSize || totalLbs;
-  const numBatches = effectiveBatchSize > 0 ? Math.ceil(totalLbs / effectiveBatchSize) : 1;
-
-  return Array.from({ length: numBatches }, (_, i) => {
-    const isLast = i === numBatches - 1;
-    const batchLbs = isLast ? parseFloat((totalLbs - effectiveBatchSize * i).toFixed(2)) : effectiveBatchSize;
-    const ratio = effectiveBatchSize > 0 ? batchLbs / effectiveBatchSize : 1;
-    return {
-      batchNumber: i + 1,
-      batchLbs,
+  // Each stage = exactly 1 batch with totalLbs as the batch weight
+  const ratio = totalLbs > 0 ? 1 : 0;
+  return [
+    {
+      batchNumber: 1,
+      batchLbs: totalLbs,
       ingredients: ingredients.map(ing => ({
         bucket_id: ing.bucket_id,
         bucket_name: ing.bucket_name,
@@ -58,8 +51,8 @@ function buildIngredientBatches(stage, product, capKey) {
         actual_lbs: parseFloat((ing.quantity_lbs * ratio).toFixed(2)),
         confirmed: false,
       })),
-    };
-  });
+    }
+  ];
 }
 
 // ─── Build measurement steps for cooking / chilling / linking / packaging ────
