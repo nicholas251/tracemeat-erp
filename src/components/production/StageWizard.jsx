@@ -245,6 +245,16 @@ export default function StageWizard({ stage, open, onClose, onCompleted }) {
 
     await base44.entities.ProductionStage.update(stage.id, updates);
 
+    // Unlock next stage
+    const allStages = await base44.entities.ProductionStage.filter({ order_id: stage.order_id });
+    const nextStage = allStages.find(s => s.step_number === stage.step_number + 1);
+    if (nextStage?.status === "locked") {
+      await base44.entities.ProductionStage.update(nextStage.id, {
+        status: "available",
+        input_qty_lbs: updates.output_qty_lbs || stage.input_qty_lbs || 0,
+      });
+    }
+
     setSaving(false);
     onCompleted();
   };
