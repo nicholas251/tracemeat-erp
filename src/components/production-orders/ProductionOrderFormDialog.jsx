@@ -82,11 +82,6 @@ export default function ProductionOrderFormDialog({ open, onClose, onSave, order
     setUnits("");
   };
 
-  const handleFlowSelect = (fid) => {
-    const fl = flows.find(f => f.id === fid);
-    setForm(f => ({ ...f, flow_id: fid, flow_name: fl?.name || "" }));
-  };
-
   const handleSupplierSelect = (sid) => {
     const s = suppliers.find(s => s.id === sid);
     setForm(f => ({ ...f, supplier_id: sid, supplier_name: s?.name || "" }));
@@ -136,11 +131,10 @@ export default function ProductionOrderFormDialog({ open, onClose, onSave, order
           </div>
 
           <div className="space-y-1.5">
-            <Label>Production Flow <span className="text-xs text-muted-foreground">(auto-set from product)</span></Label>
-            <Select value={form.flow_id} onValueChange={handleFlowSelect}>
-              <SelectTrigger><SelectValue placeholder="Select product first..." /></SelectTrigger>
-              <SelectContent>{flows.map(f => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}</SelectContent>
-            </Select>
+            <Label>Production Flow <span className="text-xs text-muted-foreground">(auto-assigned)</span></Label>
+            <div className="flex items-center px-3 py-2 border rounded-md bg-muted/50">
+              <span className="text-sm font-medium">{form.flow_name || "—"}</span>
+            </div>
           </div>
 
           <label className="flex items-center gap-2 cursor-pointer select-none">
