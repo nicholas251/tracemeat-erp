@@ -60,7 +60,7 @@ export default function UserManagement() {
     <div>
       <PageHeader 
         title="User Management" 
-        subtitle="Manage user roles and work profile assignments"
+        subtitle="Manage user work profile assignments"
         actions={
           <div className="flex items-center gap-2 bg-muted px-3 py-2 rounded-lg">
             <code className="text-xs text-muted-foreground truncate max-w-xs">{signupLink}</code>

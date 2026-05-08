@@ -53,21 +53,18 @@ export default function UserProfileMenu() {
         </div>
         <DropdownMenuSeparator />
         
-        {(userProfiles.length > 0 || user.role) && (
+        {userProfiles.length > 0 && (
           <>
             <div className="px-2 py-2">
               <p className="text-xs font-semibold text-muted-foreground mb-2">Roles & Profiles</p>
               <div className="flex flex-wrap gap-1">
-                {user.role && user.role !== 'user' && !userProfiles.some(p => p.name.toLowerCase() === user.role.replace(/_/g, ' ').toLowerCase()) && (
-                  <Badge variant="secondary" className="text-xs capitalize">
-                    {user.role.replace(/_/g, ' ')}
-                  </Badge>
-                )}
-                {userProfiles.map(profile => (
+                {userProfiles.length > 0 ? userProfiles.map(profile => (
                   <Badge key={profile.id} className="text-xs bg-primary/10 text-primary">
                     {profile.name}
                   </Badge>
-                ))}
+                )) : (
+                  <span className="text-xs text-muted-foreground">No profile assigned</span>
+                )}
               </div>
             </div>
             <DropdownMenuSeparator />

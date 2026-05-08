@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { getVisibleNavRoles } from "@/lib/accessControl";
 
 const allNavItems = [
   { path: "/", label: "Dashboard", icon: LayoutDashboard, roles: ["admin", "supervisor", "quality_control", "production_worker"] },
@@ -66,23 +67,14 @@ export default function Sidebar({ collapsed, onToggle }) {
     return () => window.removeEventListener("focus", fetchData);
   }, []);
 
-  // Get user's work profiles
+  // Get user's work profiles — sole source of truth for access control
   const userProfiles = profiles.filter(p => (p.assigned_user_ids || []).includes(user?.id));
-  const userRole = user?.role || "user";
-  const isWarehouseOperator = userProfiles.length === 1 && userProfiles[0]?.name === "Warehouse Operator";
-  // Any user with a work profile that isn't exclusively warehouse is a production worker
-  const isProductionWorker = userProfiles.length > 0 && !isWarehouseOperator;
+  const visibleRoles = getVisibleNavRoles(userProfiles);
 
-  // Determine visible items
-  const visibleItems = allNavItems.filter(item => {
-    if (item.roles.includes("all")) return true;
-    // Supervisors, admins, and QC see everything - no restrictions
-    if (["supervisor", "admin", "quality_control"].includes(userRole)) return true;
-    if (item.roles.includes(userRole)) return true;
-    if (isWarehouseOperator && item.roles.includes("warehouse_operator")) return true;
-    if (isProductionWorker && item.roles.includes("production_worker")) return true;
-    return false;
-  });
+  // Determine visible items purely from work profile roles
+  const visibleItems = allNavItems.filter(item =>
+    item.roles.some(r => visibleRoles.has(r))
+  );
 
   return (
     <aside className={cn(
