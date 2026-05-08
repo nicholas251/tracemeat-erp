@@ -66,7 +66,7 @@ function buildMeasurementSteps(stage, product, capKey, spiceMixes) {
       id: "bowl_prep",
       label: "Bowl Preparation",
       fields: [
-        { key: "blend_added", label: "Blending batch added to bowl?", type: "boolean" },
+        { key: "input_lot_confirmed", label: `Confirm blend lot ${stage?.input_lot_number || "N/A"} added to bowl?`, type: "boolean" },
         { key: "spice_mix_id", label: "Spice Mix", type: "spice_select", options: spiceMixes },
         { key: "spice_mix_qty_lbs", label: "Spice Mix Amount (lbs)", type: "number" },
         { key: "water_amount_lbs", label: "Water Amount Added (lbs)", type: "number" },
@@ -229,7 +229,12 @@ export default function StageWizard({ stage, open, onClose, onCompleted }) {
     };
 
     if (usesIngredientBatches && resolvedBatches) {
+      // Generate lot number from today's date (YYYYMMDD format)
+      const today = new Date().toISOString().split('T')[0].replace(/-/g, '');
+      const lotNumber = `BLEND-${today}`;
+      
       updates.output_qty_lbs = resolvedBatches.reduce((s, b) => s + b.batchLbs, 0);
+      updates.lot_number = lotNumber;
       updates.sub_batches = resolvedBatches.map(b => ({
         sub_batch_id: `${capKey}-${b.batchNumber}`,
         label: `Batch #${b.batchNumber}`,
@@ -252,6 +257,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted }) {
       await base44.entities.ProductionStage.update(nextStage.id, {
         status: "available",
         input_qty_lbs: updates.output_qty_lbs || stage.input_qty_lbs || 0,
+        input_lot_number: updates.lot_number || "",
       });
     }
 
