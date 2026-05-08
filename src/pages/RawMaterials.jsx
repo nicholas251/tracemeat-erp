@@ -10,6 +10,7 @@ import PageHeader from "@/components/shared/PageHeader";
 import StatusBadge from "@/components/shared/StatusBadge";
 import MaterialFormDialog from "@/components/materials/MaterialFormDialog";
 import AllocationDialog from "@/components/materials/AllocationDialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
@@ -21,6 +22,7 @@ export default function RawMaterials() {
   const [editing, setEditing] = useState(null);
   const [deleting, setDeleting] = useState(null);
   const [allocating, setAllocating] = useState(null);
+  const [activeTab, setActiveTab] = useState("all");
   const queryClient = useQueryClient();
 
   const { data: materials = [], isLoading } = useQuery({
@@ -48,6 +50,8 @@ export default function RawMaterials() {
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["raw-materials"] }); setAllocating(null); },
   });
 
+  const filteredMaterials = activeTab === "all" ? materials : materials.filter(m => m.category === activeTab);
+
   return (
     <div>
       <PageHeader 
@@ -60,9 +64,19 @@ export default function RawMaterials() {
         }
       />
 
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-4">
+        <TabsList>
+          <TabsTrigger value="all">All Materials</TabsTrigger>
+          <TabsTrigger value="casing">Casings</TabsTrigger>
+          <TabsTrigger value="seasoning">Seasonings</TabsTrigger>
+          <TabsTrigger value="packaging">Packaging</TabsTrigger>
+          <TabsTrigger value="additive">Additives</TabsTrigger>
+        </TabsList>
+      </Tabs>
+
       {isLoading ? (
         <Card className="h-48 animate-pulse bg-muted" />
-      ) : materials.length === 0 ? (
+      ) : filteredMaterials.length === 0 ? (
         <Card className="p-8 sm:p-12 text-center">
           <Warehouse className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
           <h3 className="text-lg font-semibold mb-1">No raw materials</h3>
@@ -90,7 +104,7 @@ export default function RawMaterials() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {materials.map(m => (
+                    {filteredMaterials.map(m => (
                       <TableRow key={m.id}>
                         <TableCell className="font-mono text-sm font-medium">{m.lot_number}</TableCell>
                         <TableCell className="text-sm font-medium">{m.name}</TableCell>
@@ -125,7 +139,7 @@ export default function RawMaterials() {
 
           {/* Mobile card view */}
           <div className="md:hidden space-y-3">
-            {materials.map(m => (
+            {filteredMaterials.map(m => (
               <Card key={m.id} className="p-4">
                 <div className="space-y-3">
                   <div className="flex items-start justify-between">
