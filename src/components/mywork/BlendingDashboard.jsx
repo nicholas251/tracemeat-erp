@@ -28,11 +28,14 @@ export default function BlendingDashboard({ user, profile, onBack }) {
     }, "created_date", 200),
   });
 
-  const inProgress = stages.filter(s => s.status === "in_progress");
-  const available = stages.filter(s => s.status === "available");
-  const completed = stages.filter(s => s.status === "completed");
+  const myStages = stages.filter(s => s.work_profile_id === profile.id);
+
+  const inProgress = myStages.filter(s => s.status === "in_progress");
+  const available = myStages.filter(s => s.status === "available");
+  const completed = myStages.filter(s => s.status === "completed");
 
   const getOrderForStage = (stage) => orders.find(o => o.id === stage.order_id);
+
 
   const handleUpdated = () => {
     queryClient.invalidateQueries({ queryKey: ["blendingStages"] });

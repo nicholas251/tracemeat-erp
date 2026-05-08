@@ -27,23 +27,20 @@ export default function StageDashboard({ user, profile, onBack }) {
     setActiveStage(null);
   };
 
-  // Stages that belong to this profile's capabilities
-  const myStages = allStages.filter(s => capKeys.includes(s.capability_key));
+  // Stages assigned to THIS specific profile (isolated view)
+  const myStages = allStages.filter(s =>
+    s.work_profile_id === profile.id && capKeys.includes(s.capability_key)
+  );
 
   // In Progress: stages this profile is actively working
   const inProgress = myStages.filter(s => s.status === "in_progress");
 
-  // Available queue (FIFO): status=available, ordered by when they became available
-  // We approximate FIFO order using created_date of the stage record
+  // Available queue (FIFO): status=available, ordered by created_date
   const availableQueue = myStages
     .filter(s => s.status === "available")
-    .sort((a, b) => {
-      // Sort by when prior stage completed (stage created_date is a reasonable proxy)
-      return new Date(a.created_date) - new Date(b.created_date);
-    });
+    .sort((a, b) => new Date(a.created_date) - new Date(b.created_date));
 
-  // On Deck: stages where the PRIOR step (step_number - 1) is in_progress at another capability
-  // These are locked stages whose predecessor is actively being worked
+  // On Deck: locked stages assigned to this profile whose prior step is in_progress
   const onDeck = myStages
     .filter(s => s.status === "locked")
     .filter(stage => {
