@@ -8,10 +8,6 @@ const SUPERVISOR_PROFILE_NAMES = ["Supervisor"];
 const ADMIN_OR_SUPERVISOR_NAMES = ["Admin", "Supervisor"];
 const WAREHOUSE_PROFILE_NAMES = ["Warehouse Operator"];
 const QUALITY_CONTROL_NAMES = ["Quality Control"];
-const PRODUCTION_WORKER_NAMES = [
-  "Blending", "Bowl Chopper", "Linking Operator", "Line 3 Raw",
-  "Smokehouse Operator", "Packing Operator"
-];
 
 /** True if user has an Admin work profile */
 export function isUserAdmin(profiles = []) {
@@ -40,12 +36,7 @@ export function isUserWarehouseOnly(profiles = []) {
 
 /** True if user has any production capability profile (not just warehouse/admin) */
 export function isUserProductionWorker(profiles = []) {
-  return profiles.some(p => PRODUCTION_WORKER_NAMES.includes(p.name));
-}
-
-/** Resolve a platform role string from assigned profiles */
-export function getPlatformRole(profiles = []) {
-  return isUserAdminOrSupervisor(profiles) ? "admin" : "user";
+  return profiles.length > 0 && !isUserWarehouseOnly(profiles) && !isUserAdminOrSupervisor(profiles);
 }
 
 /**
