@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 
 export default function ProductionOrderFormDialog({ open, onClose, onSave, order, products, flows, suppliers }) {
   const [form, setForm] = useState({
@@ -12,17 +13,28 @@ export default function ProductionOrderFormDialog({ open, onClose, onSave, order
     supplier_id: "", supplier_name: "", quantity_to_produce: "", order_date: new Date().toISOString().split("T")[0],
     target_completion_date: "", status: "pending", notes: ""
   });
+  const [homeStock, setHomeStock] = useState(false);
 
   useEffect(() => {
-    if (order) setForm(order);
-    else setForm({
-      order_number: `PO-${Date.now().toString().slice(-6)}`,
-      product_id: "", product_name: "", flow_id: "", flow_name: "",
-      supplier_id: "", supplier_name: "", quantity_to_produce: "",
-      order_date: new Date().toISOString().split("T")[0],
-      target_completion_date: "", status: "pending", notes: ""
-    });
+    if (order) {
+      setForm(order);
+      setHomeStock(!order.supplier_id);
+    } else {
+      setForm({
+        order_number: `PO-${Date.now().toString().slice(-6)}`,
+        product_id: "", product_name: "", flow_id: "", flow_name: "",
+        supplier_id: "", supplier_name: "", quantity_to_produce: "",
+        order_date: new Date().toISOString().split("T")[0],
+        target_completion_date: "", status: "pending", notes: ""
+      });
+      setHomeStock(false);
+    }
   }, [order, open]);
+
+  const handleHomeStockToggle = (checked) => {
+    setHomeStock(checked);
+    if (checked) setForm(f => ({ ...f, supplier_id: "", supplier_name: "" }));
+  };
 
   const handleProductSelect = (pid) => {
     const p = products.find(prod => prod.id === pid);
@@ -97,13 +109,21 @@ export default function ProductionOrderFormDialog({ open, onClose, onSave, order
             </Select>
           </div>
 
-          <div className="space-y-1.5">
-            <Label>Supplier</Label>
-            <Select value={form.supplier_id} onValueChange={handleSupplierSelect}>
-              <SelectTrigger><SelectValue placeholder="Select supplier..." /></SelectTrigger>
-              <SelectContent>{suppliers.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
-            </Select>
-          </div>
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <Checkbox checked={homeStock} onCheckedChange={handleHomeStockToggle} />
+            <span className="text-sm font-medium">Home Stock</span>
+            <span className="text-xs text-muted-foreground">(producing to replenish in-house inventory)</span>
+          </label>
+
+          {!homeStock && (
+            <div className="space-y-1.5">
+              <Label>Purchasing Company</Label>
+              <Select value={form.supplier_id} onValueChange={handleSupplierSelect}>
+                <SelectTrigger><SelectValue placeholder="Select purchasing company..." /></SelectTrigger>
+                <SelectContent>{suppliers.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+          )}
 
           <div className="space-y-1.5">
             <Label>Quantity to Produce (lbs)</Label>
