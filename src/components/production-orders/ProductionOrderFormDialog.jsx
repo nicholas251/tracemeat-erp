@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 
-export default function ProductionOrderFormDialog({ open, onClose, onSave, order, products, flows, suppliers }) {
+export default function ProductionOrderFormDialog({ open, onClose, onSave, order, products, flows, suppliers, recipes }) {
   const [form, setForm] = useState({
     order_number: "", product_id: "", product_name: "", flow_id: "", flow_name: "",
     supplier_id: "", supplier_name: "", quantity_to_produce: "", order_date: new Date().toISOString().split("T")[0],
@@ -40,8 +40,15 @@ export default function ProductionOrderFormDialog({ open, onClose, onSave, order
   };
 
   const selectedProduct = products.find(p => p.id === form.product_id);
+  const selectedRecipe = recipes?.find(r => r.id === selectedProduct?.recipe_id);
   const caseWeightLbs = selectedProduct?.case_weight_lbs;
   const unitLabel = selectedProduct?.finished_product_unit || "cases";
+  const yieldPct = selectedRecipe?.yield_percent; // e.g. 95 means 95%
+
+  // finished goods lbs (what the customer/order wants out)
+  const finishedLbs = parseFloat(form.quantity_to_produce) || 0;
+  // raw input needed accounting for yield loss
+  const rawInputLbs = yieldPct && finishedLbs ? (finishedLbs / (yieldPct / 100)) : finishedLbs;
 
   const handleProductSelect = (pid) => {
     const p = products.find(prod => prod.id === pid);
@@ -177,8 +184,30 @@ export default function ProductionOrderFormDialog({ open, onClose, onSave, order
             </div>
             {units && caseWeightLbs && (
               <p className="text-xs text-muted-foreground pt-0.5">
-                {units} {unitLabel} × {caseWeightLbs} lbs = <span className="font-medium text-foreground">{form.quantity_to_produce} lbs</span>
+                {units} {unitLabel} × {caseWeightLbs} lbs = <span className="font-medium text-foreground">{form.quantity_to_produce} lbs</span> finished
               </p>
+            )}
+            {finishedLbs > 0 && (
+              <div className={`rounded-md p-2.5 mt-1 text-xs space-y-0.5 ${yieldPct ? "bg-accent/10 border border-accent/20" : "bg-muted"}`}>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Finished goods target:</span>
+                  <span className="font-medium">{finishedLbs.toFixed(1)} lbs</span>
+                </div>
+                {yieldPct ? (
+                  <>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Recipe yield:</span>
+                      <span className="font-medium">{yieldPct}%</span>
+                    </div>
+                    <div className="flex justify-between border-t border-accent/20 pt-1 mt-1">
+                      <span className="font-semibold text-foreground">Raw input needed:</span>
+                      <span className="font-bold text-accent">{rawInputLbs.toFixed(1)} lbs</span>
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-muted-foreground italic">Link a recipe to the product to calculate yield-adjusted raw input.</p>
+                )}
+              </div>
             )}
           </div>
 

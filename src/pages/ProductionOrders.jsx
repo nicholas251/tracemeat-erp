@@ -36,6 +36,11 @@ export default function ProductionOrders() {
     queryFn: () => base44.entities.Supplier.list(),
   });
 
+  const { data: recipes = [] } = useQuery({
+    queryKey: ["recipes"],
+    queryFn: () => base44.entities.Recipe.list(),
+  });
+
   const createMutation = useMutation({
     mutationFn: async (data) => {
       const order = await base44.entities.ProductionOrder.create(data);
@@ -152,6 +157,7 @@ export default function ProductionOrders() {
           products={products}
           flows={flows}
           suppliers={suppliers}
+          recipes={recipes}
         />
       )}
     </div>
