@@ -63,8 +63,8 @@ export default function ProductionOrderFormDialog({ open, onClose, onSave, order
       product_name: p?.name || "",
       recipe_id: p?.recipe_id || "",
       recipe_name: p?.recipe_name || "",
-      flow_id: p?.flow_id || f.flow_id,
-      flow_name: matchedFlow?.name || p?.flow_name || f.flow_name,
+      flow_id: p?.flow_id || "",
+      flow_name: (p?.flow_id && matchedFlow?.name) ? matchedFlow.name : (p?.flow_name || ""),
       quantity_to_produce: "",
     }));
   };
