@@ -78,39 +78,20 @@ export default function ProductionOrders() {
         const flow = flows.find(f => f.id === data.flow_id);
         if (flow?.steps) {
             const sorted = [...flow.steps].sort((a, b) => a.step_number - b.step_number);
-            // Calculate number of batches and single batch weight
+            // Calculate total raw input needed for ALL batches
             const product = products.find(p => p.id === data.product_id);
             const recipe = recipes.find(r => r.id === product?.recipe_id);
-            let numBatches = 1;
+            let totalRawInputLbs = data.quantity_to_produce; // fallback
             if (product?.blend_batch_lbs && recipe?.yield_percent) {
               const yieldPct = recipe.yield_percent;
               const chopBatchWeight = (product.blend_batch_lbs || 0) + (product.chop_water_lbs || 0) + (product.chop_spice_qty_lbs || 0) + (product.chop_cure_lbs || 0);
               const finishedPerBatch = chopBatchWeight > 0 ? chopBatchWeight * (yieldPct / 100) : product.blend_batch_lbs * ((yieldPct || 100) / 100);
-              numBatches = finishedPerBatch > 0 ? Math.ceil(data.quantity_to_produce / finishedPerBatch) : 1;
-            }
-            const blendBatchWeight = product?.blend_batch_lbs || data.quantity_to_produce;
-
-            // Create stages for each batch separately (blending is first step)
-            for (let batchNum = 0; batchNum < numBatches; batchNum++) {
-              const blendingStep = sorted[0];
-              await base44.entities.ProductionStage.create({
-                order_id: order.id,
-                order_number: order.order_number,
-                product_name: data.product_name,
-                step_number: blendingStep.step_number,
-                capability_id: blendingStep.capability_id,
-                capability_key: blendingStep.capability_key,
-                capability_name: blendingStep.capability_name,
-                work_profile_id: blendingStep.work_profile_id || "",
-                work_profile_name: blendingStep.work_profile_name || "",
-                status: batchNum === 0 ? "available" : "locked",
-                input_qty_lbs: blendBatchWeight,
-                sub_batches: [],
-              });
+              const numBatches = finishedPerBatch > 0 ? Math.ceil(data.quantity_to_produce / finishedPerBatch) : 1;
+              totalRawInputLbs = product.blend_batch_lbs * numBatches;
             }
 
-            // Create non-blending stages (locked until needed)
-            for (let i = 1; i < sorted.length; i++) {
+            // Create stages
+            for (let i = 0; i < sorted.length; i++) {
               const step = sorted[i];
               await base44.entities.ProductionStage.create({
                 order_id: order.id,
@@ -122,8 +103,8 @@ export default function ProductionOrders() {
                 capability_name: step.capability_name,
                 work_profile_id: step.work_profile_id || "",
                 work_profile_name: step.work_profile_name || "",
-                status: "locked",
-                input_qty_lbs: 0,
+                status: i === 0 ? "available" : "locked",
+                input_qty_lbs: i === 0 ? totalRawInputLbs : 0,
                 sub_batches: [],
               });
             }

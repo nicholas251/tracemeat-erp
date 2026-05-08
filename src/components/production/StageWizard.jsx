@@ -25,24 +25,23 @@ const STAGE_ICONS = {
   packaging: Package,
 };
 
-// ─── Build ingredient batches (blending / chopping) ───────────────────────────
-function buildIngredientBatches(stage, product, capKey) {
+// ─── Build ingredient batches (blending) with multiple batches ────────────────
+function buildIngredientBatchesMultiple(stage, product, capKey, numBatches) {
+  if (capKey !== "blending") return [];
+
   const totalLbs = stage.input_qty_lbs || 0;
-  let ingredients;
+  const batchSize = product?.blend_batch_lbs || 240;
+  const ingredients = product?.blend_ingredients || [];
+  const recipeTotalLbs = ingredients.reduce((s, i) => s + (i.quantity_lbs || 0), 0);
 
-  if (capKey === "blending") {
-    ingredients = product?.blend_ingredients || [];
-  } else {
-    // chopping: single batch, spice mix as "ingredient"
-    ingredients = [];
-  }
+  return Array.from({ length: numBatches }, (_, i) => {
+    const isLast = i === numBatches - 1;
+    const batchLbs = isLast ? totalLbs - (batchSize * i) : batchSize;
+    const ratio = recipeTotalLbs > 0 ? batchLbs / recipeTotalLbs : 1;
 
-  // Each stage = exactly 1 batch with totalLbs as the batch weight
-  const ratio = totalLbs > 0 ? 1 : 0;
-  return [
-    {
-      batchNumber: 1,
-      batchLbs: totalLbs,
+    return {
+      batchNumber: i + 1,
+      batchLbs,
       ingredients: ingredients.map(ing => ({
         bucket_id: ing.bucket_id,
         bucket_name: ing.bucket_name,
@@ -51,8 +50,8 @@ function buildIngredientBatches(stage, product, capKey) {
         actual_lbs: parseFloat((ing.quantity_lbs * ratio).toFixed(2)),
         confirmed: false,
       })),
-    }
-  ];
+    };
+  });
 }
 
 // ─── Build measurement steps for cooking / chilling / linking / packaging ────
@@ -170,22 +169,18 @@ export default function StageWizard({ stage, open, onClose, onCompleted }) {
     enabled: open && capKey === "linking",
   });
 
-  const { data: allBlendingStages = [] } = useQuery({
-    queryKey: ["allBlendingStages", stage?.order_id],
-    queryFn: () => base44.entities.ProductionStage.filter({ 
-      order_id: stage.order_id,
-      capability_key: "blending"
-    }),
-    enabled: open && capKey === "blending",
-  });
-
   // For ingredient-batch stages (blending)
-  // For blending: show current batch # and total # of blending stages in the order
-  const totalBlendingStages = usesIngredientBatches ? allBlendingStages.length : 0;
-  const currentBatchNum = usesIngredientBatches && stage ? allBlendingStages.findIndex(s => s.id === stage.id) + 1 : 1;
+  // Calculate total batches from total raw input / blend batch size
+  const calcTotalBatches = () => {
+    if (!usesIngredientBatches || !product || !stage) return 1;
+    const totalLbs = stage.input_qty_lbs || 0;
+    const batchSize = product.blend_batch_lbs || 240;
+    return Math.ceil(totalLbs / batchSize);
+  };
+  const totalBatches = usesIngredientBatches ? calcTotalBatches() : 0;
   
   const resolvedBatches = usesIngredientBatches
-    ? (batches || (product !== undefined ? buildIngredientBatches(stage, product, capKey) : null))
+    ? (batches || (product !== undefined ? buildIngredientBatchesMultiple(stage, product, capKey, totalBatches) : null))
     : null;
 
   // For measurement stages
@@ -194,7 +189,6 @@ export default function StageWizard({ stage, open, onClose, onCompleted }) {
     : [];
 
   // ── Navigation boundaries ──
-  const totalBatches = resolvedBatches?.length || 0;
   const totalMeasureSteps = measureSteps.length;
   // step 0 = intro
   // step 1..totalBatches = batch confirmations (blending)
@@ -339,8 +333,6 @@ export default function StageWizard({ stage, open, onClose, onCompleted }) {
             saving={saving}
             onStart={handleStart}
             usesIngredientBatches={usesIngredientBatches}
-            currentBatchNum={currentBatchNum}
-            totalBlendingStages={totalBlendingStages}
           />
         )}
 
@@ -397,7 +389,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted }) {
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function IntroStep({ stage, capKey, stageLabel, resolvedBatches, measureSteps, product, saving, onStart, usesIngredientBatches, currentBatchNum, totalBlendingStages }) {
+function IntroStep({ stage, capKey, stageLabel, resolvedBatches, measureSteps, product, saving, onStart, usesIngredientBatches }) {
   const isAlreadyStarted = stage?.status === "in_progress";
   return (
     <div className="space-y-4">
@@ -410,12 +402,14 @@ function IntroStep({ stage, capKey, stageLabel, resolvedBatches, measureSteps, p
         </p>
         {usesIngredientBatches && resolvedBatches && (
           <div className="space-y-1 pt-1">
-            <div className="flex items-center gap-2 text-sm">
-              <span className="w-5 h-5 rounded-full bg-chart-1/20 text-chart-1 text-xs flex items-center justify-center font-bold">{currentBatchNum}</span>
-              <span>{resolvedBatches[0]?.batchLbs} lbs</span>
-              <span className="text-muted-foreground">· {resolvedBatches[0]?.ingredients.length} ingredient{resolvedBatches[0]?.ingredients.length !== 1 ? "s" : ""}</span>
-              <span className="text-muted-foreground ml-auto">Batch {currentBatchNum} of {totalBlendingStages}</span>
-            </div>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Batches to Complete</p>
+            {resolvedBatches.map(b => (
+              <div key={b.batchNumber} className="flex items-center gap-2 text-sm">
+                <span className="w-5 h-5 rounded-full bg-chart-1/20 text-chart-1 text-xs flex items-center justify-center font-bold">{b.batchNumber}</span>
+                <span>{b.batchLbs} lbs</span>
+                <span className="text-muted-foreground">· {b.ingredients.length} ingredient{b.ingredients.length !== 1 ? "s" : ""}</span>
+              </div>
+            ))}
           </div>
         )}
         {!usesIngredientBatches && measureSteps.length > 0 && (
