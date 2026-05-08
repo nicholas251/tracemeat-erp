@@ -4,17 +4,19 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Eye, ChevronRight, Pencil } from "lucide-react";
+import { Plus, Eye, ChevronRight, Pencil, Trash2 } from "lucide-react";
 import PageHeader from "@/components/shared/PageHeader";
 import StatusBadge from "@/components/shared/StatusBadge";
 import ProductionOrderFormDialog from "@/components/production-orders/ProductionOrderFormDialog";
 import OrderStagesPanel from "@/components/production/OrderStagesPanel";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
 export default function ProductionOrders() {
   const [showForm, setShowForm] = useState(false);
   const [editingOrder, setEditingOrder] = useState(null);
   const [viewingOrder, setViewingOrder] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
+  const [deletingOrderId, setDeletingOrderId] = useState(null);
   const queryClient = useQueryClient();
 
   useEffect(() => {
@@ -104,6 +106,14 @@ export default function ProductionOrders() {
     },
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: (id) => base44.entities.ProductionOrder.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["productionOrders"] });
+      setDeletingOrderId(null);
+    },
+  });
+
   const handleSave = (data) => {
     if (editingOrder) updateMutation.mutate({ id: editingOrder.id, data });
     else createMutation.mutate(data);
@@ -152,9 +162,30 @@ export default function ProductionOrders() {
                       {order.status?.replace("_", " ")}
                     </Badge>
                     {isAdminOrSupervisor && (
-                      <Button size="sm" variant="outline" onClick={() => { setEditingOrder(order); setShowForm(true); }} className="gap-1 h-7">
-                        <Pencil className="w-3.5 h-3.5" /> Edit
-                      </Button>
+                      <>
+                        <Button size="sm" variant="outline" onClick={() => { setEditingOrder(order); setShowForm(true); }} className="gap-1 h-7">
+                          <Pencil className="w-3.5 h-3.5" /> Edit
+                        </Button>
+                        <AlertDialog open={deletingOrderId === order.id} onOpenChange={(open) => !open && setDeletingOrderId(null)}>
+                          <AlertDialogTrigger asChild>
+                            <Button size="sm" variant="outline" className="gap-1 h-7 text-destructive hover:text-destructive">
+                              <Trash2 className="w-3.5 h-3.5" /> Delete
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogTitle>Delete Production Order</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Are you sure you want to delete order #{order.order_number}? This action cannot be undone.
+                            </AlertDialogDescription>
+                            <div className="flex gap-2 justify-end">
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={() => deleteMutation.mutate(order.id)}>
+                                Delete
+                              </AlertDialogAction>
+                            </div>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </>
                     )}
                     <Button size="sm" variant="outline" onClick={() => setViewingOrder(viewingOrder?.id === order.id ? null : order)} className="gap-1">
                       <Eye className="w-3.5 h-3.5" /> {viewingOrder?.id === order.id ? "Hide" : "Stages"}
