@@ -187,9 +187,11 @@ export default function ProductionOrders() {
                         </AlertDialog>
                       </>
                     )}
-                    <Button size="sm" variant="outline" onClick={() => setViewingOrder(viewingOrder?.id === order.id ? null : order)} className="gap-1">
-                      <Eye className="w-3.5 h-3.5" /> {viewingOrder?.id === order.id ? "Hide" : "Stages"}
-                    </Button>
+                    {isAdminOrSupervisor && (
+                      <Button size="sm" variant="outline" onClick={() => setViewingOrder(viewingOrder?.id === order.id ? null : order)} className="gap-1">
+                        <Eye className="w-3.5 h-3.5" /> {viewingOrder?.id === order.id ? "Hide" : "Stages"}
+                      </Button>
+                    )}
                   </div>
                 </div>
               </CardHeader>
