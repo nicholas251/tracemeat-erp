@@ -61,6 +61,8 @@ export default function ProductionOrderFormDialog({ open, onClose, onSave, order
       ...f,
       product_id: pid,
       product_name: p?.name || "",
+      recipe_id: p?.recipe_id || "",
+      recipe_name: p?.recipe_name || "",
       flow_id: p?.flow_id || f.flow_id,
       flow_name: matchedFlow?.name || p?.flow_name || f.flow_name,
       quantity_to_produce: "",
@@ -158,39 +160,37 @@ export default function ProductionOrderFormDialog({ open, onClose, onSave, order
           )}
 
           <div className="space-y-1.5">
-            <Label>
-              Quantity to Produce
-              {!selectedProduct
-                ? ""
-                : unitLabel !== "lbs" && caseWeightLbs
-                  ? ` (${unitLabel.charAt(0).toUpperCase() + unitLabel.slice(1)})`
-                  : " (lbs)"}
-            </Label>
-            {!selectedProduct ? (
-              <Input disabled placeholder="Select a product first" />
-            ) : unitLabel !== "lbs" && caseWeightLbs ? (
+            <Label>Quantity to Produce</Label>
+            <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1">
+                <p className="text-xs text-muted-foreground">Lbs</p>
+                <Input
+                  type="number"
+                  step="0.1"
+                  value={form.quantity_to_produce}
+                  onChange={e => handleLbsChange(e.target.value)}
+                  placeholder="e.g. 500"
+                />
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground">
+                  {unitLabel.charAt(0).toUpperCase() + unitLabel.slice(1)}
+                  {caseWeightLbs ? ` (${caseWeightLbs} lbs each)` : " — select product first"}
+                </p>
                 <Input
                   type="number"
                   step="1"
                   value={units}
                   onChange={e => handleUnitsChange(e.target.value)}
-                  placeholder={`e.g. 10 ${unitLabel}`}
+                  placeholder={caseWeightLbs ? "e.g. 10" : "—"}
+                  disabled={!caseWeightLbs}
                 />
-                {units && (
-                  <p className="text-xs text-muted-foreground">
-                    {units} {unitLabel} × {caseWeightLbs} lbs = <span className="font-medium text-foreground">{form.quantity_to_produce} lbs</span>
-                  </p>
-                )}
               </div>
-            ) : (
-              <Input
-                type="number"
-                step="0.1"
-                value={form.quantity_to_produce}
-                onChange={e => handleLbsChange(e.target.value)}
-                placeholder="e.g. 500"
-              />
+            </div>
+            {units && caseWeightLbs && (
+              <p className="text-xs text-muted-foreground pt-0.5">
+                {units} {unitLabel} × {caseWeightLbs} lbs = <span className="font-medium text-foreground">{form.quantity_to_produce} lbs</span> finished
+              </p>
             )}
             {finishedLbs > 0 && (
               <div className={`rounded-md p-2.5 mt-1 text-xs space-y-0.5 ${yieldPct ? "bg-accent/10 border border-accent/20" : "bg-muted"}`}>
