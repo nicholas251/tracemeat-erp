@@ -8,7 +8,7 @@ import { ChevronLeft, Factory, CheckCircle2, Clock, Play } from "lucide-react";
 import PageHeader from "@/components/shared/PageHeader";
 import StageActionDialog from "@/components/production/StageActionDialog";
 
-export default function BlendingDashboard({ user, profile, onBack }) {
+export default function BlendingDashboard({ user, profile, onBack, singleProfile = false }) {
   const [activeStage, setActiveStage] = useState(null);
   const queryClient = useQueryClient();
 
@@ -72,7 +72,7 @@ export default function BlendingDashboard({ user, profile, onBack }) {
       )}
 
       {/* Available / Ready to Start */}
-      {available.length > 0 && (
+      {!singleProfile && available.length > 0 && (
         <Section title="Ready to Start" color="text-chart-1">
           {available.map(stage => (
             <OrderStageCard
@@ -86,8 +86,20 @@ export default function BlendingDashboard({ user, profile, onBack }) {
         </Section>
       )}
 
-      {/* Completed today */}
-      {completed.length > 0 && (
+      {/* Single-profile: show only next job if nothing in progress */}
+      {singleProfile && inProgress.length === 0 && available.length > 0 && (
+        <Section title="Up Next" color="text-chart-1">
+          <OrderStageCard
+            stage={available[0]}
+            order={getOrderForStage(available[0])}
+            status="ready"
+            onClick={() => setActiveStage(available[0])}
+          />
+        </Section>
+      )}
+
+      {/* Completed — hidden for single-profile users */}
+      {!singleProfile && completed.length > 0 && (
         <Section title="Completed" color="text-chart-2">
           {completed.map(stage => (
             <OrderStageCard

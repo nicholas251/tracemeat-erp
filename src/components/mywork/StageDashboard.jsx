@@ -8,7 +8,7 @@ import { ChevronLeft, CheckCircle2, Clock, Play, Briefcase } from "lucide-react"
 import PageHeader from "@/components/shared/PageHeader";
 import StageActionDialog from "@/components/production/StageActionDialog";
 
-export default function StageDashboard({ user, profile, onBack }) {
+export default function StageDashboard({ user, profile, onBack, singleProfile = false }) {
   const [activeStage, setActiveStage] = useState(null);
   const queryClient = useQueryClient();
 
@@ -84,12 +84,19 @@ export default function StageDashboard({ user, profile, onBack }) {
         </Section>
       )}
 
-      {/* Available Queue (FIFO) */}
-      {availableQueue.length > 0 && (
+      {/* Available Queue (FIFO) — hidden for single-profile users */}
+      {!singleProfile && availableQueue.length > 0 && (
         <Section title={`Queue — ${availableQueue.length} job${availableQueue.length > 1 ? "s" : ""} (FIFO)`} color="text-chart-1">
           {availableQueue.map((stage, idx) => (
             <StageJobCard key={stage.id} stage={stage} status="ready" position={idx + 1} onClick={() => setActiveStage(stage)} />
           ))}
+        </Section>
+      )}
+
+      {/* Single-profile: show next available job if nothing in progress */}
+      {singleProfile && inProgress.length === 0 && availableQueue.length > 0 && (
+        <Section title="Up Next" color="text-chart-1">
+          <StageJobCard stage={availableQueue[0]} status="ready" onClick={() => setActiveStage(availableQueue[0])} />
         </Section>
       )}
 
@@ -108,8 +115,8 @@ export default function StageDashboard({ user, profile, onBack }) {
         </Section>
       )}
 
-      {/* Completed */}
-      {completed.length > 0 && (
+      {/* Completed — hidden for single-profile users */}
+      {!singleProfile && completed.length > 0 && (
         <Section title="Completed" color="text-chart-2">
           {completed.map(stage => (
             <StageJobCard key={stage.id} stage={stage} status="done" onClick={() => setActiveStage(stage)} />

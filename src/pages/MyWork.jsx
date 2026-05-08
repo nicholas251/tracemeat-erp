@@ -73,12 +73,15 @@ export default function MyWork() {
 
   const capKeys = activeProfile.capability_keys || [];
 
+  const isSingleProfile = myProfiles.length === 1;
+
   if (capKeys.includes(FIRST_STEP_KEY)) {
     return (
       <BlendingDashboard
         user={user}
         profile={activeProfile}
-        onBack={myProfiles.length > 1 ? () => setActiveProfileId(null) : null}
+        singleProfile={isSingleProfile}
+        onBack={!isSingleProfile ? () => setActiveProfileId(null) : null}
       />
     );
   }
@@ -87,7 +90,8 @@ export default function MyWork() {
     <StageDashboard
       user={user}
       profile={activeProfile}
-      onBack={myProfiles.length > 1 ? () => setActiveProfileId(null) : null}
+      singleProfile={isSingleProfile}
+      onBack={!isSingleProfile ? () => setActiveProfileId(null) : null}
     />
   );
 }
