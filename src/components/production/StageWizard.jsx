@@ -39,24 +39,22 @@ function buildIngredientBatches(stage, product, capKey) {
     ingredients = [];
   }
 
-  const count = batchSize > 0 ? Math.ceil(totalLbs / batchSize) : 1;
-  return Array.from({ length: count }, (_, i) => {
-    const isLast = i === count - 1;
-    const batchLbs = isLast ? totalLbs - batchSize * i : batchSize;
-    const ratio = batchSize > 0 ? batchLbs / batchSize : 1;
-    return {
-      batchNumber: i + 1,
-      batchLbs,
-      ingredients: ingredients.map(ing => ({
-        bucket_id: ing.bucket_id,
-        bucket_name: ing.bucket_name,
-        required_lbs: parseFloat((ing.quantity_lbs * ratio).toFixed(2)),
-        lot_number: "",
-        actual_lbs: parseFloat((ing.quantity_lbs * ratio).toFixed(2)),
-        confirmed: false,
-      })),
-    };
-  });
+  // For blending: always one batch per stage (use batchSize or totalLbs if smaller)
+  const batchLbs = Math.min(batchSize || totalLbs, totalLbs);
+  const ratio = batchSize > 0 ? batchLbs / batchSize : 1;
+  
+  return [{
+    batchNumber: 1,
+    batchLbs,
+    ingredients: ingredients.map(ing => ({
+      bucket_id: ing.bucket_id,
+      bucket_name: ing.bucket_name,
+      required_lbs: parseFloat((ing.quantity_lbs * ratio).toFixed(2)),
+      lot_number: "",
+      actual_lbs: parseFloat((ing.quantity_lbs * ratio).toFixed(2)),
+      confirmed: false,
+    })),
+  }];
 }
 
 // ─── Build measurement steps for cooking / chilling / linking / packaging ────
