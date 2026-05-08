@@ -15,7 +15,8 @@
       "enum": [
         "protein",
         "spice",
-        "packaging"
+        "packaging",
+        "casing"
       ],
       "description": "Bucket category"
     },
