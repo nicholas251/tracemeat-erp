@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
 import { Factory, Package, ShieldAlert, Warehouse, Boxes } from "lucide-react";
@@ -8,6 +8,12 @@ import ActiveHolds from "@/components/dashboard/ActiveHolds";
 import ActiveOrdersList from "@/components/dashboard/ActiveOrdersList";
 
 export default function Dashboard() {
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    base44.auth.me().then(u => setUser(u)).catch(() => setUser(null));
+  }, []);
+
   const { data: orders = [] } = useQuery({
     queryKey: ["productionOrders"],
     queryFn: () => base44.entities.ProductionOrder.list("-created_date", 50),
@@ -39,6 +45,9 @@ export default function Dashboard() {
   const activeProducts = products.filter(p => p.status === "active").length;
   const inventoryLbs = inventory.filter(i => i.status === "available").reduce((sum, i) => sum + (i.quantity_lbs || 0), 0);
 
+  // Hide dashboard cards and order list for blenders (production workers)
+  const isOperator = user?.role === "user";
+
   return (
     <div>
       <PageHeader 
@@ -46,22 +55,26 @@ export default function Dashboard() {
         subtitle="Overview of your meat processing operations" 
       />
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-4 mb-8">
-        <StatCard label="Active Orders" value={activeOrders} icon={Factory} color="text-chart-1" link="/production-orders" />
-        <StatCard label="Pending Orders" value={pendingOrders} icon={Factory} color="text-accent" link="/production-orders" />
-        <StatCard label="Products" value={activeProducts} icon={Package} color="text-chart-2" link="/products" />
-        <StatCard label="Active Holds" value={activeHolds} icon={ShieldAlert} color="text-destructive" link="/hold-release" />
-        <StatCard label="Inventory (lbs)" value={inventoryLbs.toLocaleString()} icon={Boxes} color="text-chart-3" link="/inventory" />
-      </div>
+      {!isOperator && (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-4 mb-8">
+          <StatCard label="Active Orders" value={activeOrders} icon={Factory} color="text-chart-1" link="/production-orders" />
+          <StatCard label="Pending Orders" value={pendingOrders} icon={Factory} color="text-accent" link="/production-orders" />
+          <StatCard label="Products" value={activeProducts} icon={Package} color="text-chart-2" link="/products" />
+          <StatCard label="Active Holds" value={activeHolds} icon={ShieldAlert} color="text-destructive" link="/hold-release" />
+          <StatCard label="Inventory (lbs)" value={inventoryLbs.toLocaleString()} icon={Boxes} color="text-chart-3" link="/inventory" />
+        </div>
+      )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
-          <ActiveOrdersList orders={orders} />
+      {!isOperator && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2">
+            <ActiveOrdersList orders={orders} />
+          </div>
+          <div>
+            <ActiveHolds holds={holds} />
+          </div>
         </div>
-        <div>
-          <ActiveHolds holds={holds} />
-        </div>
-      </div>
+      )}
     </div>
   );
 }
