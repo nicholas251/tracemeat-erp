@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Eye, ChevronRight } from "lucide-react";
+import { Plus, Eye, ChevronRight, Pencil } from "lucide-react";
 import PageHeader from "@/components/shared/PageHeader";
 import StatusBadge from "@/components/shared/StatusBadge";
 import ProductionOrderFormDialog from "@/components/production-orders/ProductionOrderFormDialog";
@@ -152,8 +152,8 @@ export default function ProductionOrders() {
                       {order.status?.replace("_", " ")}
                     </Badge>
                     {isAdminOrSupervisor && (
-                      <Button size="icon" variant="ghost" className="w-7 h-7" onClick={() => { setEditingOrder(order); setShowForm(true); }}>
-                        <Plus className="w-3.5 h-3.5 rotate-45" />
+                      <Button size="sm" variant="outline" onClick={() => { setEditingOrder(order); setShowForm(true); }} className="gap-1 h-7">
+                        <Pencil className="w-3.5 h-3.5" /> Edit
                       </Button>
                     )}
                     <Button size="sm" variant="outline" onClick={() => setViewingOrder(viewingOrder?.id === order.id ? null : order)} className="gap-1">
