@@ -243,7 +243,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted }) {
 
     await base44.entities.ProductionStage.update(stage.id, updates);
 
-    // Unlock next stage
+    // Unlock next stage for next work profile
     const allStages = await base44.entities.ProductionStage.filter({ order_id: stage.order_id });
     const nextStage = allStages.find(s => s.step_number === stage.step_number + 1);
     if (nextStage?.status === "locked") {
@@ -255,6 +255,8 @@ export default function StageWizard({ stage, open, onClose, onCompleted }) {
 
     setSaving(false);
     onCompleted();
+    // Close wizard so blender returns to dashboard (completed stages won't appear)
+    onClose();
   };
 
   const progressPct = lastStep > 1 ? Math.round(((step - 1) / (lastStep - 1)) * 100) : 0;

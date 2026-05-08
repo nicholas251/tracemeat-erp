@@ -25,8 +25,12 @@ export default function StageDashboard({ user, profile, onBack, singleProfile = 
     setActiveStage(null);
   };
 
-  const myStages = allStages.filter(s => capKeys.includes(s.capability_key));
-  const activeOrAvailable = myStages.filter(s => s.status === "in_progress" || s.status === "available");
+  // Only show stages assigned to this work profile that are available or in-progress
+  // Completed stages are locked and not editable
+  const myStages = allStages.filter(s => 
+    capKeys.includes(s.capability_key) && 
+    (s.status === "in_progress" || s.status === "available")
+  );
 
   const title = profile.name;
 
@@ -42,9 +46,9 @@ export default function StageDashboard({ user, profile, onBack, singleProfile = 
         )}
       />
 
-      {activeOrAvailable.length > 0 ? (
+      {myStages.length > 0 ? (
         <div className="space-y-2">
-          {activeOrAvailable.map(stage => (
+          {myStages.map(stage => (
             <button
               key={stage.id}
               onClick={() => setActiveStage(stage)}

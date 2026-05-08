@@ -35,7 +35,8 @@ export default function BlendingDashboard({ user, profile, onBack }) {
     setActiveStage(null);
   };
 
-  const activeOrAvailable = stages.filter(s => s.status === "in_progress" || s.status === "available");
+  // Only show blending stages that are available or in-progress (not completed)
+  const myStages = stages.filter(s => s.status === "in_progress" || s.status === "available");
 
   return (
     <div className="p-4 md:p-6 max-w-4xl mx-auto">
@@ -49,9 +50,9 @@ export default function BlendingDashboard({ user, profile, onBack }) {
         )}
       />
 
-      {activeOrAvailable.length > 0 ? (
+      {myStages.length > 0 ? (
         <div className="space-y-2">
-          {activeOrAvailable.map(stage => (
+          {myStages.map(stage => (
             <button
               key={stage.id}
               onClick={() => setActiveStage(stage)}
