@@ -166,7 +166,7 @@ export default function ProductionOrders() {
                         <Button size="sm" variant="outline" onClick={() => { setEditingOrder(order); setShowForm(true); }} className="gap-1 h-7">
                           <Pencil className="w-3.5 h-3.5" /> Edit
                         </Button>
-                        <AlertDialog open={deletingOrderId === order.id} onOpenChange={(open) => !open && setDeletingOrderId(null)}>
+                        <AlertDialog open={deletingOrderId === order.id} onOpenChange={(open) => setDeletingOrderId(open ? order.id : null)}>
                           <AlertDialogTrigger asChild>
                             <Button size="sm" variant="outline" className="gap-1 h-7 text-destructive hover:text-destructive">
                               <Trash2 className="w-3.5 h-3.5" /> Delete
@@ -179,8 +179,8 @@ export default function ProductionOrders() {
                             </AlertDialogDescription>
                             <div className="flex gap-2 justify-end">
                               <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={() => deleteMutation.mutate(order.id)}>
-                                Delete
+                              <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" disabled={deleteMutation.isPending} onClick={() => deleteMutation.mutate(order.id)}>
+                                {deleteMutation.isPending ? "Deleting..." : "Delete"}
                               </AlertDialogAction>
                             </div>
                           </AlertDialogContent>
