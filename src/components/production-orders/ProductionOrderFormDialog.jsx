@@ -6,6 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useQuery } from "@tanstack/react-query";
+import { base44 } from "@/api/base44Client";
 import InventoryShortageCheck from "./InventoryShortageCheck";
 
 export default function ProductionOrderFormDialog({ open, onClose, onSave, order, products, flows, suppliers, recipes }) {
@@ -40,7 +42,14 @@ export default function ProductionOrderFormDialog({ open, onClose, onSave, order
     if (checked) setForm(f => ({ ...f, supplier_id: "", supplier_name: "" }));
   };
 
-  const selectedProduct = products.find(p => p.id === form.product_id);
+  // Fetch fresh product data so cure/casing fields are always up-to-date
+  const { data: freshProductData } = useQuery({
+    queryKey: ["freshProductForOrder", form.product_id],
+    queryFn: () => base44.entities.Product.filter({ id: form.product_id }).then(r => r[0] || null),
+    enabled: open && !!form.product_id,
+  });
+
+  const selectedProduct = freshProductData || products.find(p => p.id === form.product_id);
   const selectedRecipe = recipes?.find(r => r.id === selectedProduct?.recipe_id);
   const caseWeightLbs = selectedProduct?.case_weight_lbs;
   const unitLabel = selectedProduct?.finished_product_unit || "cases";
