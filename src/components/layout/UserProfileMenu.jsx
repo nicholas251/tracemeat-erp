@@ -58,7 +58,7 @@ export default function UserProfileMenu() {
             <div className="px-2 py-2">
               <p className="text-xs font-semibold text-muted-foreground mb-2">Roles & Profiles</p>
               <div className="flex flex-wrap gap-1">
-                {user.role && user.role !== 'user' && (
+                {user.role && user.role !== 'user' && !userProfiles.some(p => p.name.toLowerCase() === user.role.replace(/_/g, ' ').toLowerCase()) && (
                   <Badge variant="secondary" className="text-xs capitalize">
                     {user.role.replace(/_/g, ' ')}
                   </Badge>
