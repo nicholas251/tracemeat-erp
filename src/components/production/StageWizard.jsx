@@ -63,11 +63,13 @@ function buildMeasurementSteps(stage, product, capKey, spiceMixes) {
 
   if (capKey === "chopping") {
     steps.push({
-      id: "spice",
-      label: "Spice Mix",
+      id: "bowl_prep",
+      label: "Bowl Preparation",
       fields: [
+        { key: "blend_added", label: "Blending batch added to bowl?", type: "boolean" },
         { key: "spice_mix_id", label: "Spice Mix", type: "spice_select", options: spiceMixes },
-        { key: "spice_mix_qty_lbs", label: "Spice Mix Qty (lbs)", type: "number" },
+        { key: "spice_mix_qty_lbs", label: "Spice Mix Amount (lbs)", type: "number" },
+        { key: "water_amount_lbs", label: "Water Amount Added (lbs)", type: "number" },
       ],
     });
   }
