@@ -12,6 +12,8 @@ export default function BlendingDashboard({ user, profile, onBack }) {
   const [activeStage, setActiveStage] = useState(null);
   const queryClient = useQueryClient();
 
+  const capKeys = profile.capability_keys || [];
+
   // Get all production orders
   const { data: orders = [] } = useQuery({
     queryKey: ["productionOrders"],
@@ -35,8 +37,11 @@ export default function BlendingDashboard({ user, profile, onBack }) {
     setActiveStage(null);
   };
 
-  // Only show blending stages that are available or in-progress (not completed)
-  const myStages = stages.filter(s => s.status === "in_progress" || s.status === "available");
+  // Only show blending stages assigned to this profile that are available or in-progress
+  const myStages = stages.filter(s => 
+    capKeys.includes(s.capability_key) && 
+    (s.status === "in_progress" || s.status === "available")
+  );
 
   return (
     <div className="p-4 md:p-6 max-w-4xl mx-auto">
