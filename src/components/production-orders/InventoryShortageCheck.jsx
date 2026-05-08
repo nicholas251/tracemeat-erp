@@ -259,13 +259,10 @@ export default function InventoryShortageCheck({ product: productProp, recipe, r
   }
 
   // ── 4. Casings (linking) ──
-  // Linking batches = chop batches (1:1) unless merge is enabled, then divided by merge ratio
-  const mergeBatches = product.link_merge_batches && product.link_merge_ratio > 1;
-  const numLinkBatches = mergeBatches ? Math.ceil(numChopBatches / product.link_merge_ratio) : numChopBatches;
-
-  const casingChecks = [];
-  if (product.casing_qty_per_batch_lbs) {
-    const casingNeeded = parseFloat(((product.casing_qty_per_batch_lbs || 0) * numLinkBatches).toFixed(2));
+   // Casings are consumed per chopping batch regardless of linking merge (material consumption doesn't change)
+   const casingChecks = [];
+   if (product.casing_qty_per_batch_lbs) {
+     const casingNeeded = parseFloat(((product.casing_qty_per_batch_lbs || 0) * numChopBatches).toFixed(2));
     if (product.casing_bucket_id) {
       const casingAvail = parseFloat(availableForBucket(product.casing_bucket_id).toFixed(2));
       casingChecks.push({
