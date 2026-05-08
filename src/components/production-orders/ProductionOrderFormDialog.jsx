@@ -25,8 +25,15 @@ export default function ProductionOrderFormDialog({ open, onClose, onSave, order
   }, [order, open]);
 
   const handleProductSelect = (pid) => {
-    const p = products.find(p => p.id === pid);
-    setForm(f => ({ ...f, product_id: pid, product_name: p?.name || "" }));
+    const p = products.find(prod => prod.id === pid);
+    const matchedFlow = flows.find(f => f.id === p?.flow_id);
+    setForm(f => ({
+      ...f,
+      product_id: pid,
+      product_name: p?.name || "",
+      flow_id: p?.flow_id || f.flow_id,
+      flow_name: matchedFlow?.name || p?.flow_name || f.flow_name,
+    }));
   };
 
   const handleFlowSelect = (fid) => {
@@ -52,11 +59,13 @@ export default function ProductionOrderFormDialog({ open, onClose, onSave, order
         </DialogHeader>
 
         <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label>Order Number</Label>
-              <Input value={form.order_number} onChange={e => setForm(f => ({ ...f, order_number: e.target.value }))} />
-            </div>
+          <div className="space-y-1.5">
+            <Label>Order Number</Label>
+            <Input value={form.order_number} onChange={e => setForm(f => ({ ...f, order_number: e.target.value }))} />
+          </div>
+
+          {/* Show status only when editing an existing order */}
+          {order && (
             <div className="space-y-1.5">
               <Label>Status</Label>
               <Select value={form.status} onValueChange={v => setForm(f => ({ ...f, status: v }))}>
@@ -70,7 +79,7 @@ export default function ProductionOrderFormDialog({ open, onClose, onSave, order
                 </SelectContent>
               </Select>
             </div>
-          </div>
+          )}
 
           <div className="space-y-1.5">
             <Label>Product</Label>
@@ -81,9 +90,9 @@ export default function ProductionOrderFormDialog({ open, onClose, onSave, order
           </div>
 
           <div className="space-y-1.5">
-            <Label>Production Flow</Label>
+            <Label>Production Flow <span className="text-xs text-muted-foreground">(auto-set from product)</span></Label>
             <Select value={form.flow_id} onValueChange={handleFlowSelect}>
-              <SelectTrigger><SelectValue placeholder="Select flow..." /></SelectTrigger>
+              <SelectTrigger><SelectValue placeholder="Select product first..." /></SelectTrigger>
               <SelectContent>{flows.map(f => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}</SelectContent>
             </Select>
           </div>
