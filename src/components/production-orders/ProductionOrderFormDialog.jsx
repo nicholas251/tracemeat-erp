@@ -14,11 +14,13 @@ export default function ProductionOrderFormDialog({ open, onClose, onSave, order
     target_completion_date: "", status: "pending", notes: ""
   });
   const [homeStock, setHomeStock] = useState(false);
+  const [units, setUnits] = useState("");
 
   useEffect(() => {
     if (order) {
       setForm(order);
       setHomeStock(!order.supplier_id);
+      setUnits("");
     } else {
       setForm({
         order_number: `PO-${Date.now().toString().slice(-6)}`,
@@ -28,6 +30,7 @@ export default function ProductionOrderFormDialog({ open, onClose, onSave, order
         target_completion_date: "", status: "pending", notes: ""
       });
       setHomeStock(false);
+      setUnits("");
     }
   }, [order, open]);
 
@@ -36,16 +39,35 @@ export default function ProductionOrderFormDialog({ open, onClose, onSave, order
     if (checked) setForm(f => ({ ...f, supplier_id: "", supplier_name: "" }));
   };
 
+  const selectedProduct = products.find(p => p.id === form.product_id);
+  const caseWeightLbs = selectedProduct?.case_weight_lbs;
+  const unitLabel = selectedProduct?.finished_product_unit || "cases";
+
   const handleProductSelect = (pid) => {
     const p = products.find(prod => prod.id === pid);
     const matchedFlow = flows.find(f => f.id === p?.flow_id);
+    setUnits("");
     setForm(f => ({
       ...f,
       product_id: pid,
       product_name: p?.name || "",
       flow_id: p?.flow_id || f.flow_id,
       flow_name: matchedFlow?.name || p?.flow_name || f.flow_name,
+      quantity_to_produce: "",
     }));
+  };
+
+  const handleUnitsChange = (val) => {
+    setUnits(val);
+    if (val && caseWeightLbs) {
+      const lbs = parseFloat(val) * caseWeightLbs;
+      setForm(f => ({ ...f, quantity_to_produce: lbs.toFixed(1) }));
+    }
+  };
+
+  const handleLbsChange = (val) => {
+    setForm(f => ({ ...f, quantity_to_produce: val }));
+    setUnits("");
   };
 
   const handleFlowSelect = (fid) => {
@@ -126,8 +148,38 @@ export default function ProductionOrderFormDialog({ open, onClose, onSave, order
           )}
 
           <div className="space-y-1.5">
-            <Label>Quantity to Produce (lbs)</Label>
-            <Input type="number" step="0.1" value={form.quantity_to_produce} onChange={e => setForm(f => ({ ...f, quantity_to_produce: e.target.value }))} placeholder="500" />
+            <Label>Quantity to Produce</Label>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground">Lbs</p>
+                <Input
+                  type="number"
+                  step="0.1"
+                  value={form.quantity_to_produce}
+                  onChange={e => handleLbsChange(e.target.value)}
+                  placeholder="e.g. 500"
+                />
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground">
+                  {unitLabel.charAt(0).toUpperCase() + unitLabel.slice(1)}
+                  {caseWeightLbs ? ` (${caseWeightLbs} lbs each)` : " — select product first"}
+                </p>
+                <Input
+                  type="number"
+                  step="1"
+                  value={units}
+                  onChange={e => handleUnitsChange(e.target.value)}
+                  placeholder={caseWeightLbs ? "e.g. 10" : "—"}
+                  disabled={!caseWeightLbs}
+                />
+              </div>
+            </div>
+            {units && caseWeightLbs && (
+              <p className="text-xs text-muted-foreground pt-0.5">
+                {units} {unitLabel} × {caseWeightLbs} lbs = <span className="font-medium text-foreground">{form.quantity_to_produce} lbs</span>
+              </p>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-3">
