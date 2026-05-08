@@ -61,13 +61,22 @@ function CreateBucketDialog({ open, onClose, onCreated, suggestedName, category 
  *   rawInputLbs  - yield-adjusted raw input lbs needed
  *   onProductUpdated - called after linking a bucket to the product
  */
-export default function InventoryShortageCheck({ product, recipe, rawInputLbs, onProductUpdated }) {
+export default function InventoryShortageCheck({ product: productProp, recipe, rawInputLbs, onProductUpdated }) {
   const queryClient = useQueryClient();
-  const [createBucketFor, setCreateBucketFor] = useState(null); // { field_id, field_name, suggestedName, category }
+  const [createBucketFor, setCreateBucketFor] = useState(null);
+
+  // Always fetch a fresh copy of the product so bucket links are up-to-date
+  const { data: freshProduct } = useQuery({
+    queryKey: ["productForShortageCheck", productProp?.id],
+    queryFn: () => base44.entities.Product.filter({ id: productProp.id }),
+    enabled: !!productProp?.id,
+    select: d => d[0] || productProp,
+  });
+  const product = freshProduct || productProp;
 
   const { data: rawInventory = [], isLoading } = useQuery({
     queryKey: ["rawInventoryAvailable"],
-    queryFn: () => base44.entities.RawInventory.filter({ status: "available" }, "received_date", 500),
+    queryFn: () => base44.entities.RawInventory.list("received_date", 500),
     enabled: !!product && rawInputLbs > 0,
   });
 
@@ -94,9 +103,11 @@ export default function InventoryShortageCheck({ product, recipe, rawInputLbs, o
     );
   }
 
-  // Helper: sum available_qty for a bucket across all lots
+  // Helper: sum available_qty for a bucket across usable lots
   const availableForBucket = (bucketId) =>
-    rawInventory.filter(lot => lot.bucket_id === bucketId).reduce((s, l) => s + (l.available_qty || 0), 0);
+    rawInventory
+      .filter(lot => lot.bucket_id === bucketId && ["available", "in_use"].includes(lot.status))
+      .reduce((s, l) => s + (l.available_qty || 0), 0);
 
   // ── 1. Blending ingredients (from recipe) ──
   const blendIngredients = recipe?.ingredients || [];
@@ -218,7 +229,8 @@ export default function InventoryShortageCheck({ product, recipe, rawInputLbs, o
       ? { cure_bucket_id: bucketId, cure_bucket_name: bucket.name }
       : { casing_bucket_id: bucketId, casing_bucket_name: bucket.name };
     await base44.entities.Product.update(product.id, updates);
-    queryClient.invalidateQueries(["rawInventoryAvailable"]);
+    queryClient.invalidateQueries({ queryKey: ["rawInventoryAvailable"] });
+    queryClient.invalidateQueries({ queryKey: ["productForShortageCheck", product.id] });
     onProductUpdated?.();
   };
 
@@ -230,7 +242,9 @@ export default function InventoryShortageCheck({ product, recipe, rawInputLbs, o
       ? { cure_bucket_id: bucket.id, cure_bucket_name: bucket.name }
       : { casing_bucket_id: bucket.id, casing_bucket_name: bucket.name };
     await base44.entities.Product.update(product.id, updates);
-    queryClient.invalidateQueries(["rawInventoryAvailable", "allBuckets"]);
+    queryClient.invalidateQueries({ queryKey: ["rawInventoryAvailable"] });
+    queryClient.invalidateQueries({ queryKey: ["allBuckets"] });
+    queryClient.invalidateQueries({ queryKey: ["productForShortageCheck", product.id] });
     onProductUpdated?.();
   };
 
