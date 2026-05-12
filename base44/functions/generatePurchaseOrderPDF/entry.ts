@@ -22,21 +22,10 @@ Deno.serve(async (req) => {
     const pageHeight = doc.internal.pageSize.getHeight();
     let yPos = 15;
 
-    // Fetch and embed company logo
+    // Company logo - try to add, fallback to text
     try {
-      const logoUrl = 'https://media.base44.com/images/public/69fa3d25d6b48b9b300a8c3a/abc6cd33d_MittysFoods_GroteWiegel_MuckesLogos.png';
-      const logoResponse = await fetch(logoUrl);
-      if (logoResponse.ok) {
-        const buffer = await logoResponse.arrayBuffer();
-        const bytes = new Uint8Array(buffer);
-        let binary = '';
-        for (let i = 0; i < bytes.length; i++) {
-          binary += String.fromCharCode(bytes[i]);
-        }
-        const base64 = btoa(binary);
-        doc.addImage(`data:image/png;base64,${base64}`, 'PNG', 15, yPos, 50, 25);
-        yPos += 30;
-      }
+      doc.addImage('https://media.base44.com/images/public/69fa3d25d6b48b9b300a8c3a/abc6cd33d_MittysFoods_GroteWiegel_MuckesLogos.png', 'PNG', 15, yPos, 50, 25);
+      yPos += 30;
     } catch (e) {
       doc.setFontSize(16);
       doc.setFont(undefined, 'bold');
