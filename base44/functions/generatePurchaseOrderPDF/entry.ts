@@ -22,20 +22,14 @@ Deno.serve(async (req) => {
     const pageHeight = doc.internal.pageSize.getHeight();
     let yPos = 15;
 
-    // Company logo
-    try {
-      const logoResp = await fetch('https://media.base44.com/images/public/69fa3d25d6b48b9b300a8c3a/abc6cd33d_MittysFoods_GroteWiegel_MuckesLogos.png');
-      const logoData = await logoResp.arrayBuffer();
-      const logoBase64 = btoa(String.fromCharCode(...new Uint8Array(logoData)));
-      doc.addImage(`data:image/png;base64,${logoBase64}`, 'PNG', 15, yPos, 50, 25);
-      yPos += 30;
-    } catch (e) {
-      doc.setFontSize(16);
-      doc.setFont(undefined, 'bold');
-      doc.setTextColor(220, 53, 69);
-      doc.text("MITTY'S FOODS", 15, yPos);
-      yPos += 7;
-    }
+    // Company branding header
+    doc.setFillColor(220, 53, 69);
+    doc.rect(0, yPos - 5, pageWidth, 20, 'F');
+    doc.setFontSize(18);
+    doc.setFont(undefined, 'bold');
+    doc.setTextColor(255, 255, 255);
+    doc.text("MITTY'S FOODS", 15, yPos + 8);
+    yPos += 25;
 
     doc.setFontSize(9);
     doc.setFont(undefined, 'normal');
