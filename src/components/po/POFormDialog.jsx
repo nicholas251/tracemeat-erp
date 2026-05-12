@@ -58,8 +58,26 @@ export default function POFormDialog({ open, onClose, onSave, po }) {
       base44.entities.ShipToAddress.list().then(data => {
         setSavedAddresses(data);
       });
+      // Update form when po prop changes
+      if (po && po.po_number) {
+        setForm({
+          po_number: po.po_number,
+          supplier: po.supplier,
+          supplier_email: po.supplier_email || "",
+          order_date: po.order_date,
+          expected_delivery_date: po.expected_delivery_date,
+          status: po.status,
+          line_items: po.line_items || [],
+          total_amount: po.total_amount,
+          notes: po.notes || "",
+          sender_email: po.sender_email || "",
+          ship_to_address: po.ship_to_address || "",
+          ship_to_contact_name: po.ship_to_contact_name || "",
+          ship_to_contact_phone: po.ship_to_contact_phone || "",
+        });
+      }
     }
-  }, [open]);
+  }, [open, po]);
 
   const addLineItem = () => {
     setForm(prev => ({
