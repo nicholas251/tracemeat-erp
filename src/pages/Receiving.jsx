@@ -117,7 +117,7 @@ export default function Receiving() {
       },
     });
 
-    setReceivingState(prev => ({ ...prev, [key]: { _done: true } }));
+    setExpandedItems(prev => ({ ...prev, [key]: false }));
   };
 
   const getBucketsForCategory = (category) => {
@@ -227,7 +227,7 @@ export default function Receiving() {
                 {currentPO.line_items?.map((item, idx) => {
                   const key = `item_${idx}`;
                   const state = receivingState[key] || {};
-                  const isReceived = (item.received_qty_lbs || 0) >= item.quantity_lbs || state._done;
+                  const isReceived = (item.received_qty_lbs || 0) >= item.quantity_lbs;
                   const suggestedBuckets = getBucketsForCategory(item.category);
 
                   return (
