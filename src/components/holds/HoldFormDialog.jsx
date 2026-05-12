@@ -82,7 +82,8 @@ export default function HoldFormDialog({ open, onClose, onSave, batches = [], ra
         batch_id: itemId,
         batch_number: item.lot_number,
         product_name: item.name,
-        quantity_affected_kg: item.available_qty_lbs || "",
+        quantity_affected_kg: "",
+        available_qty: item.available_qty_lbs || 0,
         item_type: "raw_material",
       }));
     }
@@ -97,7 +98,8 @@ export default function HoldFormDialog({ open, onClose, onSave, batches = [], ra
         batch_id: itemId,
         batch_number: item.lot_number || item.batch_number,
         product_name: item.product_name,
-        quantity_affected_kg: item.quantity_lbs || "",
+        quantity_affected_kg: "",
+        available_qty: item.quantity_lbs || 0,
         item_type: "finished_goods",
       }));
     }
@@ -211,8 +213,22 @@ export default function HoldFormDialog({ open, onClose, onSave, batches = [], ra
             </div>
           </div>
           <div className="space-y-2">
-            <Label>Quantity Affected (lbs)</Label>
-            <Input type="number" value={form.quantity_affected_kg} onChange={e => update("quantity_affected_kg", e.target.value)} />
+            <Label>
+              Quantity to Hold (lbs)
+              {form.available_qty > 0 && (
+                <span className="ml-2 text-xs text-muted-foreground font-normal">
+                  {(form.available_qty).toLocaleString()} lbs on hand
+                </span>
+              )}
+            </Label>
+            <Input
+              type="number"
+              min="0"
+              max={form.available_qty || undefined}
+              value={form.quantity_affected_kg}
+              onChange={e => update("quantity_affected_kg", e.target.value)}
+              placeholder={form.available_qty > 0 ? `Max ${form.available_qty.toLocaleString()} lbs` : "Enter quantity"}
+            />
           </div>
           <div className="space-y-2">
             <Label>Description *</Label>

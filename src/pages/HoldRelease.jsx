@@ -65,15 +65,26 @@ export default function HoldRelease() {
 
   const createMutation = useMutation({
     mutationFn: async (data) => {
-      await base44.entities.HoldRelease.create(data);
+      const heldQty = Number(data.quantity_affected_kg) || 0;
       if (data.batch_id) {
         if (data.item_type === "raw_material") {
-          await base44.entities.RawMaterial.update(data.batch_id, { status: "rejected", available_qty_lbs: 0 });
+          const item = rawMaterials.find(r => r.id === data.batch_id);
+          const currentQty = item?.available_qty_lbs || 0;
+          const newQty = Math.max(0, currentQty - heldQty);
+          await base44.entities.HoldRelease.create({ ...data, pre_hold_qty: currentQty });
+          await base44.entities.RawMaterial.update(data.batch_id, { available_qty_lbs: newQty });
         } else if (data.item_type === "finished_goods") {
-          await base44.entities.InventoryItem.update(data.batch_id, { status: "quarantined", quantity_lbs: 0 });
+          const item = finishedGoods.find(i => i.id === data.batch_id);
+          const currentQty = item?.quantity_lbs || 0;
+          const newQty = Math.max(0, currentQty - heldQty);
+          await base44.entities.HoldRelease.create({ ...data, pre_hold_qty: currentQty });
+          await base44.entities.InventoryItem.update(data.batch_id, { quantity_lbs: newQty });
         } else {
+          await base44.entities.HoldRelease.create(data);
           await base44.entities.Batch.update(data.batch_id, { status: "on_hold" });
         }
+      } else {
+        await base44.entities.HoldRelease.create(data);
       }
     },
     onSuccess: () => {
@@ -87,20 +98,25 @@ export default function HoldRelease() {
   });
 
   const releaseMutation = useMutation({
-    mutationFn: async ({ holdId, data, batchId, itemType, quantityAffected }) => {
+    mutationFn: async ({ holdId, data, batchId, itemType, quantityAffected, hold }) => {
       await base44.entities.HoldRelease.update(holdId, data);
-      if (batchId) {
+      if (batchId && data.status === "released") {
         if (itemType === "raw_material") {
-          const newStatus = data.status === "released" ? "approved" : "rejected";
-          const restoreQty = data.status === "released" ? { available_qty_lbs: quantityAffected || 0 } : {};
-          await base44.entities.RawMaterial.update(batchId, { status: newStatus, ...restoreQty });
+          const item = rawMaterials.find(r => r.id === batchId);
+          const currentQty = item?.available_qty_lbs || 0;
+          const releaseQty = Number(quantityAffected) || 0;
+          await base44.entities.RawMaterial.update(batchId, { status: "approved", available_qty_lbs: currentQty + releaseQty });
         } else if (itemType === "finished_goods") {
-          const newStatus = data.status === "released" ? "available" : "quarantined";
-          const restoreQty = data.status === "released" ? { quantity_lbs: quantityAffected || 0 } : {};
-          await base44.entities.InventoryItem.update(batchId, { status: newStatus, ...restoreQty });
+          const item = finishedGoods.find(i => i.id === batchId);
+          const currentQty = item?.quantity_lbs || 0;
+          const releaseQty = Number(quantityAffected) || 0;
+          await base44.entities.InventoryItem.update(batchId, { status: "available", quantity_lbs: currentQty + releaseQty });
         } else {
-          const batchStatus = data.status === "released" ? "released" : "rejected";
-          await base44.entities.Batch.update(batchId, { status: batchStatus });
+          await base44.entities.Batch.update(batchId, { status: "released" });
+        }
+      } else if (batchId && data.status === "rejected") {
+        if (itemType === "batch") {
+          await base44.entities.Batch.update(batchId, { status: "rejected" });
         }
       }
     },
