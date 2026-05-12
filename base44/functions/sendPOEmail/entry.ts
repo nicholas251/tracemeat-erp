@@ -213,7 +213,13 @@ Deno.serve(async (req) => {
     doc.text('This is an automated purchase order. Please confirm receipt and delivery terms.', pageWidth / 2, yPos, { align: 'center' });
 
     // Get PDF as base64
-    const pdfBase64 = doc.output('datauristring').split(',')[1];
+    const pdfBuffer = doc.output('arraybuffer');
+    const pdfArray = new Uint8Array(pdfBuffer);
+    let pdfBase64 = '';
+    for (let i = 0; i < pdfArray.length; i++) {
+      pdfBase64 += String.fromCharCode(pdfArray[i]);
+    }
+    pdfBase64 = btoa(pdfBase64);
 
     // Build email body
     const lineItemsText = (po.line_items || [])
