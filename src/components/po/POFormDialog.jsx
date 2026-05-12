@@ -102,50 +102,65 @@ export default function POFormDialog({ open, onClose, onSave, po }) {
             <div>
               <Label>Supplier *</Label>
               <div className="flex gap-2">
-                <Select value={form.supplier} onValueChange={v => setForm(prev => ({ ...prev, supplier: v }))}>
-                  <SelectTrigger className="flex-1">
-                    <SelectValue placeholder="Select or type supplier" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {suppliers.map(s => (
-                      <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setShowSaveSupplier(!showSaveSupplier)}
-                  title="Save this supplier for future use"
-                >
-                  <Save className="w-4 h-4" />
-                </Button>
+                <Select value={form.supplier} onValueChange={v => {
+                  if (v === "__CREATE_NEW__") {
+                    setShowSaveSupplier(true);
+                  } else {
+                    setForm(prev => ({ ...prev, supplier: v }));
+                  }
+                }}>
+                    <SelectTrigger className="flex-1">
+                      <SelectValue placeholder="Select or type supplier" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {suppliers.map(s => (
+                        <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>
+                      ))}
+                      <div className="border-t py-1">
+                        <SelectItem value="__CREATE_NEW__" className="text-primary font-medium">
+                          + Create New Supplier
+                        </SelectItem>
+                      </div>
+                    </SelectContent>
+                  </Select>
               </div>
               {showSaveSupplier && (
-                <div className="mt-2 p-2 bg-muted/50 rounded border">
+                <div className="mt-2 p-2 bg-blue-50 rounded border border-blue-200">
                   <Input
-                    placeholder="Supplier name to save"
+                    placeholder="Supplier name"
                     value={newSupplierName}
                     onChange={e => setNewSupplierName(e.target.value)}
                     className="mb-2"
+                    autoFocus
                   />
-                  <Button
-                    size="sm"
-                    onClick={async () => {
-                      if (newSupplierName.trim()) {
-                        await base44.entities.Supplier.create({ name: newSupplierName });
-                        setForm(prev => ({ ...prev, supplier: newSupplierName }));
-                        setNewSupplierName("");
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      onClick={async () => {
+                        if (newSupplierName.trim()) {
+                          await base44.entities.Supplier.create({ name: newSupplierName });
+                          setForm(prev => ({ ...prev, supplier: newSupplierName }));
+                          setNewSupplierName("");
+                          setShowSaveSupplier(false);
+                          const updated = await base44.entities.Supplier.list();
+                          setSuppliers(updated.map(s => ({ id: s.id, name: s.name })));
+                        }
+                      }}
+                      className="flex-1"
+                    >
+                      Create
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
                         setShowSaveSupplier(false);
-                        const updated = await base44.entities.Supplier.list();
-                        setSuppliers(updated.map(s => ({ id: s.id, name: s.name })));
-                      }
-                    }}
-                    className="w-full"
-                  >
-                    Save Supplier
-                  </Button>
+                        setNewSupplierName("");
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
                 </div>
               )}
             </div>
