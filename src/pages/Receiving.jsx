@@ -11,13 +11,15 @@ import { Badge } from "@/components/ui/badge";
 import PageHeader from "@/components/shared/PageHeader";
 import StatusBadge from "@/components/shared/StatusBadge";
 import { format } from "date-fns";
-import { CheckCircle2, ArrowRight, Package, ChevronRight } from "lucide-react";
+import { CheckCircle2, ArrowRight, Package, ChevronRight, X } from "lucide-react";
+import { useToast } from "@/components/ui/use-toast";
 
 export default function Receiving() {
   const urlParams = new URLSearchParams(window.location.search);
   const poId = urlParams.get("po_id");
 
   const queryClient = useQueryClient();
+  const { dismiss } = useToast();
   const [receivingState, setReceivingState] = useState({});
   const [selectedPOId, setSelectedPOId] = useState(poId || null);
 
@@ -139,6 +141,11 @@ export default function Receiving() {
       <PageHeader
         title="Receiving"
         subtitle="Select a purchase order to receive raw materials"
+        actions={
+          <Button variant="outline" size="sm" onClick={() => dismiss()} className="text-xs">
+            <X className="w-4 h-4 mr-1" /> Clear Toast
+          </Button>
+        }
       />
 
       {/* PO Cards */}
