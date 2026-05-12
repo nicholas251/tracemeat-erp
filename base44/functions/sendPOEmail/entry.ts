@@ -53,7 +53,7 @@ Purchase Order System
 
     // Send email using Resend
     const result = await resend.emails.send({
-      from: `Purchase Order System <noreply@resend.dev>`,
+      from: `Purchase Order System <${user.email}>`,
       to: po.supplier_email,
       subject: `Purchase Order ${po.po_number}`,
       text: emailBody,
