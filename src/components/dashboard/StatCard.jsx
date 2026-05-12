@@ -11,10 +11,10 @@ export default function StatCard({ label, value, icon: Icon, trend, color = "tex
       className={cn("p-5 hover:shadow-lg hover:border-slate-300 transition-all duration-200 border-slate-200 bg-white", link && "cursor-pointer hover:scale-105")}
       onClick={() => link && navigate(link)}
     >
-      <div className="flex items-end justify-between">
-        <div>
-          <p className="text-xs font-semibold text-slate-600 uppercase tracking-widest">{label}</p>
-           <p className="text-3xl font-bold mt-2 text-slate-900 leading-none">{value}</p>
+      <div className="flex items-center justify-between gap-4">
+         <div className="flex-1">
+           <p className="text-xs font-semibold text-slate-600 uppercase tracking-widest">{label}</p>
+            <p className="text-3xl font-bold mt-2 text-slate-900 leading-tight">{value}</p>
           {trend && (
             <p className={cn("text-xs mt-2 font-semibold", trend > 0 ? "text-green-600" : "text-red-600")}>
               {trend > 0 ? "↑" : "↓"} {Math.abs(trend)}% from last week
