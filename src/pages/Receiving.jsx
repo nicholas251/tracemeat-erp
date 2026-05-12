@@ -20,6 +20,7 @@ export default function Receiving() {
   const queryClient = useQueryClient();
   const [receivingState, setReceivingState] = useState({});
   const [selectedPOId, setSelectedPOId] = useState(poId || null);
+  const [expandedItems, setExpandedItems] = useState({});
 
   const { data: pos = [] } = useQuery({
     queryKey: ["purchase_orders"],
@@ -242,14 +243,22 @@ export default function Receiving() {
                             )}
                           </div>
                         </div>
-                        {isReceived && (
+                        {isReceived ? (
                           <div className="flex items-center gap-1 text-chart-2 text-sm font-semibold">
                             <CheckCircle2 className="w-4 h-4" /> Received
                           </div>
+                        ) : (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setExpandedItems(prev => ({ ...prev, [key]: !prev[key] }))}
+                          >
+                            {expandedItems[key] ? "Collapse" : "Receive"}
+                          </Button>
                         )}
                       </div>
 
-                      {!isReceived && (
+                      {!isReceived && expandedItems[key] && (
                         <div className="border rounded-lg p-4 bg-card space-y-4">
                           <div className="bg-primary/5 border border-primary/20 rounded-lg p-3">
                             <Label className="text-sm font-semibold mb-2 block">Assign to Inventory Bucket *</Label>
