@@ -51,7 +51,7 @@ Purchase Order System
     // Get Gmail access token
     const { accessToken } = await base44.asServiceRole.connectors.getConnection('gmail');
 
-    // Build MIME message
+    // Build RFC 2822 MIME message
     const message = `From: ${user.email}
 To: ${po.supplier_email}
 Subject: Purchase Order ${po.po_number}
@@ -59,13 +59,13 @@ Content-Type: text/plain; charset="UTF-8"
 
 ${emailBody}`;
 
-    // Encode message in base64url
+    // Encode message in base64url (Gmail API requirement)
     const encodedMessage = btoa(message)
       .replace(/\+/g, '-')
       .replace(/\//g, '_')
       .replace(/=/g, '');
 
-    // Send via Gmail API
+    // Send via Gmail API using gmail.compose scope
     const response = await fetch(
       'https://www.googleapis.com/gmail/v1/users/me/messages/send',
       {
@@ -81,8 +81,9 @@ ${emailBody}`;
     );
 
     if (!response.ok) {
-      const error = await response.json();
-      return Response.json({ error: error.error.message }, { status: 500 });
+      const errorData = await response.json();
+      const errorMessage = errorData.error?.message || 'Failed to send email';
+      return Response.json({ error: errorMessage }, { status: 500 });
     }
 
     const result = await response.json();
