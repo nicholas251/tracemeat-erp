@@ -68,9 +68,9 @@ export default function HoldRelease() {
       await base44.entities.HoldRelease.create(data);
       if (data.batch_id) {
         if (data.item_type === "raw_material") {
-          await base44.entities.RawMaterial.update(data.batch_id, { status: "rejected" });
+          await base44.entities.RawMaterial.update(data.batch_id, { status: "rejected", available_qty_lbs: 0 });
         } else if (data.item_type === "finished_goods") {
-          await base44.entities.InventoryItem.update(data.batch_id, { status: "quarantined" });
+          await base44.entities.InventoryItem.update(data.batch_id, { status: "quarantined", quantity_lbs: 0 });
         } else {
           await base44.entities.Batch.update(data.batch_id, { status: "on_hold" });
         }
@@ -87,15 +87,17 @@ export default function HoldRelease() {
   });
 
   const releaseMutation = useMutation({
-    mutationFn: async ({ holdId, data, batchId, itemType }) => {
+    mutationFn: async ({ holdId, data, batchId, itemType, quantityAffected }) => {
       await base44.entities.HoldRelease.update(holdId, data);
       if (batchId) {
         if (itemType === "raw_material") {
           const newStatus = data.status === "released" ? "approved" : "rejected";
-          await base44.entities.RawMaterial.update(batchId, { status: newStatus });
+          const restoreQty = data.status === "released" ? { available_qty_lbs: quantityAffected || 0 } : {};
+          await base44.entities.RawMaterial.update(batchId, { status: newStatus, ...restoreQty });
         } else if (itemType === "finished_goods") {
           const newStatus = data.status === "released" ? "available" : "quarantined";
-          await base44.entities.InventoryItem.update(batchId, { status: newStatus });
+          const restoreQty = data.status === "released" ? { quantity_lbs: quantityAffected || 0 } : {};
+          await base44.entities.InventoryItem.update(batchId, { status: newStatus, ...restoreQty });
         } else {
           const batchStatus = data.status === "released" ? "released" : "rejected";
           await base44.entities.Batch.update(batchId, { status: batchStatus });
@@ -219,7 +221,7 @@ export default function HoldRelease() {
           open
           hold={releasing}
           onClose={() => setReleasing(null)}
-          onRelease={(data) => releaseMutation.mutate({ holdId: releasing.id, data, batchId: releasing.batch_id, itemType: releasing.item_type })}
+          onRelease={(data) => releaseMutation.mutate({ holdId: releasing.id, data, batchId: releasing.batch_id, itemType: releasing.item_type, quantityAffected: releasing.quantity_affected_kg })}
         />
       )}
     </div>
