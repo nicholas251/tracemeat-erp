@@ -37,11 +37,12 @@ export default function PurchaseOrders() {
   const createMutation = useMutation({
     mutationFn: async (data) => {
       const created = await base44.entities.PurchaseOrder.create(data);
-      // Send email notification
+      // Send email notification with created PO data
       try {
-        await base44.functions.invoke('sendPOEmail', { po: data });
+        await base44.functions.invoke('sendPOEmail', { po: created });
       } catch (error) {
         console.error('Failed to send PO email:', error);
+        throw error; // Re-throw to show error to user
       }
       return created;
     },
@@ -54,6 +55,14 @@ export default function PurchaseOrders() {
         duration: 3000,
       });
       setTimeout(() => navigate("/"), 3500);
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: `Failed to create purchase order: ${error.message}`,
+        variant: "destructive",
+        duration: 5000,
+      });
     },
   });
 
