@@ -34,7 +34,7 @@ export default function ProfileCreation() {
         requestedProfileIds: selectedProfiles,
         requestedProfileNames: workProfiles.filter(p => selectedProfiles.includes(p.id)).map(p => p.name)
       });
-      navigate('/waiting-for-access');
+      base44.auth.redirectToLogin();
     } catch (err) {
       setError(err.response?.data?.error || err.message || "Failed to create profile");
     } finally {
