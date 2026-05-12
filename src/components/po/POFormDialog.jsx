@@ -138,7 +138,7 @@ export default function POFormDialog({ open, onClose, onSave, po }) {
     doc.setTextColor(255, 255, 255);
     doc.text("MITTY'S FOODS", 15, yPos + 8);
 
-    // Fetch and add logo
+    // Fetch and add logo to top right
     try {
       const logoUrl = 'https://media.base44.com/images/public/69fa3d25d6b48b9b300a8c3a/abc6cd33d_MittysFoods_GroteWiegel_MuckesLogos.png';
       const response = await fetch(logoUrl);
@@ -146,7 +146,7 @@ export default function POFormDialog({ open, onClose, onSave, po }) {
       const reader = new FileReader();
       reader.onload = (e) => {
         const imgData = e.target.result;
-        doc.addImage(imgData, 'PNG', pageWidth - 65, yPos - 3, 50, 25);
+        doc.addImage(imgData, 'PNG', pageWidth - 55, 10, 45, 20);
       };
       reader.readAsDataURL(blob);
     } catch (err) {
