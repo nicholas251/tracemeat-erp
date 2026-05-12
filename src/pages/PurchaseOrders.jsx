@@ -35,13 +35,22 @@ export default function PurchaseOrders() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (data) => base44.entities.PurchaseOrder.create(data),
+    mutationFn: async (data) => {
+      const created = await base44.entities.PurchaseOrder.create(data);
+      // Send email notification
+      try {
+        await base44.functions.invoke('sendPOEmail', { po: data });
+      } catch (error) {
+        console.error('Failed to send PO email:', error);
+      }
+      return created;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["purchase_orders"] });
       setShowForm(false);
       toast({
         title: "Purchase Order Created",
-        description: "Your purchase order has been successfully created.",
+        description: "Your purchase order has been successfully created and email sent.",
         duration: 3000,
       });
       setTimeout(() => navigate("/"), 3500);

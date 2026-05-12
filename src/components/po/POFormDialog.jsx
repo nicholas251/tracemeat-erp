@@ -23,6 +23,7 @@ export default function POFormDialog({ open, onClose, onSave, po }) {
   const [form, setForm] = useState(po ? {
     po_number: po.data.po_number,
     supplier: po.data.supplier,
+    supplier_email: po.data.supplier_email || "",
     order_date: po.data.order_date,
     expected_delivery_date: po.data.expected_delivery_date,
     status: po.data.status,
@@ -36,6 +37,7 @@ export default function POFormDialog({ open, onClose, onSave, po }) {
   } : {
     po_number: `PO-${Math.floor(Math.random() * 1000000)}`,
     supplier: "",
+    supplier_email: "",
     order_date: format(new Date(), 'yyyy-MM-dd'),
     expected_delivery_date: "",
     status: "draft",
@@ -93,6 +95,10 @@ export default function POFormDialog({ open, onClose, onSave, po }) {
   const handleSave = () => {
     if (!form.po_number || !form.supplier) {
       alert("PO Number and Supplier are required");
+      return;
+    }
+    if (!form.supplier_email) {
+      alert("Supplier email is required");
       return;
     }
     if (!form.ship_to_address || !form.ship_to_contact_name || !form.ship_to_contact_phone) {
@@ -153,6 +159,15 @@ export default function POFormDialog({ open, onClose, onSave, po }) {
                       </div>
                     </SelectContent>
                   </Select>
+              </div>
+              <div className="mt-2">
+                <Label className="text-sm">Supplier Email *</Label>
+                <Input
+                  type="email"
+                  value={form.supplier_email}
+                  onChange={e => setForm(prev => ({ ...prev, supplier_email: e.target.value }))}
+                  placeholder="supplier@company.com"
+                />
               </div>
               {showSaveSupplier && (
                 <div className="mt-2 p-2 bg-blue-50 rounded border border-blue-200">

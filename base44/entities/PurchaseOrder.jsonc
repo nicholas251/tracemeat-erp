@@ -10,6 +10,28 @@
       "type": "string",
       "description": "Supplier name"
     },
+    "supplier_email": {
+      "type": "string",
+      "format": "email",
+      "description": "Supplier email address"
+    },
+    "sender_email": {
+      "type": "string",
+      "format": "email",
+      "description": "Email address sending the PO"
+    },
+    "ship_to_address": {
+      "type": "string",
+      "description": "Shipping address"
+    },
+    "ship_to_contact_name": {
+      "type": "string",
+      "description": "Contact name for shipping"
+    },
+    "ship_to_contact_phone": {
+      "type": "string",
+      "description": "Contact phone for shipping"
+    },
     "order_date": {
       "type": "string",
       "format": "date"
