@@ -22,18 +22,17 @@ Deno.serve(async (req) => {
     const pageHeight = doc.internal.pageSize.getHeight();
     let yPos = 15;
 
-    // Add logo (fetch and embed)
-    try {
-      const logoUrl = 'https://media.base44.com/images/public/69fa3d25d6b48b9b300a8c3a/f79daba3a_MittysFoods_GroteWiegel_MuckesLogos.webp';
-      const logoResponse = await fetch(logoUrl);
-      const logoBlob = await logoResponse.arrayBuffer();
-      const logoData = 'data:image/webp;base64,' + btoa(String.fromCharCode(...new Uint8Array(logoBlob)));
-      doc.addImage(logoData, 'WEBP', 15, yPos, 40, 20);
-      yPos += 25;
-    } catch (e) {
-      // Logo fetch failed, continue without it
-      yPos += 5;
-    }
+    // Add logo header with company name
+    doc.setFontSize(14);
+    doc.setFont(undefined, 'bold');
+    doc.setTextColor(220, 53, 69);
+    doc.text("MITTY'S FOODS", 15, yPos);
+    yPos += 8;
+    doc.setFontSize(8);
+    doc.setFont(undefined, 'normal');
+    doc.setTextColor(100, 100, 100);
+    doc.text('Quality Meat Products | sales@mittysfood.com', 15, yPos);
+    yPos += 8;
 
     // Header - Company info and PO title
     doc.setFontSize(16);
