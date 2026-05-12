@@ -30,7 +30,6 @@ export default function POFormDialog({ open, onClose, onSave, po }) {
     line_items: po.line_items || [],
     total_amount: po.total_amount,
     notes: po.notes || "",
-    sender_email: po.sender_email || "",
     ship_to_address: po.ship_to_address || "",
     ship_to_contact_name: po.ship_to_contact_name || "",
     ship_to_contact_phone: po.ship_to_contact_phone || "",
@@ -44,7 +43,6 @@ export default function POFormDialog({ open, onClose, onSave, po }) {
     line_items: [],
     total_amount: 0,
     notes: "",
-    sender_email: "",
     ship_to_address: "",
     ship_to_contact_name: "",
     ship_to_contact_phone: "",
@@ -70,7 +68,6 @@ export default function POFormDialog({ open, onClose, onSave, po }) {
           line_items: po.line_items || [],
           total_amount: po.total_amount,
           notes: po.notes || "",
-          sender_email: po.sender_email || "",
           ship_to_address: po.ship_to_address || "",
           ship_to_contact_name: po.ship_to_contact_name || "",
           ship_to_contact_phone: po.ship_to_contact_phone || "",
@@ -318,16 +315,6 @@ export default function POFormDialog({ open, onClose, onSave, po }) {
               <p className="text-sm text-muted-foreground">Total Amount</p>
               <p className="text-2xl font-bold text-accent">${form.total_amount.toFixed(2)}</p>
             </div>
-          </div>
-
-          <div>
-            <Label>Sender Email *</Label>
-            <Input
-              type="email"
-              value={form.sender_email}
-              onChange={e => setForm(prev => ({ ...prev, sender_email: e.target.value }))}
-              placeholder="your@company.com"
-            />
           </div>
 
           <div className="border-t pt-4">
