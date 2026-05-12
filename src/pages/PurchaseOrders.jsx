@@ -44,7 +44,7 @@ export default function PurchaseOrders() {
         description: "Your purchase order has been successfully created.",
         duration: 3000,
       });
-      setTimeout(() => navigate("/"), 500);
+      setTimeout(() => navigate("/"), 3500);
     },
   });
 
