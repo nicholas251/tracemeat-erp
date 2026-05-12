@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
-import { Plus, Trash2, Save } from "lucide-react";
+import { Plus, Trash2, Save, FileText } from "lucide-react";
 import { format } from "date-fns";
 
 const CATEGORIES = ["beef", "pork", "poultry", "lamb", "seasoning", "casing", "packaging", "additive", "other"];
@@ -16,6 +16,7 @@ export default function POFormDialog({ open, onClose, onSave, po }) {
   const [suppliers, setSuppliers] = useState([]);
   const [showSaveSupplier, setShowSaveSupplier] = useState(false);
   const [newSupplierName, setNewSupplierName] = useState("");
+  const [showShipToForm, setShowShipToForm] = useState(false);
   const [form, setForm] = useState(po ? {
     po_number: po.data.po_number,
     supplier: po.data.supplier,
@@ -25,6 +26,10 @@ export default function POFormDialog({ open, onClose, onSave, po }) {
     line_items: po.data.line_items || [],
     total_amount: po.data.total_amount,
     notes: po.data.notes || "",
+    sender_email: po.data.sender_email || "",
+    ship_to_address: po.data.ship_to_address || "",
+    ship_to_contact_name: po.data.ship_to_contact_name || "",
+    ship_to_contact_phone: po.data.ship_to_contact_phone || "",
   } : {
     po_number: `PO-${Math.floor(Math.random() * 1000000)}`,
     supplier: "",
@@ -34,6 +39,10 @@ export default function POFormDialog({ open, onClose, onSave, po }) {
     line_items: [],
     total_amount: 0,
     notes: "",
+    sender_email: "",
+    ship_to_address: "",
+    ship_to_contact_name: "",
+    ship_to_contact_phone: "",
   });
 
   useEffect(() => {
@@ -80,7 +89,22 @@ export default function POFormDialog({ open, onClose, onSave, po }) {
       alert("PO Number and Supplier are required");
       return;
     }
+    if (!form.ship_to_address || !form.ship_to_contact_name || !form.ship_to_contact_phone) {
+      alert("Ship-to address, contact name, and contact phone are required");
+      return;
+    }
     onSave(form);
+  };
+
+  const generatePDF = async () => {
+    try {
+      const response = await base44.functions.invoke('generatePurchaseOrderPDF', { po: form });
+      if (response.data?.pdf_url) {
+        window.open(response.data.pdf_url, '_blank');
+      }
+    } catch (error) {
+      alert("Error generating PDF: " + error.message);
+    }
   };
 
   return (
@@ -258,6 +282,76 @@ export default function POFormDialog({ open, onClose, onSave, po }) {
           </div>
 
           <div>
+            <Label>Sender Email *</Label>
+            <Input
+              type="email"
+              value={form.sender_email}
+              onChange={e => setForm(prev => ({ ...prev, sender_email: e.target.value }))}
+              placeholder="your@company.com"
+            />
+          </div>
+
+          <div className="border-t pt-4">
+            <div className="flex items-center justify-between mb-3">
+              <Label className="text-base font-semibold">Ship-To Information *</Label>
+              {form.ship_to_address && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setShowShipToForm(!showShipToForm)}
+                >
+                  {showShipToForm ? "Hide" : "Edit"}
+                </Button>
+              )}
+            </div>
+            {!form.ship_to_address ? (
+              <Button
+                size="sm"
+                variant="outline"
+                className="w-full"
+                onClick={() => setShowShipToForm(true)}
+              >
+                + Add Ship-To Address
+              </Button>
+            ) : (
+              <div className="p-3 bg-muted/30 rounded border">
+                <p className="text-sm font-medium">{form.ship_to_contact_name}</p>
+                <p className="text-sm text-muted-foreground">{form.ship_to_address}</p>
+                <p className="text-sm text-muted-foreground">{form.ship_to_contact_phone}</p>
+              </div>
+            )}
+            {showShipToForm && (
+              <div className="mt-3 p-3 bg-blue-50 rounded border border-blue-200 space-y-3">
+                <div>
+                  <Label className="text-sm">Contact Name *</Label>
+                  <Input
+                    value={form.ship_to_contact_name}
+                    onChange={e => setForm(prev => ({ ...prev, ship_to_contact_name: e.target.value }))}
+                    placeholder="John Doe"
+                  />
+                </div>
+                <div>
+                  <Label className="text-sm">Address *</Label>
+                  <Textarea
+                    value={form.ship_to_address}
+                    onChange={e => setForm(prev => ({ ...prev, ship_to_address: e.target.value }))}
+                    placeholder="123 Main St, City, State ZIP"
+                    rows={2}
+                  />
+                </div>
+                <div>
+                  <Label className="text-sm">Phone Number *</Label>
+                  <Input
+                    value={form.ship_to_contact_phone}
+                    onChange={e => setForm(prev => ({ ...prev, ship_to_contact_phone: e.target.value }))}
+                    placeholder="(555) 123-4567"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div>
             <Label>Notes</Label>
             <Textarea
               value={form.notes}
@@ -266,10 +360,20 @@ export default function POFormDialog({ open, onClose, onSave, po }) {
               className="h-20"
             />
           </div>
-        </div>
+          </div>
 
-        <DialogFooter>
+        <DialogFooter className="flex gap-2">
           <Button variant="outline" onClick={onClose}>Cancel</Button>
+          {po && form.line_items?.length > 0 && (
+            <Button
+              variant="outline"
+              onClick={generatePDF}
+              className="flex items-center gap-2"
+            >
+              <FileText className="w-4 h-4" />
+              Generate PDF
+            </Button>
+          )}
           <Button onClick={handleSave}>{po ? "Update" : "Create"} PO</Button>
         </DialogFooter>
       </DialogContent>
