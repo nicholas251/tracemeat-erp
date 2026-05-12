@@ -58,6 +58,11 @@ export default function HoldRelease() {
     queryFn: () => base44.entities.RawMaterial.list(),
   });
 
+  const { data: rawInventoryLots = [] } = useQuery({
+    queryKey: ["raw_inventory"],
+    queryFn: () => base44.entities.RawInventory.list(),
+  });
+
   const { data: finishedGoods = [] } = useQuery({
     queryKey: ["inventory"],
     queryFn: () => base44.entities.InventoryItem.list(),
@@ -73,6 +78,12 @@ export default function HoldRelease() {
           const newQty = Math.max(0, currentQty - heldQty);
           await base44.entities.HoldRelease.create({ ...data, pre_hold_qty: currentQty });
           await base44.entities.RawMaterial.update(data.batch_id, { available_qty_lbs: newQty });
+          // Also deduct from the matching RawInventory lot
+          const lot = rawInventoryLots.find(l => l.raw_material_id === data.batch_id);
+          if (lot) {
+            const lotQty = lot.available_qty || 0;
+            await base44.entities.RawInventory.update(lot.id, { available_qty: Math.max(0, lotQty - heldQty) });
+          }
         } else if (data.item_type === "finished_goods") {
           const item = finishedGoods.find(i => i.id === data.batch_id);
           const currentQty = item?.quantity_lbs || 0;
@@ -92,6 +103,7 @@ export default function HoldRelease() {
       queryClient.invalidateQueries({ queryKey: ["batches"] });
       queryClient.invalidateQueries({ queryKey: ["rawMaterials"] });
       queryClient.invalidateQueries({ queryKey: ["inventory"] });
+      queryClient.invalidateQueries({ queryKey: ["raw_inventory"] });
       setShowForm(false);
       setPreselectedBatch(null);
     },
@@ -106,6 +118,12 @@ export default function HoldRelease() {
           const currentQty = item?.available_qty_lbs || 0;
           const releaseQty = Number(quantityAffected) || 0;
           await base44.entities.RawMaterial.update(batchId, { status: "approved", available_qty_lbs: currentQty + releaseQty });
+          // Also restore the matching RawInventory lot
+          const lot = rawInventoryLots.find(l => l.raw_material_id === batchId);
+          if (lot) {
+            const lotQty = lot.available_qty || 0;
+            await base44.entities.RawInventory.update(lot.id, { available_qty: lotQty + releaseQty });
+          }
         } else if (itemType === "finished_goods") {
           const item = finishedGoods.find(i => i.id === batchId);
           const currentQty = item?.quantity_lbs || 0;
@@ -125,6 +143,7 @@ export default function HoldRelease() {
       queryClient.invalidateQueries({ queryKey: ["batches"] });
       queryClient.invalidateQueries({ queryKey: ["rawMaterials"] });
       queryClient.invalidateQueries({ queryKey: ["inventory"] });
+      queryClient.invalidateQueries({ queryKey: ["raw_inventory"] });
       setReleasing(null);
     },
   });
