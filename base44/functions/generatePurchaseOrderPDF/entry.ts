@@ -45,10 +45,8 @@ Deno.serve(async (req) => {
     yPos += 6;
     doc.setFont(undefined, 'normal');
     doc.setFontSize(9);
-    if (user.email) {
-      doc.text(`Email: ${user.email}`, 20, yPos);
-      yPos += 5;
-    }
+    doc.text('Email: sales@mittysfood.com', 20, yPos);
+    yPos += 5;
 
     yPos += 5;
 
