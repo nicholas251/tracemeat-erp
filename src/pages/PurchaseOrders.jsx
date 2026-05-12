@@ -2,14 +2,14 @@ import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Plus, Eye, Trash2 } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import PageHeader from "@/components/shared/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import StatusBadge from "@/components/shared/StatusBadge";
 import POFormDialog from "@/components/po/POFormDialog";
 import { format } from "date-fns";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useToast } from "@/components/ui/use-toast";
 import {
   AlertDialog,
@@ -120,11 +120,6 @@ export default function PurchaseOrders() {
                      <TableCell><StatusBadge status={po.status} /></TableCell>
                      <TableCell>
                        <div className="flex gap-2">
-                         <Link to={`/receiving?po_id=${po.id}`}>
-                           <Button size="sm" variant="outline">
-                             <Eye className="w-4 h-4" /> Receive
-                           </Button>
-                         </Link>
                          <Button size="sm" variant="ghost" onClick={() => { setEditingPO(po); setShowForm(true); }}>
                            Edit
                          </Button>
