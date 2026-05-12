@@ -115,7 +115,19 @@ export default function HoldRelease() {
       await base44.entities.HoldRelease.update(holdId, data);
       const releaseQty = Number(quantityAffected) || 0;
       if (batchId && data.status === "released") {
-        if (itemType === "raw_material") {
+        // Determine item type if missing
+        let resolvedItemType = itemType;
+        if (!resolvedItemType) {
+          const batch = await base44.entities.Batch.filter({ id: batchId });
+          const rawMat = await base44.entities.RawMaterial.filter({ id: batchId });
+          const invItem = await base44.entities.InventoryItem.filter({ id: batchId });
+
+          if (batch[0]) resolvedItemType = "batch";
+          else if (rawMat[0]) resolvedItemType = "raw_material";
+          else if (invItem[0]) resolvedItemType = "finished_goods";
+        }
+
+        if (resolvedItemType === "raw_material") {
           // Fetch fresh to avoid stale cache values
           const freshItems = await base44.entities.RawMaterial.filter({ id: batchId });
           const currentQty = freshItems[0]?.available_qty_lbs || 0;
@@ -126,11 +138,11 @@ export default function HoldRelease() {
             const updatedQty = (freshLots[0].available_qty || 0) + releaseQty;
             await base44.entities.RawInventory.update(freshLots[0].id, { available_qty: updatedQty, status: "available" });
           }
-        } else if (itemType === "finished_goods") {
+        } else if (resolvedItemType === "finished_goods") {
            const freshItems = await base44.entities.InventoryItem.filter({ id: batchId });
            const currentQty = freshItems[0]?.quantity_lbs || 0;
            await base44.entities.InventoryItem.update(batchId, { quantity_lbs: currentQty + releaseQty, status: "available" });
-        } else {
+        } else if (resolvedItemType === "batch") {
           // Batch type: return to completed (back on-hand) when released as safe
           await base44.entities.Batch.update(batchId, { status: "completed" });
         }
