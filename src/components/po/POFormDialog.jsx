@@ -126,9 +126,16 @@ export default function POFormDialog({ open, onClose, onSave, po }) {
   const generatePDF = async () => {
     try {
       const response = await base44.functions.invoke('generatePurchaseOrderPDF', { po: form });
-      if (response.data?.pdf_url) {
-        window.open(response.data.pdf_url, '_blank');
-      }
+      // Response is now a binary PDF stream, create a download link
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `PO-${form.po_number}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
     } catch (error) {
       alert("Error generating PDF: " + error.message);
     }

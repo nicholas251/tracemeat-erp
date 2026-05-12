@@ -45,8 +45,8 @@ Deno.serve(async (req) => {
     yPos += 6;
     doc.setFont(undefined, 'normal');
     doc.setFontSize(9);
-    if (po.sender_email) {
-      doc.text(`Email: ${po.sender_email}`, 20, yPos);
+    if (user.email) {
+      doc.text(`Email: ${user.email}`, 20, yPos);
       yPos += 5;
     }
 
@@ -160,21 +160,16 @@ Deno.serve(async (req) => {
       doc.text(notesLines, 20, yPos);
     }
 
-    // Generate PDF as data URL
-    const pdfData = doc.output('dataurlstring');
+    // Generate PDF as bytes
+    const pdfBuffer = doc.output('arraybuffer');
+    const uint8Array = new Uint8Array(pdfBuffer);
 
-    // Upload to storage
-    const timestamp = new Date().getTime();
-    const filename = `PO-${po.po_number}-${timestamp}.pdf`;
-    
-    const uploadRes = await base44.integrations.Core.UploadFile({
-      file: pdfData,
-    });
-
-    return Response.json({
-      success: true,
-      pdf_url: uploadRes.file_url,
-      po_number: po.po_number
+    return new Response(uint8Array, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `attachment; filename="PO-${po.po_number}.pdf"`,
+      },
     });
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });
