@@ -9,7 +9,7 @@ export default function AppLayout() {
   const [collapsed, setCollapsed] = useState(false);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-slate-50">
       {/* Sidebar — visible on large screens only */}
       <div className="hidden lg:block">
         <Sidebar collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} />
@@ -23,7 +23,7 @@ export default function AppLayout() {
         // On tablet/mobile, no left margin but add bottom padding for bottom nav
         "pb-24 lg:pb-0"
       )}>
-        <div className="flex justify-end p-3 sm:p-4 md:p-6 lg:p-8 mb-4">
+        <div className="flex justify-end p-3 sm:p-4 md:p-6 lg:p-8 mb-2">
           <UserProfileMenu />
         </div>
         <div className="p-3 sm:p-4 md:p-6 lg:p-8 max-w-[1600px]">

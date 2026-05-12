@@ -62,11 +62,11 @@ export default function Dashboard() {
 
       {showManagement && (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-4 mb-8">
-          <StatCard label="Active Orders" value={activeOrders} icon={Factory} color="text-chart-1" link="/production-orders" />
-          <StatCard label="Pending Orders" value={pendingOrders} icon={Factory} color="text-accent" link="/production-orders" />
-          <StatCard label="Products" value={activeProducts} icon={Package} color="text-chart-2" link="/products" />
-          <StatCard label="Active Holds" value={activeHolds} icon={ShieldAlert} color="text-destructive" link="/hold-release" />
-          <StatCard label="Inventory (lbs)" value={inventoryLbs.toLocaleString()} icon={Boxes} color="text-chart-3" link="/inventory" />
+          <StatCard label="Active Orders" value={activeOrders} icon={Factory} color="text-blue-600" link="/production-orders" />
+          <StatCard label="Pending Orders" value={pendingOrders} icon={Factory} color="text-amber-600" link="/production-orders" />
+          <StatCard label="Products" value={activeProducts} icon={Package} color="text-green-600" link="/products" />
+          <StatCard label="Active Holds" value={activeHolds} icon={ShieldAlert} color="text-red-600" link="/hold-release" />
+          <StatCard label="Inventory (lbs)" value={inventoryLbs.toLocaleString()} icon={Boxes} color="text-purple-600" link="/inventory" />
         </div>
       )}
 
