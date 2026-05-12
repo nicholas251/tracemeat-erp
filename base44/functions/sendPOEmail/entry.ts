@@ -48,7 +48,7 @@ ${po.notes ? `NOTES:\n${po.notes}\n` : ''}
 Please confirm receipt of this purchase order.
 
 Best regards,
-${po.sender_email}
+Purchase Order System
     `.trim();
 
     // Send email using Resend
