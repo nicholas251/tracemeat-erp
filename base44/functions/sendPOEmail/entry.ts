@@ -1,4 +1,7 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
+import { Resend } from 'npm:resend@3.2.0';
+
+const resend = new Resend(Deno.env.get('RESEND_API_KEY'));
 
 Deno.serve(async (req) => {
   try {
@@ -48,19 +51,24 @@ Best regards,
 ${po.sender_email}
     `.trim();
 
-    // Send email using Base44 integration
-    await base44.integrations.Core.SendEmail({
+    // Send email using Resend
+    const result = await resend.emails.send({
+      from: `Purchase Order System <noreply@resend.dev>`,
       to: po.supplier_email,
-      subject: `Purchase Order ${po.po_number} from ${po.sender_email}`,
-      body: emailBody,
-      from_name: 'Purchase Order System',
+      subject: `Purchase Order ${po.po_number}`,
+      text: emailBody,
     });
+
+    if (result.error) {
+      return Response.json({ error: result.error.message }, { status: 500 });
+    }
 
     return Response.json({
       success: true,
       message: 'PO email sent successfully',
       po_number: po.po_number,
       sent_to: po.supplier_email,
+      email_id: result.data?.id,
     });
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });
