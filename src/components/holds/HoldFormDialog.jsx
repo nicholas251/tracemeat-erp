@@ -67,7 +67,7 @@ export default function HoldFormDialog({ open, onClose, onSave, batches = [], ra
         batch_id: batchId,
         batch_number: batch.batch_number,
         product_name: batch.product_name,
-        quantity_affected_kg: batch.quantity_kg || "",
+        quantity_affected_kg: batch.quantity_lbs || "",
         item_type: "batch",
       }));
     }
@@ -76,6 +76,7 @@ export default function HoldFormDialog({ open, onClose, onSave, batches = [], ra
   const handleRawMaterialChange = (itemId) => {
     const item = rawMaterials.find(r => r.id === itemId);
     if (item) {
+      setHoldType("raw_material");
       setForm(prev => ({
         ...prev,
         batch_id: itemId,
@@ -90,6 +91,7 @@ export default function HoldFormDialog({ open, onClose, onSave, batches = [], ra
   const handleFinishedGoodsChange = (itemId) => {
     const item = finishedGoods.find(i => i.id === itemId);
     if (item) {
+      setHoldType("finished_goods");
       setForm(prev => ({
         ...prev,
         batch_id: itemId,
@@ -104,7 +106,7 @@ export default function HoldFormDialog({ open, onClose, onSave, batches = [], ra
   const handleSave = () => {
     onSave({
       ...form,
-      item_type: holdType,
+      item_type: form.item_type || holdType,
       quantity_affected_kg: form.quantity_affected_kg ? Number(form.quantity_affected_kg) : undefined,
     });
   };
