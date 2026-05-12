@@ -119,13 +119,12 @@ export default function Sidebar({ collapsed, onToggle }) {
 
       {/* Company Logo Section */}
       {!collapsed && (
-        <div className="p-4 border-t border-slate-700 space-y-2">
-          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-1">Company Logo</p>
-          <div className="bg-slate-800 rounded-lg p-3 flex items-center justify-center">
+        <div className="p-4 border-t border-slate-700">
+          <div className="rounded-lg p-2 flex items-center justify-center">
             <img 
               src="https://media.base44.com/images/public/69fa3d25d6b48b9b300a8c3a/f79daba3a_MittysFoods_GroteWiegel_MuckesLogos.webp"
               alt="Mitty's Foods Logo"
-              className="max-h-24 w-full object-contain"
+              className="max-h-20 w-full object-contain opacity-80 hover:opacity-100 transition-opacity"
             />
           </div>
         </div>
