@@ -1,0 +1,28 @@
+{
+  "name": "ShipToAddress",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Label for this address (e.g. 'Main Facility', 'Warehouse')"
+    },
+    "contact_name": {
+      "type": "string",
+      "description": "Recipient contact name"
+    },
+    "address": {
+      "type": "string",
+      "description": "Full shipping address"
+    },
+    "phone": {
+      "type": "string",
+      "description": "Contact phone number"
+    }
+  },
+  "required": [
+    "name",
+    "contact_name",
+    "address",
+    "phone"
+  ]
+}

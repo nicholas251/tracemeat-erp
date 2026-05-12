@@ -17,6 +17,9 @@ export default function POFormDialog({ open, onClose, onSave, po }) {
   const [showSaveSupplier, setShowSaveSupplier] = useState(false);
   const [newSupplierName, setNewSupplierName] = useState("");
   const [showShipToForm, setShowShipToForm] = useState(false);
+  const [savedAddresses, setSavedAddresses] = useState([]);
+  const [showSaveAddressForm, setShowSaveAddressForm] = useState(false);
+  const [addressLabel, setAddressLabel] = useState("");
   const [form, setForm] = useState(po ? {
     po_number: po.data.po_number,
     supplier: po.data.supplier,
@@ -49,6 +52,9 @@ export default function POFormDialog({ open, onClose, onSave, po }) {
     if (open) {
       base44.entities.Supplier.list().then(data => {
         setSuppliers(data.map(s => ({ id: s.id, name: s.name })));
+      });
+      base44.entities.ShipToAddress.list().then(data => {
+        setSavedAddresses(data);
       });
     }
   }, [open]);
@@ -304,6 +310,32 @@ export default function POFormDialog({ open, onClose, onSave, po }) {
                 </Button>
               )}
             </div>
+            {savedAddresses.length > 0 && (
+              <div className="mb-3">
+                <Label className="text-sm">Select Saved Address</Label>
+                <Select 
+                  value="" 
+                  onValueChange={(id) => {
+                    const addr = savedAddresses.find(a => a.id === id);
+                    if (addr) {
+                      setForm(prev => ({
+                        ...prev,
+                        ship_to_contact_name: addr.contact_name,
+                        ship_to_address: addr.address,
+                        ship_to_contact_phone: addr.phone,
+                      }));
+                    }
+                  }}
+                >
+                  <SelectTrigger><SelectValue placeholder="Load saved address..." /></SelectTrigger>
+                  <SelectContent>
+                    {savedAddresses.map(addr => (
+                      <SelectItem key={addr.id} value={addr.id}>{addr.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             {!form.ship_to_address ? (
               <Button
                 size="sm"
@@ -346,6 +378,57 @@ export default function POFormDialog({ open, onClose, onSave, po }) {
                     onChange={e => setForm(prev => ({ ...prev, ship_to_contact_phone: e.target.value }))}
                     placeholder="(555) 123-4567"
                   />
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="w-full text-blue-600 border-blue-300 hover:bg-blue-100"
+                  onClick={() => setShowSaveAddressForm(true)}
+                >
+                  Save This Address
+                </Button>
+              </div>
+            )}
+            {showSaveAddressForm && (
+              <div className="mt-3 p-3 bg-green-50 rounded border border-green-200 space-y-2">
+                <Label className="text-sm font-medium">Save as (e.g. "Main Facility")</Label>
+                <Input
+                  value={addressLabel}
+                  onChange={e => setAddressLabel(e.target.value)}
+                  placeholder="Address label"
+                  autoFocus
+                />
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    onClick={async () => {
+                      if (addressLabel.trim()) {
+                        await base44.entities.ShipToAddress.create({
+                          name: addressLabel,
+                          contact_name: form.ship_to_contact_name,
+                          address: form.ship_to_address,
+                          phone: form.ship_to_contact_phone,
+                        });
+                        const updated = await base44.entities.ShipToAddress.list();
+                        setSavedAddresses(updated);
+                        setAddressLabel("");
+                        setShowSaveAddressForm(false);
+                      }
+                    }}
+                    className="flex-1"
+                  >
+                    Save
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setShowSaveAddressForm(false);
+                      setAddressLabel("");
+                    }}
+                  >
+                    Cancel
+                  </Button>
                 </div>
               </div>
             )}
