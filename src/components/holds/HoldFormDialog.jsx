@@ -25,12 +25,13 @@ const severityLevels = [
 ];
 
 const holdTypes = [
-  { value: "batch", label: "Production Batch" },
+  { value: "batch", label: "Production Batch (Batch)" },
+  { value: "production_order", label: "Production Batch (Order)" },
   { value: "raw_material", label: "Raw Material" },
   { value: "finished_goods", label: "Finished Goods" },
 ];
 
-export default function HoldFormDialog({ open, onClose, onSave, batches = [], rawMaterials = [], finishedGoods = [], preselectedBatch }) {
+export default function HoldFormDialog({ open, onClose, onSave, batches = [], productionOrders = [], rawMaterials = [], finishedGoods = [], preselectedBatch }) {
   const [holdType, setHoldType] = useState(preselectedBatch ? "batch" : "batch");
 
   const [form, setForm] = useState({
@@ -69,6 +70,20 @@ export default function HoldFormDialog({ open, onClose, onSave, batches = [], ra
         product_name: batch.product_name,
         quantity_affected_kg: batch.quantity_lbs || "",
         item_type: "batch",
+      }));
+    }
+  };
+
+  const handleProductionOrderChange = (orderId) => {
+    const order = productionOrders.find(o => o.id === orderId);
+    if (order) {
+      setForm(prev => ({
+        ...prev,
+        batch_id: orderId,
+        batch_number: order.order_number,
+        product_name: order.product_name,
+        quantity_affected_kg: order.quantity_to_produce || "",
+        item_type: "production_order",
       }));
     }
   };
@@ -140,12 +155,26 @@ export default function HoldFormDialog({ open, onClose, onSave, batches = [], ra
           {/* Item Selector based on type */}
           {!preselectedBatch && holdType === "batch" && (
             <div className="space-y-2">
-              <Label>Batch *</Label>
+              <Label>Production Batch *</Label>
               <Select value={form.batch_id} onValueChange={handleBatchChange}>
                 <SelectTrigger><SelectValue placeholder="Select batch" /></SelectTrigger>
                 <SelectContent>
                   {batches.filter(b => b.status !== "rejected").map(b => (
                     <SelectItem key={b.id} value={b.id}>{b.batch_number} — {b.product_name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {!preselectedBatch && holdType === "production_order" && (
+            <div className="space-y-2">
+              <Label>Production Order *</Label>
+              <Select value={form.batch_id} onValueChange={handleProductionOrderChange}>
+                <SelectTrigger><SelectValue placeholder="Select production order" /></SelectTrigger>
+                <SelectContent>
+                  {productionOrders.filter(o => o.status !== "cancelled").map(o => (
+                    <SelectItem key={o.id} value={o.id}>{o.order_number} — {o.product_name} (Stage {o.current_stage + 1})</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

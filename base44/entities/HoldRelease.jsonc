@@ -15,6 +15,7 @@
       "type": "string",
       "enum": [
         "batch",
+        "production_order",
         "raw_material",
         "finished_goods"
       ],

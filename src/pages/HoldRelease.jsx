@@ -53,6 +53,11 @@ export default function HoldRelease() {
     queryFn: () => base44.entities.Batch.list(),
   });
 
+  const { data: productionOrders = [] } = useQuery({
+    queryKey: ["productionOrders"],
+    queryFn: () => base44.entities.ProductionOrder.list(),
+  });
+
   const { data: rawMaterials = [] } = useQuery({
     queryKey: ["rawMaterials"],
     queryFn: () => base44.entities.RawMaterial.list(),
@@ -91,6 +96,9 @@ export default function HoldRelease() {
           if (heldQty > currentQty) throw new Error(`Cannot hold more than ${currentQty} lbs available`);
           await base44.entities.HoldRelease.create({ ...data, pre_hold_qty: currentQty });
           await base44.entities.InventoryItem.update(data.batch_id, { quantity_lbs: currentQty - heldQty });
+        } else if (data.item_type === "production_order") {
+          await base44.entities.HoldRelease.create(data);
+          await base44.entities.ProductionOrder.update(data.batch_id, { status: "paused" });
         } else {
           await base44.entities.HoldRelease.create(data);
           await base44.entities.Batch.update(data.batch_id, { status: "on_hold" });
@@ -100,14 +108,15 @@ export default function HoldRelease() {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["holds"] });
-      queryClient.invalidateQueries({ queryKey: ["batches"] });
-      queryClient.invalidateQueries({ queryKey: ["rawMaterials"] });
-      queryClient.invalidateQueries({ queryKey: ["inventory"] });
-      queryClient.invalidateQueries({ queryKey: ["raw_inventory"] });
-      setShowForm(false);
-      setPreselectedBatch(null);
-    },
+       queryClient.invalidateQueries({ queryKey: ["holds"] });
+       queryClient.invalidateQueries({ queryKey: ["batches"] });
+       queryClient.invalidateQueries({ queryKey: ["productionOrders"] });
+       queryClient.invalidateQueries({ queryKey: ["rawMaterials"] });
+       queryClient.invalidateQueries({ queryKey: ["inventory"] });
+       queryClient.invalidateQueries({ queryKey: ["raw_inventory"] });
+       setShowForm(false);
+       setPreselectedBatch(null);
+     },
   });
 
   const releaseMutation = useMutation({
@@ -119,10 +128,12 @@ export default function HoldRelease() {
         let resolvedItemType = itemType;
         if (!resolvedItemType) {
           const batch = await base44.entities.Batch.filter({ id: batchId });
+          const prodOrder = await base44.entities.ProductionOrder.filter({ id: batchId });
           const rawMat = await base44.entities.RawMaterial.filter({ id: batchId });
           const invItem = await base44.entities.InventoryItem.filter({ id: batchId });
 
           if (batch[0]) resolvedItemType = "batch";
+          else if (prodOrder[0]) resolvedItemType = "production_order";
           else if (rawMat[0]) resolvedItemType = "raw_material";
           else if (invItem[0]) resolvedItemType = "finished_goods";
         }
@@ -143,23 +154,29 @@ export default function HoldRelease() {
            const currentQty = freshItems[0]?.quantity_lbs || 0;
            await base44.entities.InventoryItem.update(batchId, { quantity_lbs: currentQty + releaseQty, status: "available" });
         } else if (resolvedItemType === "batch") {
-          // Batch type: return to completed (back on-hand) when released as safe
-          await base44.entities.Batch.update(batchId, { status: "completed" });
+           // Batch type: return to completed (back on-hand) when released as safe
+           await base44.entities.Batch.update(batchId, { status: "completed" });
+         } else if (resolvedItemType === "production_order") {
+           // Production order: resume processing (back to in_progress)
+           await base44.entities.ProductionOrder.update(batchId, { status: "in_progress" });
+         }
+        } else if (batchId && data.status === "rejected") {
+         if (itemType === "batch") {
+           await base44.entities.Batch.update(batchId, { status: "rejected" });
+         } else if (itemType === "production_order") {
+           await base44.entities.ProductionOrder.update(batchId, { status: "cancelled" });
+         }
         }
-      } else if (batchId && data.status === "rejected") {
-        if (itemType === "batch") {
-          await base44.entities.Batch.update(batchId, { status: "rejected" });
-        }
-      }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["holds"] });
-      queryClient.invalidateQueries({ queryKey: ["batches"] });
-      queryClient.invalidateQueries({ queryKey: ["rawMaterials"] });
-      queryClient.invalidateQueries({ queryKey: ["inventory"] });
-      queryClient.invalidateQueries({ queryKey: ["raw_inventory"] });
-      setReleasing(null);
-    },
+       queryClient.invalidateQueries({ queryKey: ["holds"] });
+       queryClient.invalidateQueries({ queryKey: ["batches"] });
+       queryClient.invalidateQueries({ queryKey: ["productionOrders"] });
+       queryClient.invalidateQueries({ queryKey: ["rawMaterials"] });
+       queryClient.invalidateQueries({ queryKey: ["inventory"] });
+       queryClient.invalidateQueries({ queryKey: ["raw_inventory"] });
+       setReleasing(null);
+     },
   });
 
   const clearResolvedMutation = useMutation({
@@ -276,16 +293,17 @@ export default function HoldRelease() {
       )}
 
       {showForm && (
-        <HoldFormDialog
-          open
-          batches={batches}
-          rawMaterials={rawMaterials}
-          finishedGoods={finishedGoods}
-          preselectedBatch={preselectedBatch}
-          onClose={() => { setShowForm(false); setPreselectedBatch(null); }}
-          onSave={(data) => createMutation.mutate(data)}
-        />
-      )}
+         <HoldFormDialog
+           open
+           batches={batches}
+           productionOrders={productionOrders}
+           rawMaterials={rawMaterials}
+           finishedGoods={finishedGoods}
+           preselectedBatch={preselectedBatch}
+           onClose={() => { setShowForm(false); setPreselectedBatch(null); }}
+           onSave={(data) => createMutation.mutate(data)}
+         />
+       )}
       {releasing && (
         <ReleaseDialog
           open
