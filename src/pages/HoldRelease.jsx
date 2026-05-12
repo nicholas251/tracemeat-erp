@@ -123,7 +123,8 @@ export default function HoldRelease() {
           // Also restore the matching RawInventory lot (fetch fresh)
           const freshLots = await base44.entities.RawInventory.filter({ raw_material_id: batchId });
           if (freshLots[0]) {
-            await base44.entities.RawInventory.update(freshLots[0].id, { available_qty: (freshLots[0].available_qty || 0) + releaseQty });
+            const updatedQty = (freshLots[0].available_qty || 0) + releaseQty;
+            await base44.entities.RawInventory.update(freshLots[0].id, { available_qty: updatedQty, status: "available" });
           }
         } else if (itemType === "finished_goods") {
            const freshItems = await base44.entities.InventoryItem.filter({ id: batchId });
