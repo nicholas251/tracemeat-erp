@@ -27,10 +27,11 @@ Deno.serve(async (req) => {
       const logoUrl = 'https://media.base44.com/images/public/69fa3d25d6b48b9b300a8c3a/abc6cd33d_MittysFoods_GroteWiegel_MuckesLogos.png';
       const logoResponse = await fetch(logoUrl);
       if (logoResponse.ok) {
-        const logoBlob = await logoResponse.blob();
-        const reader = new FileReaderSync();
-        const logoBase64 = reader.readAsDataURL(logoBlob);
-        doc.addImage(logoBase64, 'PNG', 15, yPos, 50, 25);
+        const logoBuffer = await logoResponse.arrayBuffer();
+        const logoArray = new Uint8Array(logoBuffer);
+        const binaryString = Array.from(logoArray).map(b => String.fromCharCode(b)).join('');
+        const logoBase64 = btoa(binaryString);
+        doc.addImage(`data:image/png;base64,${logoBase64}`, 'PNG', 15, yPos, 50, 25);
         yPos += 30;
       }
     } catch (e) {
