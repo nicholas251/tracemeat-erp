@@ -22,26 +22,12 @@ Deno.serve(async (req) => {
     const pageHeight = doc.internal.pageSize.getHeight();
     let yPos = 15;
 
-    // Fetch and embed company logo
-    try {
-      const logoUrl = 'https://media.base44.com/images/public/69fa3d25d6b48b9b300a8c3a/abc6cd33d_MittysFoods_GroteWiegel_MuckesLogos.png';
-      const logoResponse = await fetch(logoUrl);
-      if (logoResponse.ok) {
-        const logoBuffer = await logoResponse.arrayBuffer();
-        const logoArray = new Uint8Array(logoBuffer);
-        const binaryString = Array.from(logoArray).map(b => String.fromCharCode(b)).join('');
-        const logoBase64 = btoa(binaryString);
-        doc.addImage(`data:image/png;base64,${logoBase64}`, 'PNG', 15, yPos, 50, 25);
-        yPos += 30;
-      }
-    } catch (e) {
-      // Fallback if logo fetch fails
-      doc.setFontSize(16);
-      doc.setFont(undefined, 'bold');
-      doc.setTextColor(220, 53, 69);
-      doc.text("MITTY'S FOODS", 15, yPos);
-      yPos += 7;
-    }
+    // Company header
+    doc.setFontSize(16);
+    doc.setFont(undefined, 'bold');
+    doc.setTextColor(220, 53, 69);
+    doc.text("MITTY'S FOODS", 15, yPos);
+    yPos += 7;
 
     doc.setFontSize(9);
     doc.setFont(undefined, 'normal');
