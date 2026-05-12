@@ -22,17 +22,17 @@ Deno.serve(async (req) => {
     const pageHeight = doc.internal.pageSize.getHeight();
     let yPos = 15;
 
-    // Add logo header with company name
-    doc.setFontSize(14);
+    // Company header with branding
+    doc.setFontSize(16);
     doc.setFont(undefined, 'bold');
     doc.setTextColor(220, 53, 69);
     doc.text("MITTY'S FOODS", 15, yPos);
-    yPos += 8;
-    doc.setFontSize(8);
+    yPos += 7;
+    doc.setFontSize(9);
     doc.setFont(undefined, 'normal');
     doc.setTextColor(100, 100, 100);
     doc.text('Quality Meat Products | sales@mittysfood.com', 15, yPos);
-    yPos += 8;
+    yPos += 10;
 
     // Header - Company info and PO title
     doc.setFontSize(16);
