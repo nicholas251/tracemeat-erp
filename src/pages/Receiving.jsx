@@ -62,19 +62,21 @@ export default function Receiving() {
 
     if (!state.expiryDate) { alert("Please set expiry date"); return; }
     if (!state.bucket_id) { alert("Please assign a bucket"); return; }
+    if (!state.initials) { alert("Please enter receiver initials"); return; }
+    if (!state.lotNumber) { alert("Please set a lot number"); return; }
 
-    const lotNumber = state.lotNumber || `LOT-${Date.now()}`;
     const receivedQty = parseFloat(state.receivedQty) || item.quantity_lbs;
     const selectedBucket = buckets.find(b => b.id === state.bucket_id);
+    const todayDate = format(new Date(), 'yyyy-MM-dd');
 
     const newMaterial = await createMaterialMutation.mutateAsync({
       po_id: currentPO.id,
       po_number: currentPO.po_number,
-      lot_number: lotNumber,
+      lot_number: state.lotNumber,
       name: item.material_name,
       category: item.category,
       supplier: currentPO.supplier,
-      received_date: format(new Date(), 'yyyy-MM-dd'),
+      received_date: todayDate,
       expiry_date: state.expiryDate,
       quantity_lbs: receivedQty,
       available_qty_lbs: receivedQty,
@@ -87,7 +89,7 @@ export default function Receiving() {
       bucket_id: state.bucket_id,
       bucket_name: selectedBucket?.name || "",
       bucket_category: selectedBucket?.category || "",
-      lot_number: lotNumber,
+      lot_number: state.lotNumber,
       raw_material_id: newMaterial.id,
       supplier: currentPO.supplier,
       description: item.material_name,
@@ -95,10 +97,10 @@ export default function Receiving() {
       quantity: receivedQty,
       available_qty: receivedQty,
       unit: selectedBucket?.unit || "lbs",
-      received_date: format(new Date(), 'yyyy-MM-dd'),
+      received_date: todayDate,
       expiry_date: state.expiryDate,
       status: "available",
-      notes: state.notes || "",
+      notes: `Receiver: ${state.initials.toUpperCase()} | Pallets: ${state.palletCount || 0} | Cases: ${state.caseCount || 0} | Company: ${state.company || "N/A"} | Date: ${todayDate}`,
     });
 
     const updatedLineItems = [...currentPO.line_items];
@@ -282,64 +284,107 @@ export default function Receiving() {
                           </div>
 
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            <div>
-                               <Label className="text-xs">Lot Number</Label>
-                               <div className="flex gap-2">
-                                 <Input
-                                   value={state.lotNumber || ''}
-                                   onChange={e => setReceivingState(prev => ({ ...prev, [key]: { ...state, lotNumber: e.target.value } }))}
-                                   placeholder="Auto-generated if empty"
-                                 />
-                                 <Button
-                                   type="button"
-                                   variant="outline"
-                                   size="sm"
-                                   onClick={() => setReceivingState(prev => ({ ...prev, [key]: { ...state, lotNumber: format(new Date(), 'yyyy-MM-dd') } }))}
-                                   className="shrink-0"
-                                 >
-                                   Today
-                                 </Button>
-                               </div>
+                             <div>
+                                <Label className="text-xs">Lot Number *</Label>
+                                <div className="flex gap-2">
+                                  <Input
+                                    value={state.lotNumber || ''}
+                                    onChange={e => setReceivingState(prev => ({ ...prev, [key]: { ...state, lotNumber: e.target.value } }))}
+                                    placeholder="e.g. LOT-2024-001"
+                                  />
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setReceivingState(prev => ({ ...prev, [key]: { ...state, lotNumber: format(new Date(), 'yyyy-MM-dd') } }))}
+                                    className="shrink-0 text-xs"
+                                  >
+                                    Use Today
+                                  </Button>
+                                </div>
+                              </div>
+                             <div>
+                               <Label className="text-xs">Ordered Qty</Label>
+                               <div className="px-3 py-2 bg-muted/50 rounded border text-sm font-semibold">{item.quantity_lbs} lbs</div>
                              </div>
-                            <div>
-                              <Label className="text-xs">Received Qty (lbs)</Label>
-                              <Input
-                                type="number"
-                                value={state.receivedQty ?? item.quantity_lbs}
-                                onChange={e => setReceivingState(prev => ({ ...prev, [key]: { ...state, receivedQty: e.target.value } }))}
-                              />
-                            </div>
-                            <div>
-                              <Label className="text-xs">Expiry Date *</Label>
-                              <Input
-                                type="date"
-                                value={state.expiryDate || ''}
-                                onChange={e => setReceivingState(prev => ({ ...prev, [key]: { ...state, expiryDate: e.target.value } }))}
-                              />
-                            </div>
-                            <div>
-                              <Label className="text-xs">Temp on Arrival (°C)</Label>
-                              <Input
-                                type="number"
-                                step="0.1"
-                                value={state.tempOnArrival || ''}
-                                onChange={e => setReceivingState(prev => ({ ...prev, [key]: { ...state, tempOnArrival: e.target.value } }))}
-                              />
-                            </div>
-                            <div className="md:col-span-2">
-                              <Label className="text-xs">Inspection Notes</Label>
-                              <Textarea
-                                value={state.notes || ''}
-                                onChange={e => setReceivingState(prev => ({ ...prev, [key]: { ...state, notes: e.target.value } }))}
-                                placeholder="Any observations..."
-                                className="h-16"
-                              />
-                            </div>
-                          </div>
+                             <div>
+                               <Label className="text-xs">Actual Received (lbs) *</Label>
+                               <Input
+                                 type="number"
+                                 value={state.receivedQty ?? item.quantity_lbs}
+                                 onChange={e => setReceivingState(prev => ({ ...prev, [key]: { ...state, receivedQty: e.target.value } }))}
+                                 placeholder={item.quantity_lbs}
+                               />
+                             </div>
+                             <div>
+                               <Label className="text-xs">Pallet Count</Label>
+                               <Input
+                                 type="number"
+                                 min="0"
+                                 value={state.palletCount || ''}
+                                 onChange={e => setReceivingState(prev => ({ ...prev, [key]: { ...state, palletCount: e.target.value } }))}
+                                 placeholder="0"
+                               />
+                             </div>
+                             <div>
+                               <Label className="text-xs">Case/Gaylord Count</Label>
+                               <Input
+                                 type="number"
+                                 min="0"
+                                 value={state.caseCount || ''}
+                                 onChange={e => setReceivingState(prev => ({ ...prev, [key]: { ...state, caseCount: e.target.value } }))}
+                                 placeholder="0"
+                               />
+                             </div>
+                             <div>
+                               <Label className="text-xs">Expiry Date *</Label>
+                               <Input
+                                 type="date"
+                                 value={state.expiryDate || ''}
+                                 onChange={e => setReceivingState(prev => ({ ...prev, [key]: { ...state, expiryDate: e.target.value } }))}
+                               />
+                             </div>
+                             <div>
+                               <Label className="text-xs">Receiver Initials *</Label>
+                               <Input
+                                 maxLength="3"
+                                 value={state.initials || ''}
+                                 onChange={e => setReceivingState(prev => ({ ...prev, [key]: { ...state, initials: e.target.value } }))}
+                                 placeholder="e.g. JMD"
+                                 className="uppercase"
+                               />
+                             </div>
+                             <div>
+                               <Label className="text-xs">Company/Supplier</Label>
+                               <Input
+                                 value={state.company || currentPO.supplier}
+                                 onChange={e => setReceivingState(prev => ({ ...prev, [key]: { ...state, company: e.target.value } }))}
+                                 placeholder={currentPO.supplier}
+                               />
+                             </div>
+                             <div>
+                               <Label className="text-xs">Temp on Arrival (°C)</Label>
+                               <Input
+                                 type="number"
+                                 step="0.1"
+                                 value={state.tempOnArrival || ''}
+                                 onChange={e => setReceivingState(prev => ({ ...prev, [key]: { ...state, tempOnArrival: e.target.value } }))}
+                               />
+                             </div>
+                             <div className="md:col-span-2">
+                               <Label className="text-xs">Inspection Notes</Label>
+                               <Textarea
+                                 value={state.notes || ''}
+                                 onChange={e => setReceivingState(prev => ({ ...prev, [key]: { ...state, notes: e.target.value } }))}
+                                 placeholder="Any observations during receiving..."
+                                 className="h-14"
+                               />
+                             </div>
+                           </div>
 
-                          <Button onClick={() => handleReceiveItem(idx)} className="w-full" size="lg">
-                            Receive into Bucket <ArrowRight className="w-4 h-4 ml-2" />
-                          </Button>
+                          <Button onClick={() => handleReceiveItem(idx)} className="w-full" size="lg" disabled={!state.lotNumber || !state.initials || !state.expiryDate || !state.bucket_id}>
+                             Confirm Receipt <ArrowRight className="w-4 h-4 ml-2" />
+                           </Button>
                         </div>
                       )}
                     </div>
