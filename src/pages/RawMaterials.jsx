@@ -82,7 +82,7 @@ export default function RawMaterials() {
                       <TableHead>Name</TableHead>
                       <TableHead>Supplier</TableHead>
                       <TableHead>Category</TableHead>
-                      <TableHead>Qty (lbs)</TableHead>
+                      <TableHead>Available (lbs)</TableHead>
                       <TableHead>Temp (°F)</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Received</TableHead>
@@ -96,7 +96,7 @@ export default function RawMaterials() {
                         <TableCell className="text-sm font-medium">{m.name}</TableCell>
                         <TableCell className="text-sm">{m.supplier}</TableCell>
                         <TableCell className="text-sm capitalize">{(m.category || "").replace(/_/g, " ")}</TableCell>
-                        <TableCell className="text-sm">{m.quantity_lbs || "—"}</TableCell>
+                        <TableCell className="text-sm">{(m.available_qty_lbs ?? m.quantity_lbs) || "—"}</TableCell>
                         <TableCell className="text-sm">{m.temp_on_arrival_c != null ? `${m.temp_on_arrival_c}°` : "—"}</TableCell>
                         <TableCell><StatusBadge status={m.status} /></TableCell>
                         <TableCell className="text-sm text-muted-foreground">
@@ -145,8 +145,8 @@ export default function RawMaterials() {
                       <p className="font-medium capitalize">{(m.category || "").replace(/_/g, " ")}</p>
                     </div>
                     <div>
-                      <p className="text-muted-foreground text-xs">Quantity</p>
-                      <p className="font-medium">{m.quantity_lbs || "—"} lbs</p>
+                     <p className="text-muted-foreground text-xs">Available</p>
+                     <p className="font-medium">{(m.available_qty_lbs ?? m.quantity_lbs) || "—"} lbs</p>
                     </div>
                     <div>
                       <p className="text-muted-foreground text-xs">Temp</p>
