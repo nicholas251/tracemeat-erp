@@ -130,7 +130,8 @@ export default function HoldRelease() {
           const releaseQty = Number(quantityAffected) || 0;
           await base44.entities.InventoryItem.update(batchId, { status: "available", quantity_lbs: currentQty + releaseQty });
         } else {
-          await base44.entities.Batch.update(batchId, { status: "released" });
+          // Batch type: return to completed (back on-hand) when released as safe
+          await base44.entities.Batch.update(batchId, { status: "completed" });
         }
       } else if (batchId && data.status === "rejected") {
         if (itemType === "batch") {
