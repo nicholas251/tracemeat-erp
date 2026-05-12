@@ -11,6 +11,15 @@
     "product_name": {
       "type": "string"
     },
+    "item_type": {
+      "type": "string",
+      "enum": [
+        "batch",
+        "raw_material",
+        "finished_goods"
+      ],
+      "description": "Type of item being held"
+    },
     "hold_reason": {
       "type": "string",
       "enum": [
