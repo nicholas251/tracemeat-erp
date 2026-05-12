@@ -277,7 +277,7 @@ export default function HoldRelease() {
           open
           hold={releasing}
           onClose={() => setReleasing(null)}
-          onRelease={(data) => releaseMutation.mutate({ holdId: releasing.id, data, batchId: releasing.batch_id, itemType: releasing.item_type, quantityAffected: releasing.quantity_affected_kg })}
+          onRelease={(data) => releaseMutation.mutate({ holdId: releasing.id, data, batchId: releasing.batch_id, itemType: releasing.item_type, quantityAffected: releasing.quantity_affected_kg, hold: releasing })}
         />
       )}
     </div>

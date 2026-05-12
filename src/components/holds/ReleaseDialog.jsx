@@ -47,7 +47,7 @@ export default function ReleaseDialog({ open, onClose, hold, onRelease }) {
           </div>
 
           <div className="space-y-2">
-            <Label>Resolution Notes *</Label>
+            <Label>Resolution Notes</Label>
             <Textarea value={resolutionNotes} onChange={e => setResolutionNotes(e.target.value)} placeholder="Document findings and decision rationale..." rows={3} />
           </div>
 
@@ -58,7 +58,7 @@ export default function ReleaseDialog({ open, onClose, hold, onRelease }) {
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={handleSubmit} disabled={!resolutionNotes}>
+          <Button onClick={handleSubmit}>
             Submit Decision
           </Button>
         </DialogFooter>
