@@ -42,8 +42,9 @@ export default function PurchaseOrders() {
       toast({
         title: "Purchase Order Created",
         description: "Your purchase order has been successfully created.",
+        duration: 3000,
       });
-      navigate("/");
+      setTimeout(() => navigate("/"), 500);
     },
   });
 
