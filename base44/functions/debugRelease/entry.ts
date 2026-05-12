@@ -9,28 +9,16 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
-    const hold = {
-      batch_id: "6a032ddecb85528521e167be",
-      quantity_affected_kg: 100
-    };
+    // Update the released hold to include item_type
+    const holdId = "6a03303316f9ce1561cfdd6b";
+    const hold = await base44.entities.HoldRelease.filter({ id: holdId });
+    
+    if (hold[0]) {
+      await base44.entities.HoldRelease.update(holdId, { item_type: "raw_material" });
+      return Response.json({ message: "Hold updated with item_type", holdId });
+    }
 
-    // Try to find the batch
-    const batch = await base44.entities.Batch.filter({ id: hold.batch_id });
-    console.log("Batch found:", batch);
-
-    // Try to find finished goods
-    const inventory = await base44.entities.InventoryItem.filter({ id: hold.batch_id });
-    console.log("Inventory found:", inventory);
-
-    // Try raw material
-    const rawMaterial = await base44.entities.RawMaterial.filter({ id: hold.batch_id });
-    console.log("Raw material found:", rawMaterial);
-
-    return Response.json({ 
-      batch: batch[0] || null,
-      inventory: inventory[0] || null,
-      rawMaterial: rawMaterial[0] || null
-    });
+    return Response.json({ error: "Hold not found" }, { status: 404 });
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });
   }
