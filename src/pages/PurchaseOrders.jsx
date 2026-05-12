@@ -104,9 +104,10 @@ export default function PurchaseOrders() {
               <TableRow>
                 <TableHead>PO Number</TableHead>
                 <TableHead>Supplier</TableHead>
+                <TableHead>Supplier Email</TableHead>
+                <TableHead>Sender Email</TableHead>
                 <TableHead>Order Date</TableHead>
                 <TableHead>Expected Delivery</TableHead>
-                <TableHead>Total</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead></TableHead>
               </TableRow>
@@ -120,13 +121,14 @@ export default function PurchaseOrders() {
                 </TableRow>
               ) : (
                 pos.filter(po => po).map((po) => (
-                   <TableRow key={po.id}>
-                     <TableCell className="font-medium">{po.po_number}</TableCell>
-                     <TableCell>{po.supplier}</TableCell>
-                     <TableCell>{po.order_date ? format(new Date(po.order_date), 'MMM dd, yyyy') : '-'}</TableCell>
-                     <TableCell>{po.expected_delivery_date ? format(new Date(po.expected_delivery_date), 'MMM dd, yyyy') : '-'}</TableCell>
-                     <TableCell>{(po.line_items?.reduce((sum, item) => sum + (item.quantity_lbs || 0), 0) || 0).toFixed(2)} lbs</TableCell>
-                     <TableCell><StatusBadge status={po.status} /></TableCell>
+                    <TableRow key={po.id}>
+                      <TableCell className="font-medium">{po.po_number}</TableCell>
+                      <TableCell>{po.supplier}</TableCell>
+                      <TableCell className="text-sm">{po.supplier_email || '-'}</TableCell>
+                      <TableCell className="text-sm">{po.sender_email || '-'}</TableCell>
+                      <TableCell>{po.order_date ? format(new Date(po.order_date), 'MMM dd, yyyy') : '-'}</TableCell>
+                      <TableCell>{po.expected_delivery_date ? format(new Date(po.expected_delivery_date), 'MMM dd, yyyy') : '-'}</TableCell>
+                      <TableCell><StatusBadge status={po.status} /></TableCell>
                      <TableCell>
                        <div className="flex gap-2">
                          <Button size="sm" variant="ghost" onClick={() => { setEditingPO(po); setShowForm(true); }}>
