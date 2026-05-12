@@ -37,9 +37,10 @@ export default function PurchaseOrders() {
   const createMutation = useMutation({
     mutationFn: async (data) => {
       const created = await base44.entities.PurchaseOrder.create(data);
-      // Send email notification with created PO data
+      // Send email notification with created PO data and logo URL
       try {
-        await base44.functions.invoke('sendPOEmail', { po: created });
+        const logoUrl = 'https://media.base44.com/images/public/69fa3d25d6b48b9b300a8c3a/abc6cd33d_MittysFoods_GroteWiegel_MuckesLogos.png';
+        await base44.functions.invoke('sendPOEmail', { po: created, logoUrl });
       } catch (error) {
         console.error('Failed to send PO email:', error);
         throw error; // Re-throw to show error to user

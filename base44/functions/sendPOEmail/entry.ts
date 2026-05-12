@@ -12,6 +12,7 @@ Deno.serve(async (req) => {
 
     const body = await req.json();
     const po = body.po;
+    const logoUrl = body.logoUrl;
 
     if (!po || !po.supplier_email || !po.po_number) {
       return Response.json({ error: 'Missing required PO data' }, { status: 400 });
@@ -28,17 +29,18 @@ Deno.serve(async (req) => {
     doc.rect(0, yPos - 5, pageWidth, 20, 'F');
     
     // Try to add logo image
-    try {
-      const logoUrl = 'https://media.base44.com/images/public/69fa3d25d6b48b9b300a8c3a/abc6cd33d_MittysFoods_GroteWiegel_MuckesLogos.png';
-      const logoResponse = await fetch(logoUrl);
-      if (logoResponse.ok) {
-        const logoBlob = await logoResponse.blob();
-        const logoArrayBuffer = await logoBlob.arrayBuffer();
-        const logoBase64 = btoa(String.fromCharCode(...new Uint8Array(logoArrayBuffer)));
-        doc.addImage(`data:image/png;base64,${logoBase64}`, 'PNG', pageWidth - 55, yPos - 2, 40, 18);
+    if (logoUrl) {
+      try {
+        const logoResponse = await fetch(logoUrl);
+        if (logoResponse.ok) {
+          const logoBlob = await logoResponse.blob();
+          const logoArrayBuffer = await logoBlob.arrayBuffer();
+          const logoBase64 = btoa(String.fromCharCode(...new Uint8Array(logoArrayBuffer)));
+          doc.addImage(`data:image/png;base64,${logoBase64}`, 'PNG', pageWidth - 55, yPos - 2, 40, 18);
+        }
+      } catch (e) {
+        // Logo fetch failed, continue without it
       }
-    } catch (e) {
-      // Logo fetch failed, continue without it
     }
     
     doc.setFontSize(18);
