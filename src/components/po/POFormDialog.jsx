@@ -20,20 +20,20 @@ export default function POFormDialog({ open, onClose, onSave, po }) {
   const [savedAddresses, setSavedAddresses] = useState([]);
   const [showSaveAddressForm, setShowSaveAddressForm] = useState(false);
   const [addressLabel, setAddressLabel] = useState("");
-  const [form, setForm] = useState(po ? {
-    po_number: po.data.po_number,
-    supplier: po.data.supplier,
-    supplier_email: po.data.supplier_email || "",
-    order_date: po.data.order_date,
-    expected_delivery_date: po.data.expected_delivery_date,
-    status: po.data.status,
-    line_items: po.data.line_items || [],
-    total_amount: po.data.total_amount,
-    notes: po.data.notes || "",
-    sender_email: po.data.sender_email || "",
-    ship_to_address: po.data.ship_to_address || "",
-    ship_to_contact_name: po.data.ship_to_contact_name || "",
-    ship_to_contact_phone: po.data.ship_to_contact_phone || "",
+  const [form, setForm] = useState(po && po.po_number ? {
+    po_number: po.po_number,
+    supplier: po.supplier,
+    supplier_email: po.supplier_email || "",
+    order_date: po.order_date,
+    expected_delivery_date: po.expected_delivery_date,
+    status: po.status,
+    line_items: po.line_items || [],
+    total_amount: po.total_amount,
+    notes: po.notes || "",
+    sender_email: po.sender_email || "",
+    ship_to_address: po.ship_to_address || "",
+    ship_to_contact_name: po.ship_to_contact_name || "",
+    ship_to_contact_phone: po.ship_to_contact_phone || "",
   } : {
     po_number: `PO-${Math.floor(Math.random() * 1000000)}`,
     supplier: "",
