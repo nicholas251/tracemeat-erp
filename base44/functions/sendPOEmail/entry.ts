@@ -26,7 +26,7 @@ Deno.serve(async (req) => {
 
     // Company branding header
     doc.setFillColor(220, 53, 69);
-    doc.rect(0, yPos - 5, pageWidth, 20, 'F');
+    doc.rect(0, yPos - 5, pageWidth - 55, 20, 'F');
     
     // Try to add logo image
     if (logoUrl) {
