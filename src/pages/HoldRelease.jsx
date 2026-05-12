@@ -73,23 +73,24 @@ export default function HoldRelease() {
       const heldQty = Number(data.quantity_affected_kg) || 0;
       if (data.batch_id) {
         if (data.item_type === "raw_material") {
-          const item = rawMaterials.find(r => r.id === data.batch_id);
-          const currentQty = item?.available_qty_lbs || 0;
-          const newQty = Math.max(0, currentQty - heldQty);
+          // Fetch fresh to get true current qty
+          const freshItems = await base44.entities.RawMaterial.filter({ id: data.batch_id });
+          const currentQty = freshItems[0]?.available_qty_lbs || 0;
+          if (heldQty > currentQty) throw new Error(`Cannot hold more than ${currentQty} lbs available`);
           await base44.entities.HoldRelease.create({ ...data, pre_hold_qty: currentQty });
-          await base44.entities.RawMaterial.update(data.batch_id, { available_qty_lbs: newQty });
+          await base44.entities.RawMaterial.update(data.batch_id, { available_qty_lbs: currentQty - heldQty });
           // Also deduct from the matching RawInventory lot
-          const lot = rawInventoryLots.find(l => l.raw_material_id === data.batch_id);
-          if (lot) {
-            const lotQty = lot.available_qty || 0;
-            await base44.entities.RawInventory.update(lot.id, { available_qty: Math.max(0, lotQty - heldQty) });
+          const freshLots = await base44.entities.RawInventory.filter({ raw_material_id: data.batch_id });
+          if (freshLots[0]) {
+            const lotQty = freshLots[0].available_qty || 0;
+            await base44.entities.RawInventory.update(freshLots[0].id, { available_qty: Math.max(0, lotQty - heldQty) });
           }
         } else if (data.item_type === "finished_goods") {
-          const item = finishedGoods.find(i => i.id === data.batch_id);
-          const currentQty = item?.quantity_lbs || 0;
-          const newQty = Math.max(0, currentQty - heldQty);
+          const freshItems = await base44.entities.InventoryItem.filter({ id: data.batch_id });
+          const currentQty = freshItems[0]?.quantity_lbs || 0;
+          if (heldQty > currentQty) throw new Error(`Cannot hold more than ${currentQty} lbs available`);
           await base44.entities.HoldRelease.create({ ...data, pre_hold_qty: currentQty });
-          await base44.entities.InventoryItem.update(data.batch_id, { quantity_lbs: newQty });
+          await base44.entities.InventoryItem.update(data.batch_id, { quantity_lbs: currentQty - heldQty });
         } else {
           await base44.entities.HoldRelease.create(data);
           await base44.entities.Batch.update(data.batch_id, { status: "on_hold" });
