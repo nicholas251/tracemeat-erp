@@ -15,10 +15,17 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 const severityColors = {
-  low: "bg-muted text-muted-foreground",
-  medium: "bg-accent/15 text-accent border-accent/20",
-  high: "bg-chart-4/15 text-chart-4 border-chart-4/20",
-  critical: "bg-destructive/15 text-destructive border-destructive/20",
+  low: "bg-blue-50 text-blue-700 border-blue-200",
+  medium: "bg-amber-50 text-amber-700 border-amber-200",
+  high: "bg-orange-50 text-orange-700 border-orange-200",
+  critical: "bg-red-50 text-red-700 border-red-200",
+};
+
+const typeColors = {
+  batch: "bg-purple-100 text-purple-700",
+  production_order: "bg-indigo-100 text-indigo-700",
+  raw_material: "bg-cyan-100 text-cyan-700",
+  finished_goods: "bg-green-100 text-green-700",
 };
 
 export default function HoldRelease() {
@@ -203,21 +210,20 @@ export default function HoldRelease() {
       />
 
       <Tabs value={tab} onValueChange={setTab} className="mb-6">
-        <TabsList>
-          <TabsTrigger value="active" className="gap-2">
-            <ShieldAlert className="w-4 h-4" /> Active ({activeHolds.length})
+        <TabsList className="bg-slate-100 border border-slate-200">
+          <TabsTrigger value="active" className="gap-2 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm">
+            <ShieldAlert className="w-4 h-4" /> Active <span className="ml-1 px-2 py-1 rounded-full bg-red-100 text-red-700 text-xs font-semibold">{activeHolds.length}</span>
           </TabsTrigger>
-          <TabsTrigger value="resolved" className="gap-2">
-            <ShieldCheck className="w-4 h-4" /> Resolved ({resolvedHolds.length})
+          <TabsTrigger value="resolved" className="gap-2 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm">
+            <ShieldCheck className="w-4 h-4" /> Resolved <span className="ml-1 px-2 py-1 rounded-full bg-green-100 text-green-700 text-xs font-semibold">{resolvedHolds.length}</span>
           </TabsTrigger>
         </TabsList>
       </Tabs>
       {tab === "resolved" && resolvedHolds.length > 0 && (
         <div className="flex justify-end mb-4">
           <Button
-            variant="outline"
             size="sm"
-            className="text-destructive border-destructive/30 hover:bg-destructive/10"
+            className="bg-red-600 hover:bg-red-700 text-white font-medium"
             onClick={() => clearResolvedMutation.mutate()}
             disabled={clearResolvedMutation.isPending}
           >
@@ -228,69 +234,75 @@ export default function HoldRelease() {
       )}
 
       {isLoading ? (
-        <Card className="h-48 animate-pulse bg-muted" />
-      ) : displayed.length === 0 ? (
-        <Card className="p-12 text-center">
-          {tab === "active" ? (
-            <>
-              <ShieldCheck className="w-12 h-12 text-chart-2 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold mb-1">All Clear</h3>
-              <p className="text-sm text-muted-foreground">No active holds at this time</p>
-            </>
-          ) : (
-            <>
-              <ShieldAlert className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-semibold mb-1">No resolved holds</h3>
-              <p className="text-sm text-muted-foreground">Resolved holds will appear here</p>
-            </>
-          )}
-        </Card>
-      ) : (
-        <Card>
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Batch/Lot #</TableHead>
-                   <TableHead>Item</TableHead>
-                   <TableHead>Type</TableHead>
-                   <TableHead>Reason</TableHead>
-                  <TableHead>Severity</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {displayed.map(hold => (
-                  <TableRow key={hold.id}>
-                    <TableCell className="font-mono text-sm font-medium">{hold.batch_number}</TableCell>
-                    <TableCell className="text-sm">{hold.product_name}</TableCell>
-                    <TableCell className="text-sm capitalize text-muted-foreground">{(hold.item_type || "batch").replace(/_/g, " ")}</TableCell>
-                    <TableCell className="text-sm capitalize">{(hold.hold_reason || "").replace(/_/g, " ")}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className={cn("capitalize text-xs border", severityColors[hold.severity] || "")}>
-                        {hold.severity}
-                      </Badge>
-                    </TableCell>
-                    <TableCell><StatusBadge status={hold.status} /></TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {hold.held_date ? format(new Date(hold.held_date), "MMM d, HH:mm") : "—"}
-                    </TableCell>
-                    <TableCell>
-                      {(hold.status === "on_hold" || hold.status === "under_review") && (
-                        <Button size="sm" variant="outline" onClick={() => setReleasing(hold)}>
-                          Review
-                        </Button>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      )}
+         <Card className="h-48 animate-pulse bg-muted" />
+       ) : displayed.length === 0 ? (
+         <Card className="p-12 text-center bg-gradient-to-br from-slate-50 to-slate-100 border-slate-200">
+           {tab === "active" ? (
+             <>
+               <ShieldCheck className="w-16 h-16 text-green-500 mx-auto mb-4" />
+               <h3 className="text-xl font-bold mb-2 text-slate-900">All Clear</h3>
+               <p className="text-base text-slate-600">No active holds at this time</p>
+             </>
+           ) : (
+             <>
+               <ShieldAlert className="w-16 h-16 text-slate-400 mx-auto mb-4" />
+               <h3 className="text-xl font-bold mb-2 text-slate-900">No resolved holds</h3>
+               <p className="text-base text-slate-600">Resolved holds will appear here</p>
+             </>
+           )}
+         </Card>
+       ) : (
+         <Card className="border-slate-200 shadow-sm">
+           <CardContent className="p-0">
+             <div className="overflow-x-auto">
+               <Table>
+                 <TableHeader className="bg-slate-50 border-b border-slate-200">
+                   <TableRow className="hover:bg-slate-50">
+                     <TableHead className="font-semibold text-slate-700">Batch/Lot #</TableHead>
+                     <TableHead className="font-semibold text-slate-700">Item</TableHead>
+                     <TableHead className="font-semibold text-slate-700">Type</TableHead>
+                     <TableHead className="font-semibold text-slate-700">Reason</TableHead>
+                     <TableHead className="font-semibold text-slate-700">Severity</TableHead>
+                     <TableHead className="font-semibold text-slate-700">Status</TableHead>
+                     <TableHead className="font-semibold text-slate-700">Date</TableHead>
+                     <TableHead className="font-semibold text-slate-700">Action</TableHead>
+                   </TableRow>
+                 </TableHeader>
+                 <TableBody>
+                   {displayed.map(hold => (
+                     <TableRow key={hold.id} className="border-slate-100 hover:bg-slate-50 transition-colors">
+                       <TableCell className="font-mono text-sm font-semibold text-slate-900">{hold.batch_number}</TableCell>
+                       <TableCell className="text-sm text-slate-700">{hold.product_name}</TableCell>
+                       <TableCell>
+                         <Badge className={cn("capitalize text-xs font-medium", typeColors[hold.item_type] || "bg-slate-100 text-slate-700")}>
+                           {(hold.item_type || "batch").replace(/_/g, " ")}
+                         </Badge>
+                       </TableCell>
+                       <TableCell className="text-sm text-slate-700 capitalize">{(hold.hold_reason || "").replace(/_/g, " ")}</TableCell>
+                       <TableCell>
+                         <Badge variant="outline" className={cn("capitalize text-xs font-medium border-2", severityColors[hold.severity] || "")}>
+                           {hold.severity}
+                         </Badge>
+                       </TableCell>
+                       <TableCell><StatusBadge status={hold.status} /></TableCell>
+                       <TableCell className="text-sm text-slate-600 whitespace-nowrap">
+                         {hold.held_date ? format(new Date(hold.held_date), "MMM d, HH:mm") : "—"}
+                       </TableCell>
+                       <TableCell>
+                         {(hold.status === "on_hold" || hold.status === "under_review") && (
+                           <Button size="sm" onClick={() => setReleasing(hold)} className="bg-blue-600 hover:bg-blue-700 text-white font-medium">
+                             Review
+                           </Button>
+                         )}
+                       </TableCell>
+                     </TableRow>
+                   ))}
+                 </TableBody>
+               </Table>
+             </div>
+           </CardContent>
+         </Card>
+       )}
 
       {showForm && (
          <HoldFormDialog
