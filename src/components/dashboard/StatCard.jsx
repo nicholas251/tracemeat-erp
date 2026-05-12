@@ -21,8 +21,8 @@ export default function StatCard({ label, value, icon: Icon, trend, color = "tex
             </p>
           )}
         </div>
-        <div className={cn("w-12 h-12 rounded-lg flex items-center justify-center bg-gradient-to-br shadow-md", color + " bg-opacity-10", color)}>
-          <Icon className="w-6 h-6" />
+        <div className={cn("w-12 h-12 rounded-lg flex items-center justify-center shadow-md", color)}>
+           <Icon className="w-6 h-6" />
         </div>
       </div>
     </Card>
