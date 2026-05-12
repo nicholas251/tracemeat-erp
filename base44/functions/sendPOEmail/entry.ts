@@ -26,10 +26,25 @@ Deno.serve(async (req) => {
     // Company branding header
     doc.setFillColor(220, 53, 69);
     doc.rect(0, yPos - 5, pageWidth, 20, 'F');
+    
+    // Try to add logo image
+    try {
+      const logoUrl = 'https://www.meattraceability.com/logo.png';
+      const logoResponse = await fetch(logoUrl);
+      if (logoResponse.ok) {
+        const logoBlob = await logoResponse.blob();
+        const logoArrayBuffer = await logoBlob.arrayBuffer();
+        const logoBase64 = btoa(String.fromCharCode(...new Uint8Array(logoArrayBuffer)));
+        doc.addImage(`data:image/png;base64,${logoBase64}`, 'PNG', 15, yPos - 3, 8, 8);
+      }
+    } catch (e) {
+      // Logo fetch failed, continue without it
+    }
+    
     doc.setFontSize(18);
     doc.setFont(undefined, 'bold');
     doc.setTextColor(255, 255, 255);
-    doc.text("MITTY'S FOODS", 15, yPos + 8);
+    doc.text("MITTY'S FOODS", 25, yPos + 8);
     
     yPos += 25;
 
