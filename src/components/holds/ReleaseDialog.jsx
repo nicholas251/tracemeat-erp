@@ -4,11 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { CheckCircle2 } from "lucide-react";
 
 export default function ReleaseDialog({ open, onClose, hold, onRelease }) {
   const [action, setAction] = useState("released");
   const [resolutionNotes, setResolutionNotes] = useState("");
   const [correctiveAction, setCorrectiveAction] = useState("");
+  const [submitted, setSubmitted] = useState(false);
 
   if (!hold) return null;
 
@@ -19,7 +21,25 @@ export default function ReleaseDialog({ open, onClose, hold, onRelease }) {
       corrective_action: correctiveAction,
       review_date: new Date().toISOString(),
     });
+    setSubmitted(true);
+    setTimeout(() => {
+      setSubmitted(false);
+      onClose();
+    }, 1500);
   };
+
+  if (submitted) {
+    return (
+      <Dialog open={open} onOpenChange={onClose}>
+        <DialogContent className="max-w-lg">
+          <div className="flex flex-col items-center justify-center py-12 gap-4">
+            <CheckCircle2 className="w-16 h-16 text-chart-2" />
+            <h2 className="text-xl font-semibold">Decision Updated</h2>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
