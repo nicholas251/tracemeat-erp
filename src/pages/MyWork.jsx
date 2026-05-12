@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from "react";
-import { base44 } from "@/api/base44Client";
+import React, { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { base44 } from "@/api/base44Client";
 import PageHeader from "@/components/shared/PageHeader";
 import ProfilePickerDashboard from "@/components/mywork/ProfilePickerDashboard";
 import BlendingDashboard from "@/components/mywork/BlendingDashboard";
@@ -9,17 +9,14 @@ import WarehouseOperatorView from "@/components/mywork/WarehouseOperatorView";
 import AdminView from "@/components/mywork/AdminView";
 import { Briefcase } from "lucide-react";
 import { isUserAdminOrSupervisor } from "@/lib/accessControl";
+import { useAuth } from "@/lib/AuthContext";
 
 const FIRST_STEP_KEY = "blending";
 
 export default function MyWork() {
-  const [user, setUser] = useState(null);
+  const { user } = useAuth();
   const [activeProfileId, setActiveProfileId] = useState(null);
   const queryClient = useQueryClient();
-
-  useEffect(() => {
-    base44.auth.me().then(setUser).catch(() => setUser(null));
-  }, []);
 
   const { data: profiles = [] } = useQuery({
     queryKey: ["allWorkProfiles"],

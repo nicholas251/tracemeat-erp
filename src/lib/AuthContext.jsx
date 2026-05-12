@@ -4,6 +4,8 @@ import { appParams } from '@/lib/app-params';
 import { createAxiosClient } from '@base44/sdk/dist/utils/axios-client';
 
 const AuthContext = createContext();
+// Module-level cache so pages can read the user synchronously after first load
+let _cachedUser = null;
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -98,6 +100,8 @@ export const AuthProvider = ({ children }) => {
       setIsAuthenticated(true);
       setIsLoadingAuth(false);
       setAuthChecked(true);
+      // Cache the user so pages don't need to call me() themselves
+      _cachedUser = currentUser;
     } catch (error) {
       console.error('User auth check failed:', error);
       setIsLoadingAuth(false);

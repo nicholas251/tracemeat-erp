@@ -6,11 +6,11 @@ import { Button } from "@/components/ui/button";
 
 export default function WaitingForAccess() {
   useEffect(() => {
-    // Poll every 5 seconds — do a full page reload and let AuthContext decide.
+    // Poll every 8 seconds — do a full page reload and let AuthContext decide.
     // If the user is now approved the app will load normally; if not, they'll land back here.
     const interval = setInterval(() => {
       window.location.reload();
-    }, 5000);
+    }, 8000);
 
     return () => clearInterval(interval);
   }, []);

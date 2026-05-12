@@ -1,19 +1,16 @@
-import React, { useEffect, useState } from "react";
-import { base44 } from "@/api/base44Client";
+import React from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Factory, Package, ShieldAlert, Warehouse, Boxes } from "lucide-react";
+import { Factory, Package, ShieldAlert, Boxes } from "lucide-react";
 import PageHeader from "@/components/shared/PageHeader";
 import StatCard from "@/components/dashboard/StatCard";
 import ActiveHolds from "@/components/dashboard/ActiveHolds";
 import ActiveOrdersList from "@/components/dashboard/ActiveOrdersList";
 import { isUserAdminOrSupervisor } from "@/lib/accessControl";
+import { base44 } from "@/api/base44Client";
+import { useAuth } from "@/lib/AuthContext";
 
 export default function Dashboard() {
-  const [user, setUser] = useState(null);
-
-  useEffect(() => {
-    base44.auth.me().then(u => setUser(u)).catch(() => setUser(null));
-  }, []);
+  const { user } = useAuth();
 
   const { data: allProfiles = [] } = useQuery({
     queryKey: ["allWorkProfiles"],
@@ -27,26 +24,25 @@ export default function Dashboard() {
   const { data: orders = [] } = useQuery({
     queryKey: ["productionOrders"],
     queryFn: () => base44.entities.ProductionOrder.list("-created_date", 50),
+    enabled: showManagement,
   });
 
   const { data: products = [] } = useQuery({
     queryKey: ["products"],
     queryFn: () => base44.entities.Product.list(),
+    enabled: showManagement,
   });
 
   const { data: holds = [] } = useQuery({
     queryKey: ["holds"],
     queryFn: () => base44.entities.HoldRelease.list("-created_date", 50),
-  });
-
-  const { data: rawMaterials = [] } = useQuery({
-    queryKey: ["raw-materials"],
-    queryFn: () => base44.entities.RawMaterial.list(),
+    enabled: showManagement,
   });
 
   const { data: inventory = [] } = useQuery({
     queryKey: ["inventory"],
     queryFn: () => base44.entities.InventoryItem.list(),
+    enabled: showManagement,
   });
 
   const activeOrders = orders.filter(o => o.status === "in_progress").length;
