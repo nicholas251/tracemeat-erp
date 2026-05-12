@@ -64,8 +64,9 @@ export default function Receiving() {
     if (!state.bucket_id) { alert("Please assign a bucket"); return; }
     if (!state.initials) { alert("Please enter receiver initials"); return; }
     if (!state.lotNumber) { alert("Please set a lot number"); return; }
+    if (!state.receivedQty) { alert("Please enter actual received quantity"); return; }
 
-    const receivedQty = parseFloat(state.receivedQty) || item.quantity_lbs;
+    const receivedQty = parseFloat(state.receivedQty);
     const selectedBucket = buckets.find(b => b.id === state.bucket_id);
     const todayDate = format(new Date(), 'yyyy-MM-dd');
 
@@ -311,7 +312,7 @@ export default function Receiving() {
                                <Label className="text-xs">Actual Received (lbs) *</Label>
                                <Input
                                  type="number"
-                                 value={state.receivedQty ?? item.quantity_lbs}
+                                 value={state.receivedQty || ''}
                                  onChange={e => setReceivingState(prev => ({ ...prev, [key]: { ...state, receivedQty: e.target.value } }))}
                                  placeholder={item.quantity_lbs}
                                />
@@ -382,7 +383,7 @@ export default function Receiving() {
                              </div>
                            </div>
 
-                          <Button onClick={() => handleReceiveItem(idx)} className="w-full" size="lg" disabled={!state.lotNumber || !state.initials || !state.expiryDate || !state.bucket_id}>
+                          <Button onClick={() => handleReceiveItem(idx)} className="w-full" size="lg" disabled={!state.lotNumber || !state.initials || !state.expiryDate || !state.bucket_id || !state.receivedQty}>
                              Confirm Receipt <ArrowRight className="w-4 h-4 ml-2" />
                            </Button>
                         </div>
