@@ -146,7 +146,7 @@ export default function POFormDialog({ open, onClose, onSave, po }) {
       const reader = new FileReader();
       reader.onload = (e) => {
         const imgData = e.target.result;
-        doc.addImage(imgData, 'PNG', pageWidth - 55, 10, 45, 20);
+        doc.addImage(imgData, 'PNG', pageWidth - 55, 32, 45, 20);
       };
       reader.readAsDataURL(blob);
     } catch (err) {
