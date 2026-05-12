@@ -29,13 +29,13 @@ Deno.serve(async (req) => {
     
     // Try to add logo image
     try {
-      const logoUrl = 'https://www.meattraceability.com/logo.png';
+      const logoUrl = 'https://media.base44.com/images/public/69fa3d25d6b48b9b300a8c3a/abc6cd33d_MittysFoods_GroteWiegel_MuckesLogos.png';
       const logoResponse = await fetch(logoUrl);
       if (logoResponse.ok) {
         const logoBlob = await logoResponse.blob();
         const logoArrayBuffer = await logoBlob.arrayBuffer();
         const logoBase64 = btoa(String.fromCharCode(...new Uint8Array(logoArrayBuffer)));
-        doc.addImage(`data:image/png;base64,${logoBase64}`, 'PNG', 15, yPos - 3, 8, 8);
+        doc.addImage(`data:image/png;base64,${logoBase64}`, 'PNG', pageWidth - 55, yPos - 2, 40, 18);
       }
     } catch (e) {
       // Logo fetch failed, continue without it
@@ -44,7 +44,7 @@ Deno.serve(async (req) => {
     doc.setFontSize(18);
     doc.setFont(undefined, 'bold');
     doc.setTextColor(255, 255, 255);
-    doc.text("MITTY'S FOODS", 25, yPos + 8);
+    doc.text("MITTY'S FOODS", 15, yPos + 8);
     
     yPos += 25;
 
