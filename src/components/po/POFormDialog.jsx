@@ -50,9 +50,8 @@ export default function POFormDialog({ open, onClose, onSave, po }) {
       line_items: [...(prev.line_items || []), {
         material_name: "",
         category: "beef",
-        quantity_kg: 0,
+        quantity_lbs: 0,
         unit_price: 0,
-        received_qty_kg: 0,
       }],
     }));
   };
@@ -63,7 +62,7 @@ export default function POFormDialog({ open, onClose, onSave, po }) {
     setForm(prev => ({
       ...prev,
       line_items: items,
-      total_amount: items.reduce((sum, item) => sum + (item.quantity_kg * item.unit_price), 0),
+      total_amount: items.reduce((sum, item) => sum + (item.quantity_lbs * item.unit_price), 0),
     }));
   };
 
@@ -72,7 +71,7 @@ export default function POFormDialog({ open, onClose, onSave, po }) {
     setForm(prev => ({
       ...prev,
       line_items: items,
-      total_amount: items.reduce((sum, item) => sum + (item.quantity_kg * item.unit_price), 0),
+      total_amount: items.reduce((sum, item) => sum + (item.quantity_lbs * item.unit_price), 0),
     }));
   };
 
@@ -199,8 +198,8 @@ export default function POFormDialog({ open, onClose, onSave, po }) {
                       <Label className="text-xs">Qty (lbs) *</Label>
                       <Input
                         type="number"
-                        value={item.quantity_kg || ""}
-                        onChange={e => updateLineItem(idx, 'quantity_kg', e.target.value === "" ? 0 : parseFloat(e.target.value) || 0)}
+                        value={item.quantity_lbs || ""}
+                        onChange={e => updateLineItem(idx, 'quantity_lbs', e.target.value === "" ? 0 : parseFloat(e.target.value) || 0)}
                         placeholder="0"
                       />
                     </div>
@@ -225,7 +224,7 @@ export default function POFormDialog({ open, onClose, onSave, po }) {
                     </div>
                   </div>
                   <div className="text-right text-xs text-muted-foreground">
-                    Subtotal: ${(item.quantity_kg * item.unit_price).toFixed(2)}
+                    Subtotal: ${(item.quantity_lbs * item.unit_price).toFixed(2)}
                   </div>
                 </Card>
               ))}
