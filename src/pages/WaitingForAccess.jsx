@@ -6,20 +6,10 @@ import { Button } from "@/components/ui/button";
 
 export default function WaitingForAccess() {
   useEffect(() => {
-    // Poll every 5 seconds to check if the user has been approved
-    const interval = setInterval(async () => {
-      try {
-        const authed = await base44.auth.isAuthenticated();
-        if (authed) {
-          // Try to fetch user — if it succeeds they're approved, reload the app
-          const user = await base44.auth.me();
-          if (user) {
-            window.location.href = "/";
-          }
-        }
-      } catch {
-        // Still pending, keep waiting
-      }
+    // Poll every 5 seconds — do a full page reload and let AuthContext decide.
+    // If the user is now approved the app will load normally; if not, they'll land back here.
+    const interval = setInterval(() => {
+      window.location.reload();
     }, 5000);
 
     return () => clearInterval(interval);
