@@ -12,6 +12,15 @@ const STATUS_STYLES = {
   cancelled:   "bg-destructive/15 text-destructive",
 };
 
+const STAGE_NAMES = {
+  0: "Blending",
+  1: "Chopping",
+  2: "Linking",
+  3: "Cooking",
+  4: "Chilling",
+  5: "Packaging"
+};
+
 export default function ActiveOrdersList({ orders }) {
   const active = orders
     .filter(o => o.status === "pending" || o.status === "in_progress")
@@ -35,17 +44,47 @@ export default function ActiveOrdersList({ orders }) {
           </div>
         ) : (
           <div className="divide-y">
-            {active.map(order => (
-              <div key={order.id} className="px-6 py-3 flex items-center justify-between hover:bg-muted/30 transition-colors">
-                <div>
-                  <p className="font-medium text-sm">{order.product_name}</p>
-                  <p className="text-xs text-muted-foreground">#{order.order_number} · {order.quantity_to_produce} lbs</p>
+            {active.map(order => {
+              const currentStage = order.current_stage || 0;
+              const totalStages = 6;
+              const stages = Array.from({ length: totalStages }, (_, i) => i);
+              
+              return (
+                <div key={order.id} className="px-6 py-4 space-y-3 hover:bg-slate-50 transition-colors">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <p className="font-semibold text-sm text-slate-900">{order.product_name}</p>
+                      <p className="text-xs text-slate-600">#{order.order_number} · {order.quantity_to_produce} lbs</p>
+                    </div>
+                    <Badge variant="outline" className={`capitalize text-xs ${STATUS_STYLES[order.status]}`}>
+                      {order.status?.replace("_", " ")}
+                    </Badge>
+                  </div>
+                  
+                  {/* Stage Progress Indicator */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-slate-600">Stage {currentStage + 1}: {STAGE_NAMES[currentStage]}</span>
+                      <span className="text-xs text-slate-500">{currentStage + 1}/{totalStages}</span>
+                    </div>
+                    <div className="flex gap-1">
+                      {stages.map(idx => (
+                        <div
+                          key={idx}
+                          className={`h-2 flex-1 rounded-full transition-colors ${
+                            idx < currentStage
+                              ? "bg-green-500"
+                              : idx === currentStage
+                              ? "bg-blue-500"
+                              : "bg-slate-200"
+                          }`}
+                        />
+                      ))}
+                    </div>
+                  </div>
                 </div>
-                <Badge variant="outline" className={`capitalize text-xs ${STATUS_STYLES[order.status]}`}>
-                  {order.status?.replace("_", " ")}
-                </Badge>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </CardContent>
