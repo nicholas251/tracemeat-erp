@@ -12,6 +12,7 @@ Deno.serve(async (req) => {
 
     const body = await req.json();
     const po = body.po;
+    const logoUrl = body.logoUrl;
 
     if (!po || !po.po_number || !po.supplier) {
       return Response.json({ error: 'Missing required PO data' }, { status: 400 });
@@ -24,7 +25,23 @@ Deno.serve(async (req) => {
 
     // Company branding header
     doc.setFillColor(220, 53, 69);
-    doc.rect(0, yPos - 5, pageWidth, 20, 'F');
+    doc.rect(0, yPos - 5, pageWidth - 70, 20, 'F');
+    
+    // Try to add logo image
+    if (logoUrl) {
+      try {
+        const logoResponse = await fetch(logoUrl);
+        if (logoResponse.ok) {
+          const logoBlob = await logoResponse.blob();
+          const logoArrayBuffer = await logoBlob.arrayBuffer();
+          const logoBase64 = btoa(String.fromCharCode(...new Uint8Array(logoArrayBuffer)));
+          doc.addImage(`data:image/png;base64,${logoBase64}`, 'PNG', pageWidth - 55, yPos - 2, 40, 18);
+        }
+      } catch (e) {
+        // Logo fetch failed, continue without it
+      }
+    }
+    
     doc.setFontSize(18);
     doc.setFont(undefined, 'bold');
     doc.setTextColor(255, 255, 255);
