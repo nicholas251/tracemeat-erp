@@ -169,12 +169,21 @@ export default function UserManagement() {
            });
 
            Promise.all(updatePromises).then(() => {
-             queryClient.invalidateQueries({ queryKey: ["workProfiles"] });
-             queryClient.invalidateQueries({ queryKey: ["users"] });
-             setEditing(null);
-           }).catch(err => {
-             console.error('Failed to update profiles:', err);
-           });
+              queryClient.invalidateQueries({ queryKey: ["workProfiles"] });
+              queryClient.invalidateQueries({ queryKey: ["users"] });
+              // Send access-granted email if user had no profiles before
+              const hadNoProfiles = getUserProfiles(editing.id).length === 0;
+              if (hadNoProfiles && workProfileIds.length > 0 && editing.email) {
+                base44.integrations.Core.SendEmail({
+                  to: editing.email,
+                  subject: "Your access has been approved",
+                  body: `Hi ${editing.full_name || "there"},\n\nYour account has been approved and you can now access the production app.\n\nClick the link below to log in:\n${window.location.origin}\n\nWelcome to the team!`,
+                });
+              }
+              setEditing(null);
+            }).catch(err => {
+              console.error('Failed to update profiles:', err);
+            });
          }}
        />
       )}
