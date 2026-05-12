@@ -116,7 +116,7 @@ export default function PurchaseOrders() {
                      <TableCell>{po.supplier}</TableCell>
                      <TableCell>{po.order_date ? format(new Date(po.order_date), 'MMM dd, yyyy') : '-'}</TableCell>
                      <TableCell>{po.expected_delivery_date ? format(new Date(po.expected_delivery_date), 'MMM dd, yyyy') : '-'}</TableCell>
-                     <TableCell>${po.total_amount?.toFixed(2) || '0.00'}</TableCell>
+                     <TableCell>{(po.line_items?.reduce((sum, item) => sum + (item.quantity_lbs || 0), 0) || 0).toFixed(2)} lbs</TableCell>
                      <TableCell><StatusBadge status={po.status} /></TableCell>
                      <TableCell>
                        <div className="flex gap-2">
