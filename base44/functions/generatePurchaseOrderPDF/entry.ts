@@ -22,9 +22,12 @@ Deno.serve(async (req) => {
     const pageHeight = doc.internal.pageSize.getHeight();
     let yPos = 15;
 
-    // Company logo - try to add, fallback to text
+    // Company logo
     try {
-      doc.addImage('https://media.base44.com/images/public/69fa3d25d6b48b9b300a8c3a/abc6cd33d_MittysFoods_GroteWiegel_MuckesLogos.png', 'PNG', 15, yPos, 50, 25);
+      const logoResp = await fetch('https://media.base44.com/images/public/69fa3d25d6b48b9b300a8c3a/abc6cd33d_MittysFoods_GroteWiegel_MuckesLogos.png');
+      const logoData = await logoResp.arrayBuffer();
+      const logoBase64 = btoa(String.fromCharCode(...new Uint8Array(logoData)));
+      doc.addImage(`data:image/png;base64,${logoBase64}`, 'PNG', 15, yPos, 50, 25);
       yPos += 30;
     } catch (e) {
       doc.setFontSize(16);
