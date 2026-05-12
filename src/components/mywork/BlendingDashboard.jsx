@@ -10,6 +10,7 @@ import StageWizard from "@/components/production/StageWizard";
 
 export default function BlendingDashboard({ user, profile, onBack }) {
   const [activeStage, setActiveStage] = useState(null);
+  const [activeBatchNumber, setActiveBatchNumber] = useState(null);
   const queryClient = useQueryClient();
 
   const capKeys = profile.capability_keys || [];
@@ -35,6 +36,7 @@ export default function BlendingDashboard({ user, profile, onBack }) {
     queryClient.invalidateQueries({ queryKey: ["productionOrders"] });
     queryClient.invalidateQueries({ queryKey: ["allStages"] });
     setActiveStage(null);
+    setActiveBatchNumber(null);
   };
 
   // Only show blending stages assigned to this profile that are available or in-progress
@@ -73,7 +75,7 @@ export default function BlendingDashboard({ user, profile, onBack }) {
           {batchCards.map((item, idx) => (
             <button
               key={`${item.stage.id}-batch-${item.batchNumber}`}
-              onClick={() => setActiveStage(item.stage)}
+              onClick={() => { setActiveStage(item.stage); setActiveBatchNumber(item.batchNumber); }}
               className="w-full text-left p-3 rounded-lg border hover:shadow-sm transition-all bg-card hover:bg-muted/50"
             >
               <div className="flex items-center justify-between">
@@ -98,7 +100,8 @@ export default function BlendingDashboard({ user, profile, onBack }) {
         <StageWizard
           stage={activeStage}
           open={!!activeStage}
-          onClose={() => setActiveStage(null)}
+          startBatchNumber={activeBatchNumber}
+          onClose={() => { setActiveStage(null); setActiveBatchNumber(null); }}
           onCompleted={handleUpdated}
         />
       )}

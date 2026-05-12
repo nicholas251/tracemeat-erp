@@ -136,7 +136,7 @@ function buildMeasurementSteps(stage, product, capKey, spiceMixes, casingBuckets
 }
 
 // ─── Main wizard ─────────────────────────────────────────────────────────────
-export default function StageWizard({ stage, open, onClose, onCompleted }) {
+export default function StageWizard({ stage, open, onClose, onCompleted, startBatchNumber = null }) {
   const [step, setStep] = useState(0);
   const [batches, setBatches] = useState(null);
   const [form, setForm] = useState({});
@@ -231,7 +231,8 @@ export default function StageWizard({ stage, open, onClose, onCompleted }) {
       });
       setSaving(false);
     }
-    setStep(1);
+    // For blending, jump directly to the specific batch if startBatchNumber is given
+    setStep(startBatchNumber ?? 1);
   };
 
   // ── Complete ──
@@ -239,7 +240,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted }) {
     setSaving(true);
     const currentBatchIdx = step - 1;
     const currentBatch = resolvedBatches?.[currentBatchIdx];
-    const isLastBatch = currentBatchIdx === (resolvedBatches?.length - 1);
+    const isLastBatch = step === totalBatches;
 
     try {
       if (usesIngredientBatches && currentBatch) {
