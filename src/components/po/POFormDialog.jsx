@@ -26,7 +26,7 @@ export default function POFormDialog({ open, onClose, onSave, po }) {
     total_amount: po.data.total_amount,
     notes: po.data.notes || "",
   } : {
-    po_number: `PO-${Date.now()}`,
+    po_number: `PO-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
     supplier: "",
     order_date: format(new Date(), 'yyyy-MM-dd'),
     expected_delivery_date: "",
