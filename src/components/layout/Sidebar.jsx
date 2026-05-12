@@ -98,7 +98,7 @@ export default function Sidebar({ collapsed, onToggle }) {
           <img 
             src="https://media.base44.com/images/public/69fa3d25d6b48b9b300a8c3a/f79daba3a_MittysFoods_GroteWiegel_MuckesLogos.webp"
             alt="Mitty's Foods Logo"
-            className="h-14 w-14 object-contain opacity-80 flex-shrink-0 -ml-3"
+            className="h-14 w-20 object-contain opacity-80 flex-shrink-0 -ml-3"
           />
         )}
       </div>
