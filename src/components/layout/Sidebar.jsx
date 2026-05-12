@@ -82,15 +82,24 @@ export default function Sidebar({ collapsed, onToggle }) {
       collapsed ? "w-[68px]" : "w-[250px]"
     )}>
       {/* Logo */}
-      <div className="flex items-center gap-3 px-4 h-16 border-b border-slate-700">
-        <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center flex-shrink-0 shadow-lg">
-          <Factory className="w-5 h-5 text-white font-bold" />
+      <div className="flex items-center justify-between px-4 h-16 border-b border-slate-700">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center flex-shrink-0 shadow-lg">
+            <Factory className="w-5 h-5 text-white font-bold" />
+          </div>
+          {!collapsed && (
+            <div className="overflow-hidden">
+              <h1 className="text-sm font-bold text-white tracking-wide">MeatTrace</h1>
+              <p className="text-[10px] text-slate-400 tracking-wider uppercase">ERP System</p>
+            </div>
+          )}
         </div>
         {!collapsed && (
-          <div className="overflow-hidden">
-            <h1 className="text-sm font-bold text-white tracking-wide">MeatTrace</h1>
-            <p className="text-[10px] text-slate-400 tracking-wider uppercase">ERP System</p>
-          </div>
+          <img 
+            src="https://media.base44.com/images/public/69fa3d25d6b48b9b300a8c3a/f79daba3a_MittysFoods_GroteWiegel_MuckesLogos.webp"
+            alt="Mitty's Foods Logo"
+            className="h-9 w-9 object-contain opacity-80 flex-shrink-0"
+          />
         )}
       </div>
 
@@ -117,18 +126,7 @@ export default function Sidebar({ collapsed, onToggle }) {
         })}
       </nav>
 
-      {/* Company Logo Section */}
-      {!collapsed && (
-        <div className="p-4 border-t border-slate-700">
-          <div className="rounded-lg p-2 flex items-center justify-center">
-            <img 
-              src="https://media.base44.com/images/public/69fa3d25d6b48b9b300a8c3a/f79daba3a_MittysFoods_GroteWiegel_MuckesLogos.webp"
-              alt="Mitty's Foods Logo"
-              className="max-h-20 w-full object-contain opacity-80 hover:opacity-100 transition-opacity"
-            />
-          </div>
-        </div>
-      )}
+
 
       {/* Collapse toggle */}
       <div className="p-2 border-t border-slate-700">
