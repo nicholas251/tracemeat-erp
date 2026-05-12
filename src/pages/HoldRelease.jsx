@@ -126,9 +126,9 @@ export default function HoldRelease() {
             await base44.entities.RawInventory.update(freshLots[0].id, { available_qty: (freshLots[0].available_qty || 0) + releaseQty });
           }
         } else if (itemType === "finished_goods") {
-          const freshItems = await base44.entities.InventoryItem.filter({ id: batchId });
-          const currentQty = freshItems[0]?.quantity_lbs || 0;
-          await base44.entities.InventoryItem.update(batchId, { status: "available", quantity_lbs: currentQty + releaseQty });
+           const freshItems = await base44.entities.InventoryItem.filter({ id: batchId });
+           const currentQty = freshItems[0]?.quantity_lbs || 0;
+           await base44.entities.InventoryItem.update(batchId, { quantity_lbs: currentQty + releaseQty, status: "available" });
         } else {
           // Batch type: return to completed (back on-hand) when released as safe
           await base44.entities.Batch.update(batchId, { status: "completed" });
