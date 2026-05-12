@@ -113,7 +113,9 @@ export default function HoldFormDialog({ open, onClose, onSave, batches = [], ra
     });
   };
 
-  const isValid = form.batch_id && form.hold_description;
+  const enteredQty = Number(form.quantity_affected_kg) || 0;
+  const exceedsMax = form.available_qty > 0 && enteredQty > form.available_qty;
+  const isValid = form.batch_id && form.hold_description && !exceedsMax && enteredQty > 0;
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -228,7 +230,11 @@ export default function HoldFormDialog({ open, onClose, onSave, batches = [], ra
               value={form.quantity_affected_kg}
               onChange={e => update("quantity_affected_kg", e.target.value)}
               placeholder={form.available_qty > 0 ? `Max ${form.available_qty.toLocaleString()} lbs` : "Enter quantity"}
+              className={exceedsMax ? "border-destructive focus-visible:ring-destructive" : ""}
             />
+            {exceedsMax && (
+              <p className="text-xs text-destructive">Cannot exceed {form.available_qty.toLocaleString()} lbs on hand</p>
+            )}
           </div>
           <div className="space-y-2">
             <Label>Description *</Label>
