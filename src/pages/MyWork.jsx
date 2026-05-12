@@ -8,7 +8,7 @@ import StageDashboard from "@/components/mywork/StageDashboard";
 import WarehouseOperatorView from "@/components/mywork/WarehouseOperatorView";
 import AdminView from "@/components/mywork/AdminView";
 import { Briefcase } from "lucide-react";
-import { isUserAdminOrSupervisor } from "@/lib/accessControl";
+import { isUserAdminOrSupervisor, isUserQualityControl } from "@/lib/accessControl";
 import { useAuth } from "@/lib/AuthContext";
 
 const FIRST_STEP_KEY = "blending";
@@ -38,7 +38,7 @@ export default function MyWork() {
 
   const myProfiles = profiles.filter(p => (p.assigned_user_ids || []).includes(user.id));
 
-  if (isUserAdminOrSupervisor(myProfiles)) {
+  if (isUserAdminOrSupervisor(myProfiles) || isUserQualityControl(myProfiles)) {
     return <AdminView user={user} />;
   }
 
