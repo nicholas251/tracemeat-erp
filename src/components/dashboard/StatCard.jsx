@@ -12,9 +12,9 @@ export default function StatCard({ label, value, icon: Icon, trend, color = "tex
       onClick={() => link && navigate(link)}
     >
       <div className="flex items-center justify-between gap-4">
-         <div className="flex-1">
+         <div className="flex-1 min-h-16 flex flex-col justify-center">
            <p className="text-xs font-semibold text-slate-600 uppercase tracking-widest">{label}</p>
-            <p className="text-3xl font-bold mt-2 text-slate-900 leading-none h-10 flex items-center">{value}</p>
+            <p className="text-3xl font-bold mt-2 text-slate-900 leading-none">{value}</p>
           {trend && (
             <p className={cn("text-xs mt-2 font-semibold", trend > 0 ? "text-green-600" : "text-red-600")}>
               {trend > 0 ? "↑" : "↓"} {Math.abs(trend)}% from last week
