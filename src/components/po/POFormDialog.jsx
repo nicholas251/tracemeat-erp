@@ -124,7 +124,7 @@ export default function POFormDialog({ open, onClose, onSave, po }) {
     onSave(form);
   };
 
-  const generatePDF = () => {
+  const generatePDF = async () => {
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
@@ -137,6 +137,22 @@ export default function POFormDialog({ open, onClose, onSave, po }) {
     doc.setFont(undefined, 'bold');
     doc.setTextColor(255, 255, 255);
     doc.text("MITTY'S FOODS", 15, yPos + 8);
+
+    // Fetch and add logo
+    try {
+      const logoUrl = 'https://media.base44.com/images/public/69fa3d25d6b48b9b300a8c3a/abc6cd33d_MittysFoods_GroteWiegel_MuckesLogos.png';
+      const response = await fetch(logoUrl);
+      const blob = await response.blob();
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const imgData = e.target.result;
+        doc.addImage(imgData, 'PNG', pageWidth - 65, yPos - 3, 50, 25);
+      };
+      reader.readAsDataURL(blob);
+    } catch (err) {
+      // Logo fetch failed, continue without it
+    }
+
     yPos += 25;
 
     doc.setFontSize(9);
@@ -310,7 +326,9 @@ export default function POFormDialog({ open, onClose, onSave, po }) {
     }
 
     // Download
-    doc.save(`PO-${form.po_number}.pdf`);
+    setTimeout(() => {
+      doc.save(`PO-${form.po_number}.pdf`);
+    }, 500);
   };
 
   return (
