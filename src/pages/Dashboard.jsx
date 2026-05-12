@@ -5,9 +5,10 @@ import PageHeader from "@/components/shared/PageHeader";
 import StatCard from "@/components/dashboard/StatCard";
 import ActiveHolds from "@/components/dashboard/ActiveHolds";
 import ActiveOrdersList from "@/components/dashboard/ActiveOrdersList";
-import { isUserAdminOrSupervisor } from "@/lib/accessControl";
+import { isUserAdminOrSupervisor, isUserQualityControl } from "@/lib/accessControl";
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
+import QADashboard from "@/components/dashboard/QADashboard";
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -20,6 +21,7 @@ export default function Dashboard() {
 
   const myProfiles = allProfiles.filter(p => (p.assigned_user_ids || []).includes(user?.id));
   const showManagement = isUserAdminOrSupervisor(myProfiles);
+  const showQA = isUserQualityControl(myProfiles) && !showManagement;
 
   const { data: orders = [] } = useQuery({
     queryKey: ["productionOrders"],
@@ -67,6 +69,8 @@ export default function Dashboard() {
           <StatCard label="Inventory (lbs)" value={inventoryLbs.toLocaleString()} icon={Boxes} color="text-chart-3" link="/inventory" />
         </div>
       )}
+
+      {showQA && <QADashboard />}
 
       {showManagement && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
