@@ -1,7 +1,4 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
-import { Resend } from 'npm:resend@3.2.0';
-
-const resend = new Resend(Deno.env.get('RESEND_API_KEY'));
 
 Deno.serve(async (req) => {
   try {
@@ -51,24 +48,51 @@ Best regards,
 Purchase Order System
     `.trim();
 
-    // Send email using Resend
-    const result = await resend.emails.send({
-      from: `Purchase Order System <${user.email}>`,
-      to: po.supplier_email,
-      subject: `Purchase Order ${po.po_number}`,
-      text: emailBody,
-    });
+    // Get Gmail access token
+    const { accessToken } = await base44.asServiceRole.connectors.getConnection('gmail');
 
-    if (result.error) {
-      return Response.json({ error: result.error.message }, { status: 500 });
+    // Build MIME message
+    const message = `From: ${user.email}
+To: ${po.supplier_email}
+Subject: Purchase Order ${po.po_number}
+Content-Type: text/plain; charset="UTF-8"
+
+${emailBody}`;
+
+    // Encode message in base64url
+    const encodedMessage = btoa(message)
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=/g, '');
+
+    // Send via Gmail API
+    const response = await fetch(
+      'https://www.googleapis.com/gmail/v1/users/me/messages/send',
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          raw: encodedMessage,
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      return Response.json({ error: error.error.message }, { status: 500 });
     }
+
+    const result = await response.json();
 
     return Response.json({
       success: true,
-      message: 'PO email sent successfully',
+      message: 'PO email sent successfully via Gmail',
       po_number: po.po_number,
       sent_to: po.supplier_email,
-      email_id: result.data?.id,
+      message_id: result.id,
     });
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });
