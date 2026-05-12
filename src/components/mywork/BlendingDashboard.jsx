@@ -45,17 +45,30 @@ export default function BlendingDashboard({ user, profile, onBack }) {
     (s.status === "in_progress" || s.status === "available")
   );
 
-  // Expand each stage into individual 240lb batch cards
+  // Expand each stage into individual 240lb batch cards, excluding already-completed batches
   const batchCards = myStages.flatMap(stage => {
     const totalLbs = stage.input_qty_lbs || 0;
     const batchSize = 240;
     const numBatches = Math.ceil(totalLbs / batchSize);
 
+    // Build set of completed batch numbers from sub_batches
+    const completedBatchNumbers = new Set(
+      (stage.sub_batches || [])
+        .filter(sb => sb.status === "completed")
+        .map(sb => {
+          const match = sb.label?.match(/#(\d+)/);
+          return match ? parseInt(match[1]) : null;
+        })
+        .filter(Boolean)
+    );
+
     return Array.from({ length: numBatches }, (_, i) => {
+      const batchNumber = i + 1;
+      if (completedBatchNumbers.has(batchNumber)) return null;
       const isLast = i === numBatches - 1;
       const batchLbs = isLast ? totalLbs - (batchSize * i) : batchSize;
-      return { stage, batchNumber: i + 1, totalBatches: numBatches, batchLbs };
-    });
+      return { stage, batchNumber, totalBatches: numBatches, batchLbs };
+    }).filter(Boolean);
   });
 
   return (
