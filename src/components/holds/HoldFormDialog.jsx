@@ -24,7 +24,15 @@ const severityLevels = [
   { value: "critical", label: "Critical" },
 ];
 
-export default function HoldFormDialog({ open, onClose, onSave, batches, preselectedBatch }) {
+const holdTypes = [
+  { value: "batch", label: "Production Batch" },
+  { value: "raw_material", label: "Raw Material" },
+  { value: "finished_goods", label: "Finished Goods" },
+];
+
+export default function HoldFormDialog({ open, onClose, onSave, batches = [], rawMaterials = [], finishedGoods = [], preselectedBatch }) {
+  const [holdType, setHoldType] = useState(preselectedBatch ? "batch" : "batch");
+
   const [form, setForm] = useState({
     batch_id: preselectedBatch?.id || "",
     batch_number: preselectedBatch?.batch_number || "",
@@ -39,6 +47,18 @@ export default function HoldFormDialog({ open, onClose, onSave, batches, presele
 
   const update = (field, value) => setForm(prev => ({ ...prev, [field]: value }));
 
+  const handleHoldTypeChange = (type) => {
+    setHoldType(type);
+    setForm(prev => ({
+      ...prev,
+      batch_id: "",
+      batch_number: "",
+      product_name: "",
+      quantity_affected_kg: "",
+      item_type: type,
+    }));
+  };
+
   const handleBatchChange = (batchId) => {
     const batch = batches.find(b => b.id === batchId);
     if (batch) {
@@ -48,6 +68,35 @@ export default function HoldFormDialog({ open, onClose, onSave, batches, presele
         batch_number: batch.batch_number,
         product_name: batch.product_name,
         quantity_affected_kg: batch.quantity_kg || "",
+        item_type: "batch",
+      }));
+    }
+  };
+
+  const handleRawMaterialChange = (itemId) => {
+    const item = rawMaterials.find(r => r.id === itemId);
+    if (item) {
+      setForm(prev => ({
+        ...prev,
+        batch_id: itemId,
+        batch_number: item.lot_number,
+        product_name: item.name,
+        quantity_affected_kg: item.available_qty_lbs ? (item.available_qty_lbs * 0.453592).toFixed(1) : "",
+        item_type: "raw_material",
+      }));
+    }
+  };
+
+  const handleFinishedGoodsChange = (itemId) => {
+    const item = finishedGoods.find(i => i.id === itemId);
+    if (item) {
+      setForm(prev => ({
+        ...prev,
+        batch_id: itemId,
+        batch_number: item.lot_number || item.batch_number,
+        product_name: item.product_name,
+        quantity_affected_kg: item.quantity_lbs ? (item.quantity_lbs * 0.453592).toFixed(1) : "",
+        item_type: "finished_goods",
       }));
     }
   };
@@ -55,18 +104,35 @@ export default function HoldFormDialog({ open, onClose, onSave, batches, presele
   const handleSave = () => {
     onSave({
       ...form,
+      item_type: holdType,
       quantity_affected_kg: form.quantity_affected_kg ? Number(form.quantity_affected_kg) : undefined,
     });
   };
+
+  const isValid = form.batch_id && form.hold_description;
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-xl">
         <DialogHeader>
-          <DialogTitle>Place Batch on Hold</DialogTitle>
+          <DialogTitle>Place Item on Hold</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 py-4">
+          {/* Hold Type Selector */}
           {!preselectedBatch && (
+            <div className="space-y-2">
+              <Label>Hold Type *</Label>
+              <Select value={holdType} onValueChange={handleHoldTypeChange}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {holdTypes.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {/* Item Selector based on type */}
+          {!preselectedBatch && holdType === "batch" && (
             <div className="space-y-2">
               <Label>Batch *</Label>
               <Select value={form.batch_id} onValueChange={handleBatchChange}>
@@ -79,11 +145,49 @@ export default function HoldFormDialog({ open, onClose, onSave, batches, presele
               </Select>
             </div>
           )}
+
+          {!preselectedBatch && holdType === "raw_material" && (
+            <div className="space-y-2">
+              <Label>Raw Material *</Label>
+              <Select value={form.batch_id} onValueChange={handleRawMaterialChange}>
+                <SelectTrigger><SelectValue placeholder="Select raw material" /></SelectTrigger>
+                <SelectContent>
+                  {rawMaterials.filter(r => r.status !== "rejected" && r.status !== "depleted").map(r => (
+                    <SelectItem key={r.id} value={r.id}>{r.lot_number} — {r.name} ({r.supplier})</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {!preselectedBatch && holdType === "finished_goods" && (
+            <div className="space-y-2">
+              <Label>Finished Goods Lot *</Label>
+              <Select value={form.batch_id} onValueChange={handleFinishedGoodsChange}>
+                <SelectTrigger><SelectValue placeholder="Select finished goods lot" /></SelectTrigger>
+                <SelectContent>
+                  {finishedGoods.filter(i => i.status === "available" || i.status === "reserved").map(i => (
+                    <SelectItem key={i.id} value={i.id}>
+                      {i.lot_number || i.batch_number} — {i.product_name} ({(i.quantity_lbs || 0).toLocaleString()} lbs)
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {/* Show selected item info */}
           {preselectedBatch && (
             <div className="p-3 bg-muted rounded-lg text-sm">
               <strong>{form.batch_number}</strong> — {form.product_name}
             </div>
           )}
+          {!preselectedBatch && form.batch_id && (
+            <div className="p-3 bg-muted rounded-lg text-sm">
+              <strong>{form.batch_number}</strong> — {form.product_name}
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Reason *</Label>
@@ -115,7 +219,7 @@ export default function HoldFormDialog({ open, onClose, onSave, batches, presele
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={handleSave} disabled={!form.batch_id || !form.hold_description} className="bg-accent text-accent-foreground hover:bg-accent/90">
+          <Button onClick={handleSave} disabled={!isValid} className="bg-accent text-accent-foreground hover:bg-accent/90">
             Place on Hold
           </Button>
         </DialogFooter>

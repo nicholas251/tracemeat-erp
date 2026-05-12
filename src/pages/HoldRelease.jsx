@@ -53,33 +53,60 @@ export default function HoldRelease() {
     queryFn: () => base44.entities.Batch.list(),
   });
 
+  const { data: rawMaterials = [] } = useQuery({
+    queryKey: ["rawMaterials"],
+    queryFn: () => base44.entities.RawMaterial.list(),
+  });
+
+  const { data: finishedGoods = [] } = useQuery({
+    queryKey: ["inventory"],
+    queryFn: () => base44.entities.InventoryItem.list(),
+  });
+
   const createMutation = useMutation({
     mutationFn: async (data) => {
       await base44.entities.HoldRelease.create(data);
-      // Also update batch status
       if (data.batch_id) {
-        await base44.entities.Batch.update(data.batch_id, { status: "on_hold" });
+        if (data.item_type === "raw_material") {
+          await base44.entities.RawMaterial.update(data.batch_id, { status: "rejected" });
+        } else if (data.item_type === "finished_goods") {
+          await base44.entities.InventoryItem.update(data.batch_id, { status: "quarantined" });
+        } else {
+          await base44.entities.Batch.update(data.batch_id, { status: "on_hold" });
+        }
       }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["holds"] });
       queryClient.invalidateQueries({ queryKey: ["batches"] });
+      queryClient.invalidateQueries({ queryKey: ["rawMaterials"] });
+      queryClient.invalidateQueries({ queryKey: ["inventory"] });
       setShowForm(false);
       setPreselectedBatch(null);
     },
   });
 
   const releaseMutation = useMutation({
-    mutationFn: async ({ holdId, data, batchId }) => {
+    mutationFn: async ({ holdId, data, batchId, itemType }) => {
       await base44.entities.HoldRelease.update(holdId, data);
       if (batchId) {
-        const batchStatus = data.status === "released" ? "released" : "rejected";
-        await base44.entities.Batch.update(batchId, { status: batchStatus });
+        if (itemType === "raw_material") {
+          const newStatus = data.status === "released" ? "approved" : "rejected";
+          await base44.entities.RawMaterial.update(batchId, { status: newStatus });
+        } else if (itemType === "finished_goods") {
+          const newStatus = data.status === "released" ? "available" : "quarantined";
+          await base44.entities.InventoryItem.update(batchId, { status: newStatus });
+        } else {
+          const batchStatus = data.status === "released" ? "released" : "rejected";
+          await base44.entities.Batch.update(batchId, { status: batchStatus });
+        }
       }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["holds"] });
       queryClient.invalidateQueries({ queryKey: ["batches"] });
+      queryClient.invalidateQueries({ queryKey: ["rawMaterials"] });
+      queryClient.invalidateQueries({ queryKey: ["inventory"] });
       setReleasing(null);
     },
   });
@@ -135,9 +162,10 @@ export default function HoldRelease() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Batch #</TableHead>
-                  <TableHead>Product</TableHead>
-                  <TableHead>Reason</TableHead>
+                  <TableHead>Batch/Lot #</TableHead>
+                   <TableHead>Item</TableHead>
+                   <TableHead>Type</TableHead>
+                   <TableHead>Reason</TableHead>
                   <TableHead>Severity</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Date</TableHead>
@@ -149,6 +177,7 @@ export default function HoldRelease() {
                   <TableRow key={hold.id}>
                     <TableCell className="font-mono text-sm font-medium">{hold.batch_number}</TableCell>
                     <TableCell className="text-sm">{hold.product_name}</TableCell>
+                    <TableCell className="text-sm capitalize text-muted-foreground">{(hold.item_type || "batch").replace(/_/g, " ")}</TableCell>
                     <TableCell className="text-sm capitalize">{(hold.hold_reason || "").replace(/_/g, " ")}</TableCell>
                     <TableCell>
                       <Badge variant="outline" className={cn("capitalize text-xs border", severityColors[hold.severity] || "")}>
@@ -178,6 +207,8 @@ export default function HoldRelease() {
         <HoldFormDialog
           open
           batches={batches}
+          rawMaterials={rawMaterials}
+          finishedGoods={finishedGoods}
           preselectedBatch={preselectedBatch}
           onClose={() => { setShowForm(false); setPreselectedBatch(null); }}
           onSave={(data) => createMutation.mutate(data)}
@@ -188,7 +219,7 @@ export default function HoldRelease() {
           open
           hold={releasing}
           onClose={() => setReleasing(null)}
-          onRelease={(data) => releaseMutation.mutate({ holdId: releasing.id, data, batchId: releasing.batch_id })}
+          onRelease={(data) => releaseMutation.mutate({ holdId: releasing.id, data, batchId: releasing.batch_id, itemType: releasing.item_type })}
         />
       )}
     </div>
