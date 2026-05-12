@@ -317,6 +317,11 @@ export default function POFormDialog({ open, onClose, onSave, po }) {
             </div>
           </div>
 
+          <div className="bg-blue-50 p-3 rounded border border-blue-200">
+            <Label className="text-sm font-medium text-blue-900">Email will be sent from:</Label>
+            <p className="text-sm text-blue-700 mt-1">noreply@resend.dev</p>
+          </div>
+
           <div className="border-t pt-4">
             <div className="flex items-center justify-between mb-3">
               <Label className="text-base font-semibold">Ship-To Information *</Label>
