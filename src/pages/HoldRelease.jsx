@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, ShieldAlert, ShieldCheck } from "lucide-react";
+import { Plus, ShieldAlert, ShieldCheck, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import PageHeader from "@/components/shared/PageHeader";
 import StatusBadge from "@/components/shared/StatusBadge";
@@ -148,6 +148,13 @@ export default function HoldRelease() {
     },
   });
 
+  const clearResolvedMutation = useMutation({
+    mutationFn: async () => {
+      await Promise.all(resolvedHolds.map(h => base44.entities.HoldRelease.delete(h.id)));
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["holds"] }),
+  });
+
   const activeHolds = holds.filter(h => h.status === "on_hold" || h.status === "under_review");
   const resolvedHolds = holds.filter(h => h.status === "released" || h.status === "rejected" || h.status === "destroyed");
   const displayed = tab === "active" ? activeHolds : resolvedHolds;
@@ -174,6 +181,20 @@ export default function HoldRelease() {
           </TabsTrigger>
         </TabsList>
       </Tabs>
+      {tab === "resolved" && resolvedHolds.length > 0 && (
+        <div className="flex justify-end mb-4">
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-destructive border-destructive/30 hover:bg-destructive/10"
+            onClick={() => clearResolvedMutation.mutate()}
+            disabled={clearResolvedMutation.isPending}
+          >
+            <Trash2 className="w-4 h-4 mr-2" />
+            {clearResolvedMutation.isPending ? "Clearing..." : "Clear All Resolved"}
+          </Button>
+        </div>
+      )}
 
       {isLoading ? (
         <Card className="h-48 animate-pulse bg-muted" />
