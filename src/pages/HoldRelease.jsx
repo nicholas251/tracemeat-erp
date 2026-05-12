@@ -110,24 +110,23 @@ export default function HoldRelease() {
   });
 
   const releaseMutation = useMutation({
-    mutationFn: async ({ holdId, data, batchId, itemType, quantityAffected, hold }) => {
+    mutationFn: async ({ holdId, data, batchId, itemType, quantityAffected }) => {
       await base44.entities.HoldRelease.update(holdId, data);
+      const releaseQty = Number(quantityAffected) || 0;
       if (batchId && data.status === "released") {
         if (itemType === "raw_material") {
-          const item = rawMaterials.find(r => r.id === batchId);
-          const currentQty = item?.available_qty_lbs || 0;
-          const releaseQty = Number(quantityAffected) || 0;
+          // Fetch fresh to avoid stale cache values
+          const freshItems = await base44.entities.RawMaterial.filter({ id: batchId });
+          const currentQty = freshItems[0]?.available_qty_lbs || 0;
           await base44.entities.RawMaterial.update(batchId, { status: "approved", available_qty_lbs: currentQty + releaseQty });
-          // Also restore the matching RawInventory lot
-          const lot = rawInventoryLots.find(l => l.raw_material_id === batchId);
-          if (lot) {
-            const lotQty = lot.available_qty || 0;
-            await base44.entities.RawInventory.update(lot.id, { available_qty: lotQty + releaseQty });
+          // Also restore the matching RawInventory lot (fetch fresh)
+          const freshLots = await base44.entities.RawInventory.filter({ raw_material_id: batchId });
+          if (freshLots[0]) {
+            await base44.entities.RawInventory.update(freshLots[0].id, { available_qty: (freshLots[0].available_qty || 0) + releaseQty });
           }
         } else if (itemType === "finished_goods") {
-          const item = finishedGoods.find(i => i.id === batchId);
-          const currentQty = item?.quantity_lbs || 0;
-          const releaseQty = Number(quantityAffected) || 0;
+          const freshItems = await base44.entities.InventoryItem.filter({ id: batchId });
+          const currentQty = freshItems[0]?.quantity_lbs || 0;
           await base44.entities.InventoryItem.update(batchId, { status: "available", quantity_lbs: currentQty + releaseQty });
         } else {
           // Batch type: return to completed (back on-hand) when released as safe
