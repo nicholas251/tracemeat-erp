@@ -30,11 +30,12 @@ Deno.serve(async (req) => {
     doc.setTextColor(255, 255, 255);
     doc.text("MITTY'S FOODS", 15, yPos + 8);
     
-    // Fetch and embed logo
+    // Fetch logo and convert to data URL
     const logoUrl = 'https://media.base44.com/images/public/69fa3d25d6b48b9b300a8c3a/abc6cd33d_MittysFoods_GroteWiegel_MuckesLogos.png';
     const logoResp = await fetch(logoUrl);
-    const logoBuffer = await logoResp.arrayBuffer();
-    const logoBase64 = btoa(String.fromCharCode.apply(null, new Uint8Array(logoBuffer)));
+    const logoBlob = await logoResp.blob();
+    const logoArrayBuffer = await logoBlob.arrayBuffer();
+    const logoBase64 = btoa(String.fromCharCode(...new Uint8Array(logoArrayBuffer)));
     doc.addImage(`data:image/png;base64,${logoBase64}`, 'PNG', pageWidth - 65, yPos - 3, 50, 25);
     
     yPos += 25;
