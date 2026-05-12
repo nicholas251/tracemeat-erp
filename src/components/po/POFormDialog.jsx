@@ -57,8 +57,8 @@ export default function POFormDialog({ open, onClose, onSave, po }) {
       base44.entities.ShipToAddress.list().then(data => {
         setSavedAddresses(data);
       });
-      // Update form when po prop changes
-      if (po && po.po_number) {
+      // Only populate form if editing an existing PO (has an id)
+      if (po && po.id) {
         setForm({
           po_number: po.po_number,
           supplier: po.supplier,
@@ -72,6 +72,22 @@ export default function POFormDialog({ open, onClose, onSave, po }) {
           ship_to_address: po.ship_to_address || "",
           ship_to_contact_name: po.ship_to_contact_name || "",
           ship_to_contact_phone: po.ship_to_contact_phone || "",
+        });
+      } else {
+        // Reset form for new PO
+        setForm({
+          po_number: `PO-${Math.floor(Math.random() * 1000000)}`,
+          supplier: "",
+          supplier_email: "",
+          order_date: format(new Date(), 'yyyy-MM-dd'),
+          expected_delivery_date: "",
+          status: "draft",
+          line_items: [],
+          total_amount: 0,
+          notes: "",
+          ship_to_address: "",
+          ship_to_contact_name: "",
+          ship_to_contact_phone: "",
         });
       }
     }
