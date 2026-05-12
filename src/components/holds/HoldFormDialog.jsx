@@ -42,7 +42,7 @@ export default function HoldFormDialog({ open, onClose, onSave, batches = [], ra
     severity: "medium",
     status: "on_hold",
     held_date: new Date().toISOString(),
-    quantity_affected_kg: preselectedBatch?.quantity_kg || "",
+    quantity_affected_kg: preselectedBatch?.quantity_lbs || "",
   });
 
   const update = (field, value) => setForm(prev => ({ ...prev, [field]: value }));
@@ -81,7 +81,7 @@ export default function HoldFormDialog({ open, onClose, onSave, batches = [], ra
         batch_id: itemId,
         batch_number: item.lot_number,
         product_name: item.name,
-        quantity_affected_kg: item.available_qty_lbs ? (item.available_qty_lbs * 0.453592).toFixed(1) : "",
+        quantity_affected_kg: item.available_qty_lbs || "",
         item_type: "raw_material",
       }));
     }
@@ -95,7 +95,7 @@ export default function HoldFormDialog({ open, onClose, onSave, batches = [], ra
         batch_id: itemId,
         batch_number: item.lot_number || item.batch_number,
         product_name: item.product_name,
-        quantity_affected_kg: item.quantity_lbs ? (item.quantity_lbs * 0.453592).toFixed(1) : "",
+        quantity_affected_kg: item.quantity_lbs || "",
         item_type: "finished_goods",
       }));
     }
@@ -209,7 +209,7 @@ export default function HoldFormDialog({ open, onClose, onSave, batches = [], ra
             </div>
           </div>
           <div className="space-y-2">
-            <Label>Quantity Affected (kg)</Label>
+            <Label>Quantity Affected (lbs)</Label>
             <Input type="number" value={form.quantity_affected_kg} onChange={e => update("quantity_affected_kg", e.target.value)} />
           </div>
           <div className="space-y-2">
