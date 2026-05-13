@@ -18,6 +18,7 @@ export default function CustomersTable({ customers, isLoading, onEdit, onPricing
           <tr>
             <th className="text-left px-4 py-3 font-medium">Customer</th>
             <th className="text-left px-4 py-3 font-medium">Contact</th>
+            <th className="text-left px-4 py-3 font-medium">Address</th>
             <th className="text-left px-4 py-3 font-medium">Email</th>
             <th className="text-left px-4 py-3 font-medium">Phone</th>
             <th className="text-left px-4 py-3 font-medium">Status</th>
@@ -29,6 +30,9 @@ export default function CustomersTable({ customers, isLoading, onEdit, onPricing
             <tr key={c.id} className={i % 2 === 0 ? "bg-white" : "bg-muted/20"}>
               <td className="px-4 py-3 font-medium">{c.name}</td>
               <td className="px-4 py-3 text-muted-foreground">{c.contact_name || "—"}</td>
+              <td className="px-4 py-3 text-muted-foreground text-xs">
+                {[c.address, c.city, c.state].filter(Boolean).join(', ') || "—"}
+              </td>
               <td className="px-4 py-3 text-muted-foreground">{c.email || "—"}</td>
               <td className="px-4 py-3 text-muted-foreground">{c.phone || "—"}</td>
               <td className="px-4 py-3">
