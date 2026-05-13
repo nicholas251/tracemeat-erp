@@ -6,13 +6,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Save, X } from "lucide-react";
+import { Plus, Save, X, Calendar } from "lucide-react";
 import PageHeader from "@/components/shared/PageHeader";
+import WeeklyReconciliation from "@/components/sales/WeeklyReconciliation";
 
 export default function DailySales() {
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [salesQty, setSalesQty] = useState("");
   const [search, setSearch] = useState("");
+  const [viewMode, setViewMode] = useState("quick"); // "quick" or "weekly"
   const queryClient = useQueryClient();
 
   const { data: products = [], isLoading } = useQuery({
@@ -40,6 +42,38 @@ export default function DailySales() {
     }
   });
 
+  const reconcileWeekMutation = useMutation({
+    mutationFn: async ({ weekStart, data }) => {
+      // Batch create/update daily sales records for the week
+      const records = [];
+      for (const [key, qty] of Object.entries(data)) {
+        if (qty !== null) {
+          const [productId, dayPart] = key.split("-day");
+          const dayIndex = parseInt(dayPart);
+          records.push({
+            product_id: productId,
+            quantity_lbs: qty,
+            sales_date: new Date(new Date(weekStart).getTime() + dayIndex * 24 * 60 * 60 * 1000).toISOString().split("T")[0]
+          });
+        }
+      }
+      
+      if (records.length > 0) {
+        await Promise.all(records.map(r => 
+          base44.functions.invoke("recordDailySales", {
+            product_id: r.product_id,
+            quantity_lbs: r.quantity_lbs,
+            sales_date: r.sales_date
+          })
+        ));
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["fg_buckets"] });
+      queryClient.invalidateQueries({ queryKey: ["dailySales"] });
+    }
+  });
+
   const filteredProducts = products.filter(p =>
     p.name.toLowerCase().includes(search.toLowerCase()) ||
     p.sku?.toLowerCase().includes(search.toLowerCase())
@@ -63,19 +97,49 @@ export default function DailySales() {
 
   return (
     <div className="space-y-6">
-      <PageHeader 
-        title="Daily Sales" 
-        subtitle="Log daily product sales and deduct from finished goods inventory"
-      />
-
-      <div className="relative">
-        <Input
-          placeholder="Search products by name or SKU..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          className="pl-4"
+      <div className="flex items-center justify-between">
+        <PageHeader 
+          title="Daily Sales" 
+          subtitle="Log daily product sales and deduct from finished goods inventory"
         />
+        <div className="flex gap-2">
+          <Button
+            variant={viewMode === "quick" ? "default" : "outline"}
+            onClick={() => setViewMode("quick")}
+            size="sm"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Quick Entry
+          </Button>
+          <Button
+            variant={viewMode === "weekly" ? "default" : "outline"}
+            onClick={() => setViewMode("weekly")}
+            size="sm"
+          >
+            <Calendar className="w-4 h-4 mr-2" />
+            Weekly Reconcile
+          </Button>
+        </div>
       </div>
+
+      {viewMode === "weekly" ? (
+        <WeeklyReconciliation 
+          products={products}
+          fgBuckets={fgBuckets}
+          onReconcileWeek={({ weekStart, data }) => 
+            reconcileWeekMutation.mutate({ weekStart, data })
+          }
+        />
+      ) : (
+        <>
+          <div className="relative">
+            <Input
+              placeholder="Search products by name or SKU..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="pl-4"
+            />
+          </div>
 
       {isLoading ? (
         <div className="grid gap-4">
@@ -124,6 +188,8 @@ export default function DailySales() {
             );
           })}
         </div>
+      )}
+      </>
       )}
 
       <Dialog open={!!selectedProduct} onOpenChange={open => !open && setSelectedProduct(null)}>
