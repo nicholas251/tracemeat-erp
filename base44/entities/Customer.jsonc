@@ -29,6 +29,25 @@
     "zip": {
       "type": "string"
     },
+    "billing_address": {
+      "type": "string",
+      "description": "Full billing address (multi-line)"
+    },
+    "ship_to_name": {
+      "type": "string",
+      "description": "Ship-to location name"
+    },
+    "customer_type": {
+      "type": "string"
+    },
+    "terms": {
+      "type": "string",
+      "description": "Payment terms (e.g. Net 30, 15 Days)"
+    },
+    "rep": {
+      "type": "string",
+      "description": "Sales rep assigned"
+    },
     "notes": {
       "type": "string"
     },
