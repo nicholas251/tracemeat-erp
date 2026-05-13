@@ -1,4 +1,5 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
+import * as XLSX from 'npm:xlsx@0.18.5';
 
 Deno.serve(async (req) => {
   try {
@@ -9,67 +10,58 @@ Deno.serve(async (req) => {
     const { file_url } = await req.json();
     if (!file_url) return Response.json({ error: 'No file_url provided' }, { status: 400 });
 
-    // Extract raw rows from the file - use a generic array schema so the LLM reads all columns
-    const extracted = await base44.asServiceRole.integrations.Core.ExtractDataFromUploadedFile({
-      file_url,
-      json_schema: {
-        type: "object",
-        properties: {
-          rows: {
-            type: "array",
-            description: "All rows from the spreadsheet as-is",
-            items: {
-              type: "object",
-              description: "One row with all columns as key-value pairs. Use the exact column header as the key."
-            }
-          }
-        }
+    // Fetch the file
+    const fileRes = await fetch(file_url);
+    if (!fileRes.ok) return Response.json({ error: 'Failed to download file' }, { status: 400 });
+    const buffer = await fileRes.arrayBuffer();
+
+    // Parse with xlsx
+    const workbook = XLSX.read(new Uint8Array(buffer), { type: 'array' });
+
+    // Find the sheet with actual data (skip sheets that are all empty)
+    let rows = [];
+    for (const sheetName of workbook.SheetNames) {
+      const sheet = workbook.Sheets[sheetName];
+      const data = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+      if (data.length > 0) {
+        rows = data;
+        break;
       }
-    });
-
-    if (extracted.status !== 'success') {
-      return Response.json({ error: 'Failed to extract data', details: extracted.details }, { status: 400 });
     }
 
-    const rows = extracted.output?.rows || extracted.output;
-    if (!rows || !Array.isArray(rows) || rows.length === 0) {
-      return Response.json({ error: 'No rows found in file', raw: JSON.stringify(extracted.output).slice(0, 500) }, { status: 400 });
+    if (rows.length === 0) {
+      return Response.json({ error: 'No data rows found in any sheet', sheets: workbook.SheetNames }, { status: 400 });
     }
 
-    // Normalize column names: lowercase + trim + collapse spaces/underscores
-    const norm = (s) => String(s || '').toLowerCase().replace(/[\s_\-]+/g, '_').trim();
-
-    // Find column key in a row object by fuzzy matching
+    // Normalize column names for matching
+    const norm = (s) => String(s || '').toLowerCase().replace(/[\s_\-\/]+/g, '_').trim();
     const findCol = (row, candidates) => {
       const keys = Object.keys(row);
       for (const candidate of candidates) {
         const match = keys.find(k => norm(k) === norm(candidate));
-        if (match) return row[match] || '';
+        if (match !== undefined) return String(row[match] || '').trim();
       }
       return '';
     };
 
     const customers = [];
-
     for (const row of rows) {
-      const name = findCol(row, ['customer', 'company', 'customer_name', 'name']) ||
-                   findCol(row, ['bill_to_1', 'bill_to']);
-      if (!name || !name.toString().trim()) continue;
-      const nameStr = name.toString().trim();
-      if (nameStr.toLowerCase().includes('beginning balance')) continue;
-      if (nameStr.toLowerCase() === 'customer' || nameStr.toLowerCase() === 'name') continue; // skip header row if returned
+      const name = findCol(row, ['customer', 'company', 'customer_name', 'name']);
+      if (!name) continue;
+      if (name.toLowerCase().includes('beginning balance')) continue;
 
       const billTo1 = findCol(row, ['bill_to_1', 'bill_to']);
       const billTo2 = findCol(row, ['bill_to_2']);
       const billTo3 = findCol(row, ['bill_to_3']);
-      const billParts = [billTo1, billTo2, billTo3].map(p => String(p).trim()).filter(Boolean).join('\n');
+      const billParts = [billTo1, billTo2, billTo3].filter(Boolean).join('\n');
 
       const shipTo1 = findCol(row, ['ship_to_1', 'ship_to']);
       const shipTo2 = findCol(row, ['ship_to_2']);
       const shipTo3 = findCol(row, ['ship_to_3']);
 
+      // Parse city/state/zip from shipTo3 or billTo3
       let city = '', state = '', zip = '';
-      const cityStateLine = String(shipTo3 || billTo3 || '');
+      const cityStateLine = shipTo3 || billTo3 || '';
       const csMatch = cityStateLine.match(/^([^,]+),?\s*([A-Z]{2})\s*(\d{5}(?:-\d{4})?)?/i);
       if (csMatch) {
         city = csMatch[1].trim();
@@ -78,19 +70,19 @@ Deno.serve(async (req) => {
       }
 
       const activeStatus = findCol(row, ['active_status', 'status', 'active']);
-      const isActive = !activeStatus || activeStatus.toString().toLowerCase() !== 'inactive';
+      const isActive = !activeStatus || activeStatus.toLowerCase() !== 'inactive';
 
       customers.push({
-        name: nameStr,
+        name,
         contact_name: '',
         email: findCol(row, ['main_email', 'email']),
         phone: findCol(row, ['main_phone', 'phone']),
-        address: String(shipTo2 || '').trim(),
+        address: shipTo2,
         city,
         state,
         zip,
         billing_address: billParts,
-        ship_to_name: String(shipTo1).trim(),
+        ship_to_name: shipTo1,
         customer_type: findCol(row, ['customer_type', 'type']),
         terms: findCol(row, ['terms', 'payment_terms']),
         rep: findCol(row, ['rep', 'sales_rep', 'salesperson']),
@@ -99,11 +91,8 @@ Deno.serve(async (req) => {
     }
 
     if (customers.length === 0) {
-      return Response.json({
-        error: 'No valid customers found. Check your file format.',
-        sample_keys: rows[0] ? Object.keys(rows[0]) : [],
-        total_rows: rows.length
-      }, { status: 400 });
+      const sampleKeys = rows[0] ? Object.keys(rows[0]) : [];
+      return Response.json({ error: 'No valid customers found', sample_keys: sampleKeys, total_rows: rows.length }, { status: 400 });
     }
 
     let created = 0;
