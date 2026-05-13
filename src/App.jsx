@@ -28,6 +28,7 @@ import ProfileCreation from './pages/ProfileCreation';
 import WaitingForAccess from './pages/WaitingForAccess';
 import Customers from './pages/Customers';
 import SalesOrders from './pages/SalesOrders';
+import DailySales from './pages/DailySales';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -76,6 +77,7 @@ const AuthenticatedApp = () => {
         <Route path="/user-management" element={<UserManagement />} />
         <Route path="/customers" element={<Customers />} />
         <Route path="/sales-orders" element={<SalesOrders />} />
+        <Route path="/daily-sales" element={<DailySales />} />
       </Route>
       <Route path="/signup" element={<ProfileCreation />} />
       <Route path="/waiting-for-access" element={<WaitingForAccess />} />
