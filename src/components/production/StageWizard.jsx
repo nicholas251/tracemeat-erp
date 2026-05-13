@@ -378,10 +378,13 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
         const allStages = await base44.entities.ProductionStage.filter({ order_id: stage.order_id });
         const nextStage = allStages.find(s => s.step_number === stage.step_number + 1);
         if (nextStage?.status === "locked") {
+          const rawQty = updates.output_qty_lbs || stage.input_qty_lbs || 0;
+          // Apply 20% cook loss when passing from cooking to the next stage
+          const nextInputQty = capKey === "cooking" ? parseFloat((rawQty * 0.8).toFixed(2)) : rawQty;
           await base44.entities.ProductionStage.update(nextStage.id, {
             status: "available",
-            input_qty_lbs: updates.output_qty_lbs || stage.input_qty_lbs || 0,
-            input_lot_number: updates.lot_number || "",
+            input_qty_lbs: nextInputQty,
+            input_lot_number: updates.lot_number || stage.cook_batch_lot || "",
           });
         }
 
