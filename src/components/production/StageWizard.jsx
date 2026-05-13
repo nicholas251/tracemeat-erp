@@ -374,12 +374,42 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
 
         await base44.entities.ProductionStage.update(stage.id, updates);
 
+        // If this is packaging: create a finished goods InventoryItem with a new FG lot number
+        if (capKey === "packaging") {
+          const order = await base44.entities.ProductionOrder.filter({ id: stage.order_id }).then(r => r?.[0]);
+          if (order) {
+            // Generate FG lot number: FG-YYYYMMDD-ORDERNUM-random
+            const today = new Date();
+            const datePart = today.toISOString().slice(0, 10).replace(/-/g, "");
+            const rand = Math.floor(Math.random() * 900 + 100);
+            const fgLot = `FG-${datePart}-${(order.order_number || "").replace(/\D/g, "").slice(-4)}-${rand}`;
+
+            const outputLbs = updates.output_qty_lbs || stage.input_qty_lbs || 0;
+            const today_str = today.toISOString().slice(0, 10);
+
+            await base44.entities.InventoryItem.create({
+              product_id: order.product_id || "",
+              product_name: stage.product_name || order.product_name || "",
+              sku: order.sku || "",
+              batch_id: stage.order_id,
+              batch_number: order.order_number || "",
+              lot_number: fgLot,
+              quantity_lbs: outputLbs,
+              original_quantity_lbs: outputLbs,
+              status: "available",
+              production_date: today_str,
+              notes: `Created from packaging stage. Cook batch: ${stage.cook_batch_lot || stage.input_lot_number || ""}`,
+            });
+
+            queryClient.invalidateQueries({ queryKey: ["inventory"] });
+          }
+        }
+
         // Unlock next stage
         const allStages = await base44.entities.ProductionStage.filter({ order_id: stage.order_id });
         const nextStage = allStages.find(s => s.step_number === stage.step_number + 1);
         if (nextStage?.status === "locked") {
           const rawQty = updates.output_qty_lbs || stage.input_qty_lbs || 0;
-          // Apply 20% cook loss when passing from cooking to the next stage
           const nextInputQty = capKey === "cooking" ? parseFloat((rawQty * 0.8).toFixed(2)) : rawQty;
           await base44.entities.ProductionStage.update(nextStage.id, {
             status: "available",

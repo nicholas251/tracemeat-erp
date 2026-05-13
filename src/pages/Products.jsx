@@ -3,12 +3,13 @@ import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Plus, Package, Pencil, Trash2 } from "lucide-react";
+import { Plus, Package, Pencil, Trash2, Upload } from "lucide-react";
 import PageHeader from "@/components/shared/PageHeader";
 import StatusBadge from "@/components/shared/StatusBadge";
 import ProductFormDialog from "@/components/products/ProductFormDialog";
 import ProductSetupWizard from "@/components/products/ProductSetupWizard";
 import RecipeFormDialog from "@/components/recipes/RecipeFormDialog";
+import ImportProductsDialog from "@/components/products/ImportProductsDialog";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
@@ -20,6 +21,7 @@ export default function Products() {
   const [editing, setEditing] = useState(null);
   const [deleting, setDeleting] = useState(null);
   const [editingRecipe, setEditingRecipe] = useState(null);
+  const [showImport, setShowImport] = useState(false);
   const queryClient = useQueryClient();
 
   const { data: products = [], isLoading } = useQuery({
@@ -62,9 +64,14 @@ export default function Products() {
         title="Products" 
         subtitle="Design and manage your product catalog"
         actions={
-          <Button onClick={() => setShowForm(true)}>
-            <Plus className="w-4 h-4 mr-2" /> New Product
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setShowImport(true)}>
+              <Upload className="w-4 h-4 mr-2" /> Import
+            </Button>
+            <Button onClick={() => setShowForm(true)}>
+              <Plus className="w-4 h-4 mr-2" /> New Product
+            </Button>
+          </div>
         }
       />
 
@@ -143,6 +150,12 @@ export default function Products() {
           onSave={(data) => updateRecipeMutation.mutate(data)} 
         />
       )}
+
+      <ImportProductsDialog
+        open={showImport}
+        onClose={() => setShowImport(false)}
+        onImported={() => queryClient.invalidateQueries({ queryKey: ["products"] })}
+      />
 
       <AlertDialog open={!!deleting} onOpenChange={() => setDeleting(null)}>
         <AlertDialogContent>
