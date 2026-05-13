@@ -14,6 +14,7 @@ import {
   CheckCircle2, ChevronRight, ChevronLeft, Play,
   Package, Thermometer, Clock, Layers, Scale, AlertCircle, FlaskConical
 } from "lucide-react";
+import LinkingCookBatchBuilder from "./LinkingCookBatchBuilder";
 
 // ─── Stage icon map ───────────────────────────────────────────────────────────
 const STAGE_ICONS = {
@@ -83,6 +84,7 @@ function buildMeasurementSteps(stage, product, capKey, spiceMixes, casingBuckets
         { key: "notes", label: "Notes / Observations", type: "textarea" },
       ],
     });
+    // Cook batch assembly is handled via the separate cook_batch state, not a field step
   }
 
   if (capKey === "cooking") {
@@ -140,6 +142,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
   const [step, setStep] = useState(0);
   const [batches, setBatches] = useState(null);
   const [form, setForm] = useState({});
+  const [cookBatch, setCookBatch] = useState(null); // for linking stage
   const [saving, setSaving] = useState(false);
   const queryClient = useQueryClient();
 
@@ -305,8 +308,64 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
         // Close wizard after each batch completion
         onCompleted?.();
         onClose();
+      } else if (capKey === "linking" && cookBatch) {
+        // ── Linking: complete this stage and mark all selected sibling stages as part of this cook batch ──
+        const updates = {
+          status: "completed",
+          completed_at: new Date().toISOString(),
+          cook_batch_lot: cookBatch.lotNumber,
+          output_qty_lbs: form.output_qty_lbs || stage.input_qty_lbs || 0,
+          ...form,
+        };
+        await base44.entities.ProductionStage.update(stage.id, updates);
+
+        // Mark all other selected linking stages as merged into this cook batch
+        const otherSelected = (cookBatch.selectedStageIds || []).filter(id => id !== stage.id);
+        for (const sid of otherSelected) {
+          await base44.entities.ProductionStage.update(sid, {
+            cook_batch_lot: cookBatch.lotNumber,
+            status: "completed",
+            completed_at: new Date().toISOString(),
+          });
+        }
+
+        // Create a single cooking stage for this cook batch
+        const order = await base44.entities.ProductionOrder.filter({ id: stage.order_id }).then(r => r?.[0]);
+        if (order) {
+          const nextFlow = await base44.entities.ProductFlow.filter({ id: order.flow_id }).then(r => r?.[0]);
+          const cookStep = nextFlow?.steps?.find(s => s.capability_key === "cooking");
+          if (cookStep) {
+            // Check if a cooking stage already exists for this cook batch lot
+            const existingCookStages = await base44.entities.ProductionStage.filter({
+              order_id: stage.order_id,
+              capability_key: "cooking",
+            });
+            const alreadyExists = existingCookStages.some(s => s.cook_batch_lot === cookBatch.lotNumber);
+            if (!alreadyExists) {
+              await base44.entities.ProductionStage.create({
+                order_id: stage.order_id,
+                order_number: stage.order_number,
+                product_name: stage.product_name,
+                step_number: cookStep.step_number,
+                capability_id: cookStep.capability_id,
+                capability_key: cookStep.capability_key,
+                capability_name: cookStep.capability_name,
+                work_profile_id: cookStep.work_profile_id,
+                work_profile_name: cookStep.work_profile_name,
+                status: "available",
+                input_qty_lbs: cookBatch.totalQty,
+                cook_batch_lot: cookBatch.lotNumber,
+              });
+            }
+          }
+        }
+
+        queryClient.invalidateQueries({ queryKey: ["allStages"] });
+        queryClient.invalidateQueries({ queryKey: ["productionOrders"] });
+        onCompleted?.();
+        onClose();
       } else {
-        // For non-blending stages: complete the whole stage
+        // For non-blending/non-linking stages: complete the whole stage
         const updates = {
           status: "completed",
           completed_at: new Date().toISOString(),
@@ -398,6 +457,10 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
             setForm={setForm}
             spiceMixes={spiceMixes}
             casingBuckets={casingBuckets}
+            capKey={capKey}
+            stage={stage}
+            cookBatch={cookBatch}
+            setCookBatch={setCookBatch}
             onBack={() => setStep(s => s - 1)}
             onNext={() => setStep(s => s + 1)}
             isLast={step === totalMeasureSteps}
@@ -412,6 +475,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
             stageLabel={stageLabel}
             resolvedBatches={resolvedBatches}
             form={form}
+            cookBatch={cookBatch}
             saving={saving}
             onBack={() => setStep(lastStep - 1)}
             onComplete={handleComplete}
@@ -559,10 +623,10 @@ function BatchConfirmStep({ batch, batchIdx, totalBatches, progressPct, onUpdate
   );
 }
 
-function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form, setForm, spiceMixes, casingBuckets, onBack, onNext, isLast }) {
-  const allFilled = stepDef.fields
-    .filter(f => f.type !== "boolean" && f.type !== "textarea")
-    .every(f => form[f.key] !== undefined && form[f.key] !== "" && form[f.key] !== null);
+function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form, setForm, spiceMixes, casingBuckets, capKey, stage, cookBatch, setCookBatch, onBack, onNext, isLast }) {
+  const isLinking = capKey === "linking" && stepDef.id === "linking";
+  // For linking: require a cook batch to be assembled before proceeding
+  const canProceed = isLinking ? !!cookBatch : true;
 
   return (
     <div className="space-y-4">
@@ -587,10 +651,19 @@ function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form, setFor
         ))}
       </div>
 
+      {/* Cook batch builder — only for the linking step */}
+      {isLinking && (
+        <LinkingCookBatchBuilder
+          stage={stage}
+          cookBatch={cookBatch}
+          onChange={setCookBatch}
+        />
+      )}
+
       <NavButtons
         onBack={onBack}
         onNext={onNext}
-        nextDisabled={false}
+        nextDisabled={!canProceed}
         nextLabel={isLast ? "Review & Complete" : "Next Step"}
       />
     </div>
@@ -665,10 +738,13 @@ function FieldInput({ field, value, onChange, spiceMixes, casingBuckets = [], on
   );
 }
 
-function FinalStep({ stage, capKey, stageLabel, resolvedBatches, form, saving, onBack, onComplete }) {
+function FinalStep({ stage, capKey, stageLabel, resolvedBatches, form, cookBatch, saving, onBack, onComplete }) {
   const outputLbs = resolvedBatches
     ? resolvedBatches.reduce((s, b) => s + b.batchLbs, 0)
     : form.output_qty_lbs || stage?.input_qty_lbs || 0;
+
+  const isLinking = capKey === "linking";
+  const canComplete = isLinking ? !!cookBatch : true;
 
   return (
     <div className="space-y-4">
@@ -677,6 +753,16 @@ function FinalStep({ stage, capKey, stageLabel, resolvedBatches, form, saving, o
           <CheckCircle2 className="w-4 h-4" /> Ready to complete {stageLabel}
         </p>
         <p className="text-sm text-muted-foreground mt-1">Output: {outputLbs} lbs</p>
+        {isLinking && cookBatch && (
+          <div className="mt-2 text-sm space-y-0.5">
+            <p className="text-muted-foreground">Cook Batch Lot: <span className="font-mono font-semibold text-foreground">{cookBatch.lotNumber}</span></p>
+            <p className="text-muted-foreground">Cook Batch Qty: <span className="font-semibold text-foreground">{cookBatch.totalQty} lbs</span></p>
+            <p className="text-muted-foreground">Linking Batches Merged: <span className="font-semibold text-foreground">{cookBatch.selectedStageIds?.length || 1}</span></p>
+          </div>
+        )}
+        {isLinking && !cookBatch && (
+          <p className="text-sm text-destructive mt-1">⚠ No cook batch assembled — go back to build one.</p>
+        )}
       </div>
 
       {/* Batch summary (blending) */}
@@ -718,7 +804,7 @@ function FinalStep({ stage, capKey, stageLabel, resolvedBatches, form, saving, o
         <Button
           className="flex-1 gap-1 bg-chart-2 hover:bg-chart-2/90"
           onClick={onComplete}
-          disabled={saving}
+          disabled={saving || !canComplete}
         >
           <CheckCircle2 className="w-4 h-4" /> Complete {stageLabel}
         </Button>
