@@ -69,6 +69,7 @@ function buildMeasurementSteps(stage, product, capKey, spiceMixes, casingBuckets
         { key: "spice_mix_qty_lbs", label: "Spice Mix Amount (lbs)", type: "number" },
         { key: "water_amount_lbs", label: "Water Amount Added (lbs)", type: "number" },
         { key: "cure_amount_lbs", label: "Cure Added (lbs)", type: "number" },
+        { key: "output_lot_number", label: "Chopping Output Lot #", type: "text", placeholder: "e.g. CHOP-2024-001" },
       ],
     });
   }
@@ -95,6 +96,7 @@ function buildMeasurementSteps(stage, product, capKey, spiceMixes, casingBuckets
         { key: "temperature_c", label: "Internal Temp (°C)", type: "number" },
         { key: "duration_minutes", label: "Cook Time (minutes)", type: "number" },
         { key: "racks_count", label: "Rack Count", type: "number" },
+        { key: "output_lot_number", label: "Cooked Lot #", type: "text", placeholder: "e.g. COOK-2024-001" },
       ],
     });
   }
@@ -107,6 +109,7 @@ function buildMeasurementSteps(stage, product, capKey, spiceMixes, casingBuckets
         { key: "temperature_c", label: "Exit Temp (°C)", type: "number" },
         { key: "duration_minutes", label: "Chill Duration (minutes)", type: "number" },
         { key: "output_qty_lbs", label: "Output Qty (lbs)", type: "number" },
+        { key: "output_lot_number", label: "Chilled Lot #", type: "text", placeholder: "e.g. CHILL-2024-001" },
       ],
     });
   }
@@ -464,16 +467,30 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
           }
         }
 
-        // Unlock next stage
+        // Unlock next stage and pass lot traceability
         const allStages = await base44.entities.ProductionStage.filter({ order_id: stage.order_id });
         const nextStage = allStages.find(s => s.step_number === stage.step_number + 1);
         if (nextStage?.status === "locked") {
           const rawQty = updates.output_qty_lbs || stage.input_qty_lbs || 0;
           const nextInputQty = capKey === "cooking" ? parseFloat((rawQty * 0.8).toFixed(2)) : rawQty;
+          
+          // Determine lot number to pass forward
+          let nextInputLot = "";
+          if (capKey === "packaging") {
+            // From packaging: use the final FG lot number
+            nextInputLot = updates.lot_number || "";
+          } else if (capKey === "chopping" || capKey === "cooking" || capKey === "chilling") {
+            // From intermediate stages: use the output lot number if set, otherwise pass forward the cook batch lot
+            nextInputLot = updates.output_lot_number || stage.cook_batch_lot || stage.input_lot_number || "";
+          } else {
+            // From linking: use cook batch lot
+            nextInputLot = stage.cook_batch_lot || stage.input_lot_number || "";
+          }
+          
           await base44.entities.ProductionStage.update(nextStage.id, {
             status: "available",
             input_qty_lbs: nextInputQty,
-            input_lot_number: updates.lot_number || stage.cook_batch_lot || "",
+            input_lot_number: nextInputLot,
           });
         }
 

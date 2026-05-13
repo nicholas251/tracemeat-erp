@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CheckCircle2, Circle } from "lucide-react";
+import TraceabilityPath from "@/components/production/TraceabilityPath";
 
 const stageIcons = {
   blending: "🥩",
@@ -65,6 +66,9 @@ export default function ProductionOrderDetail({ open, onClose, order, onUpdate }
               <div className="flex justify-between"><span className="text-muted-foreground">Target Date:</span><span>{order.target_completion_date}</span></div>
             </CardContent>
           </Card>
+
+          {/* Lot Traceability */}
+          {order.stages && <TraceabilityPath stages={order.stages} />}
 
           {/* Production Pipeline */}
           <div className="space-y-3">
