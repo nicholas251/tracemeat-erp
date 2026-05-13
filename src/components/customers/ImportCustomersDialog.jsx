@@ -33,16 +33,25 @@ export default function ImportCustomersDialog({ open, onClose, onImported }) {
     setStatus("importing");
     setMessage("Processing and importing customers...");
 
-    const res = await base44.functions.invoke("importCustomers", { file_url });
+    let resData;
+    try {
+      const res = await base44.functions.invoke("importCustomers", { file_url });
+      resData = res.data;
+    } catch (err) {
+      const errData = err?.response?.data;
+      setStatus("error");
+      setMessage(errData?.error || err.message || "Import failed. Please check your file format.");
+      return;
+    }
 
-    if (res.data?.success) {
+    if (resData?.success) {
       setStatus("success");
-      setImportedCount(res.data.imported);
-      setMessage(`Successfully imported ${res.data.imported} customers.`);
+      setImportedCount(resData.imported);
+      setMessage(`Successfully imported ${resData.imported} customers.`);
       onImported();
     } else {
       setStatus("error");
-      setMessage(res.data?.error || "Import failed. Please check your file format.");
+      setMessage(resData?.error || "Import failed. Please check your file format.");
     }
   };
 
