@@ -27,6 +27,14 @@ export default function DailySales() {
     queryFn: () => base44.entities.FinishedGoodsBucket.list()
   });
 
+  const today = new Date().toISOString().split("T")[0];
+  const { data: todaysSales = [] } = useQuery({
+    queryKey: ["dailySales", today],
+    queryFn: () => base44.entities.DailySalesRecord.filter({ 
+      sales_date: today 
+    })
+  });
+
   const recordSalesMutation = useMutation({
     mutationFn: async ({ productId, quantityLbs }) => {
       const response = await base44.functions.invoke("recordDailySales", {
@@ -37,6 +45,7 @@ export default function DailySales() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["fg_buckets"] });
+      queryClient.invalidateQueries({ queryKey: ["dailySales", today] });
       setSelectedProduct(null);
       setSalesQty("");
     }
@@ -74,9 +83,12 @@ export default function DailySales() {
     }
   });
 
+  const logggedProductIds = new Set(todaysSales.map(s => s.product_id));
+
   const filteredProducts = products.filter(p =>
-    p.name.toLowerCase().includes(search.toLowerCase()) ||
-    p.sku?.toLowerCase().includes(search.toLowerCase())
+    (p.name.toLowerCase().includes(search.toLowerCase()) ||
+    p.sku?.toLowerCase().includes(search.toLowerCase())) &&
+    !logggedProductIds.has(p.id)
   );
 
   const handleLogSales = () => {
