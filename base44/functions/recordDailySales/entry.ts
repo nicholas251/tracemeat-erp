@@ -42,6 +42,15 @@ Deno.serve(async (req) => {
       cases_on_hand: newCases
     });
 
+    // Record daily sales for forecasting
+    const today = new Date().toISOString().split('T')[0];
+    await base44.entities.DailySalesRecord.create({
+      product_id: product_id,
+      product_name: bucket.product_name,
+      quantity_lbs: quantity_lbs,
+      sales_date: today
+    });
+
     // Update InventoryItem records to reflect deduction via lot FIFO
     const lotEntries = bucket.lots || [];
     let remainingToDeduct = quantity_lbs;

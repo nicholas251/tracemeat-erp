@@ -23,7 +23,8 @@ import {
   Briefcase,
   UserCheck,
   ClipboardList,
-  TrendingUp
+  TrendingUp,
+  Zap
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -51,6 +52,7 @@ const allNavItems = [
   { path: "/customers", label: "Customers", icon: UserCheck, roles: ["admin", "supervisor"] },
   { path: "/sales-orders", label: "Sales Orders", icon: ClipboardList, roles: ["admin", "supervisor", "warehouse_operator"] },
   { path: "/daily-sales", label: "Daily Sales", icon: TrendingUp, roles: ["admin", "supervisor", "warehouse_operator"] },
+  { path: "/forecast", label: "Forecast", icon: Zap, roles: ["admin", "supervisor", "warehouse_operator"] },
 ];
 
 export default function Sidebar({ collapsed, onToggle }) {

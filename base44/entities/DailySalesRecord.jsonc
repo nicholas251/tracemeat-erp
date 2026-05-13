@@ -1,0 +1,32 @@
+{
+  "name": "DailySalesRecord",
+  "type": "object",
+  "properties": {
+    "product_id": {
+      "type": "string",
+      "description": "Linked Product ID"
+    },
+    "product_name": {
+      "type": "string",
+      "description": "Product name for display"
+    },
+    "quantity_lbs": {
+      "type": "number",
+      "description": "Quantity sold in lbs"
+    },
+    "sales_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date of the sale"
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "product_id",
+    "product_name",
+    "quantity_lbs",
+    "sales_date"
+  ]
+}
