@@ -6,9 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Save, X, AlertCircle, Check } from "lucide-react";
+import { Plus, Save, X } from "lucide-react";
 import PageHeader from "@/components/shared/PageHeader";
-import { toast } from "sonner";
 
 export default function DailySales() {
   const [selectedProduct, setSelectedProduct] = useState(null);
@@ -34,14 +33,10 @@ export default function DailySales() {
       });
       return response.data;
     },
-    onSuccess: (data) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["fg_buckets"] });
       setSelectedProduct(null);
       setSalesQty("");
-      toast.success(`Logged ${data.quantity} lbs sold`);
-    },
-    onError: (error) => {
-      toast.error(error.message || "Failed to log sale");
     }
   });
 
@@ -108,26 +103,23 @@ export default function DailySales() {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                   <div className="space-y-2">
-                     <div className="flex justify-between text-sm">
-                       <span className="text-muted-foreground">On Hand:</span>
-                       <span className="font-semibold">{inventory.quantityLbs.toLocaleString()} lbs</span>
-                     </div>
-                     <div className="flex justify-between text-sm">
-                       <span className="text-muted-foreground">Cases:</span>
-                       <span className="font-semibold">{inventory.cases}</span>
-                     </div>
-                   </div>
-                   <div className="flex gap-2">
-                     <Button 
-                       onClick={() => setSelectedProduct(product)}
-                       className="flex-1"
-                       size="sm"
-                     >
-                       <Plus className="w-4 h-4 mr-1" /> Log Sales
-                     </Button>
-                   </div>
-                 </CardContent>
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">On Hand:</span>
+                      <span className="font-semibold">{inventory.quantityLbs.toLocaleString()} lbs</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Cases:</span>
+                      <span className="font-semibold">{inventory.cases}</span>
+                    </div>
+                  </div>
+                  <Button 
+                    onClick={() => setSelectedProduct(product)}
+                    className="w-full"
+                  >
+                    <Plus className="w-4 h-4 mr-2" /> Log Sales
+                  </Button>
+                </CardContent>
               </Card>
             );
           })}
@@ -135,62 +127,43 @@ export default function DailySales() {
       )}
 
       <Dialog open={!!selectedProduct} onOpenChange={open => !open && setSelectedProduct(null)}>
-         <DialogContent>
-           <DialogHeader>
-             <DialogTitle>Log Sales for {selectedProduct?.name}</DialogTitle>
-           </DialogHeader>
-           <div className="space-y-4">
-             {selectedProduct && (
-               <div className="bg-blue-50 border border-blue-200 p-3 rounded-md text-sm">
-                 <p className="text-blue-900 font-semibold">Available: {getProductInventory(selectedProduct.id).quantityLbs.toLocaleString()} lbs</p>
-               </div>
-             )}
-             <div className="space-y-2">
-               <label className="text-sm font-medium">Quantity Sold (lbs)</label>
-               <Input
-                 type="number"
-                 placeholder="Enter quantity..."
-                 value={salesQty}
-                 onChange={e => setSalesQty(e.target.value)}
-                 onKeyDown={e => e.key === "Enter" && handleLogSales()}
-                 min="0"
-                 step="0.1"
-                 autoFocus
-               />
-             </div>
-             {selectedProduct && (
-               <div className="space-y-2">
-                 <p className="text-xs font-medium text-muted-foreground">Quick Add:</p>
-                 <div className="grid grid-cols-4 gap-2">
-                   {[50, 100, 250, 500].map(qty => (
-                     <Button
-                       key={qty}
-                       variant="outline"
-                       size="sm"
-                       onClick={() => setSalesQty(qty.toString())}
-                       className="text-xs"
-                     >
-                       {qty}
-                     </Button>
-                   ))}
-                 </div>
-               </div>
-             )}
-           </div>
-           <DialogFooter>
-             <Button variant="outline" onClick={() => setSelectedProduct(null)}>
-               Cancel
-             </Button>
-             <Button 
-               onClick={handleLogSales}
-               disabled={!salesQty || parseFloat(salesQty) <= 0 || recordSalesMutation.isPending}
-             >
-               {recordSalesMutation.isPending ? "Saving..." : "Log Sale"} 
-               {!recordSalesMutation.isPending && <Check className="w-4 h-4 ml-2" />}
-             </Button>
-           </DialogFooter>
-         </DialogContent>
-       </Dialog>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Log Sales for {selectedProduct?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Quantity Sold (lbs)</label>
+              <Input
+                type="number"
+                placeholder="0"
+                value={salesQty}
+                onChange={e => setSalesQty(e.target.value)}
+                min="0"
+                step="0.1"
+                className="mt-2"
+              />
+            </div>
+            {selectedProduct && (
+              <div className="bg-muted p-3 rounded-md text-sm">
+                <p className="text-muted-foreground">Available: <span className="font-semibold">{getProductInventory(selectedProduct.id).quantityLbs.toLocaleString()} lbs</span></p>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSelectedProduct(null)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleLogSales}
+              disabled={!salesQty || parseFloat(salesQty) <= 0 || recordSalesMutation.isPending}
+            >
+              <Save className="w-4 h-4 mr-2" /> 
+              {recordSalesMutation.isPending ? "Saving..." : "Log Sale"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
