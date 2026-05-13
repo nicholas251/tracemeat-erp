@@ -58,15 +58,28 @@ Deno.serve(async (req) => {
       const shipTo1 = findCol(row, ['ship_to_1', 'ship_to']);
       const shipTo2 = findCol(row, ['ship_to_2']);
       const shipTo3 = findCol(row, ['ship_to_3']);
+      const shipTo4 = findCol(row, ['ship_to_4']);
+      const shipTo5 = findCol(row, ['ship_to_5']);
 
-      // Parse city/state/zip from shipTo3 or billTo3
+      // Parse city/state/zip — try shipTo3 (city), shipTo4 (state), shipTo5 (zip)
+      // OR parse from a single "City, ST ZIP" line
       let city = '', state = '', zip = '';
-      const cityStateLine = shipTo3 || billTo3 || '';
-      const csMatch = cityStateLine.match(/^([^,]+),?\s*([A-Z]{2})\s*(\d{5}(?:-\d{4})?)?/i);
-      if (csMatch) {
-        city = csMatch[1].trim();
-        state = csMatch[2].toUpperCase();
-        zip = csMatch[3] ? csMatch[3].trim() : '';
+      if (shipTo4 && /^[A-Z]{2}$/i.test(shipTo4.trim())) {
+        // Separate columns: shipTo3=city, shipTo4=state, shipTo5=zip
+        city = shipTo3.trim();
+        state = shipTo4.trim().toUpperCase();
+        zip = shipTo5.trim();
+      } else {
+        // Try parsing "City, ST ZIP" from shipTo3
+        const cityStateLine = shipTo3 || billTo3 || '';
+        const csMatch = cityStateLine.match(/^([^,]+),?\s*([A-Z]{2})\s*(\d{5}(?:-\d{4})?)?/i);
+        if (csMatch) {
+          city = csMatch[1].trim();
+          state = csMatch[2].toUpperCase();
+          zip = csMatch[3] ? csMatch[3].trim() : '';
+        } else if (cityStateLine) {
+          city = cityStateLine;
+        }
       }
 
       const activeStatus = findCol(row, ['active_status', 'status', 'active']);
@@ -77,7 +90,7 @@ Deno.serve(async (req) => {
         contact_name: '',
         email: findCol(row, ['main_email', 'email']),
         phone: findCol(row, ['main_phone', 'phone']),
-        address: shipTo2,
+        address: shipTo2 || billTo2,
         city,
         state,
         zip,
