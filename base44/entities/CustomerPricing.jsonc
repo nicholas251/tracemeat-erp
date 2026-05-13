@@ -1,0 +1,37 @@
+{
+  "name": "CustomerPricing",
+  "type": "object",
+  "properties": {
+    "customer_id": {
+      "type": "string",
+      "description": "Linked Customer ID"
+    },
+    "customer_name": {
+      "type": "string",
+      "description": "Customer name for display"
+    },
+    "product_id": {
+      "type": "string",
+      "description": "Linked Product ID"
+    },
+    "product_name": {
+      "type": "string",
+      "description": "Product name for display"
+    },
+    "price_per_case": {
+      "type": "number",
+      "description": "Price per case in USD"
+    },
+    "price_per_lb": {
+      "type": "number",
+      "description": "Price per lb in USD (used for variable weight products)"
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "customer_id",
+    "product_id"
+  ]
+}

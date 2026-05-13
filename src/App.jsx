@@ -26,6 +26,8 @@ import MyWork from './pages/MyWork';
 import UserManagement from './pages/UserManagement';
 import ProfileCreation from './pages/ProfileCreation';
 import WaitingForAccess from './pages/WaitingForAccess';
+import Customers from './pages/Customers';
+import SalesOrders from './pages/SalesOrders';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -72,6 +74,8 @@ const AuthenticatedApp = () => {
         <Route path="/floor-view" element={<FloorView />} />
         <Route path="/my-work" element={<MyWork />} />
         <Route path="/user-management" element={<UserManagement />} />
+        <Route path="/customers" element={<Customers />} />
+        <Route path="/sales-orders" element={<SalesOrders />} />
       </Route>
       <Route path="/signup" element={<ProfileCreation />} />
       <Route path="/waiting-for-access" element={<WaitingForAccess />} />

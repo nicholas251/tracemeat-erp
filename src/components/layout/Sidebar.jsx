@@ -20,7 +20,9 @@ import {
   Workflow,
   Users,
   Monitor,
-  Briefcase
+  Briefcase,
+  UserCheck,
+  ClipboardList
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -45,6 +47,8 @@ const allNavItems = [
   { path: "/raw-materials", label: "Raw Materials", icon: Warehouse, roles: ["admin", "supervisor", "quality_control", "warehouse_operator"] },
   { path: "/raw-inventory", label: "Raw Inventory", icon: Boxes, roles: ["admin", "supervisor", "quality_control", "warehouse_operator"] },
   { path: "/inventory", label: "Finished Goods", icon: Boxes, roles: ["admin", "supervisor", "quality_control", "warehouse_operator", "production_worker"] },
+  { path: "/customers", label: "Customers", icon: UserCheck, roles: ["admin", "supervisor"] },
+  { path: "/sales-orders", label: "Sales Orders", icon: ClipboardList, roles: ["admin", "supervisor", "warehouse_operator"] },
 ];
 
 export default function Sidebar({ collapsed, onToggle }) {

@@ -1,0 +1,115 @@
+{
+  "name": "SalesOrder",
+  "type": "object",
+  "properties": {
+    "order_number": {
+      "type": "string",
+      "description": "Unique sales order number"
+    },
+    "customer_id": {
+      "type": "string"
+    },
+    "customer_name": {
+      "type": "string"
+    },
+    "order_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "ship_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "confirmed",
+        "fulfilled",
+        "invoiced",
+        "cancelled"
+      ],
+      "default": "draft"
+    },
+    "line_items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "product_id": {
+            "type": "string"
+          },
+          "product_name": {
+            "type": "string"
+          },
+          "sku": {
+            "type": "string"
+          },
+          "cases_qty": {
+            "type": "number",
+            "description": "Number of cases"
+          },
+          "case_weight_lbs": {
+            "type": "number",
+            "description": "Weight per case in lbs (fixed or entered)"
+          },
+          "total_lbs": {
+            "type": "number",
+            "description": "Total lbs = cases_qty * case_weight_lbs"
+          },
+          "price_per_case": {
+            "type": "number"
+          },
+          "price_per_lb": {
+            "type": "number"
+          },
+          "line_total": {
+            "type": "number"
+          },
+          "is_variable_weight": {
+            "type": "boolean",
+            "default": false
+          },
+          "fulfilled_lots": {
+            "type": "array",
+            "description": "Inventory lots used to fulfill this line",
+            "items": {
+              "type": "object",
+              "properties": {
+                "inventory_item_id": {
+                  "type": "string"
+                },
+                "lot_number": {
+                  "type": "string"
+                },
+                "batch_number": {
+                  "type": "string"
+                },
+                "qty_lbs_taken": {
+                  "type": "number"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "total_amount": {
+      "type": "number"
+    },
+    "notes": {
+      "type": "string"
+    },
+    "fulfilled_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "fulfilled_by": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "customer_id",
+    "order_date"
+  ]
+}
