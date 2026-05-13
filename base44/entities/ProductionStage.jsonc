@@ -85,6 +85,14 @@
     "spice_mix_qty_lbs": {
       "type": "number"
     },
+    "spice_mix_lot_number": {
+      "type": "string",
+      "description": "Lot number of the kitted spice mix batch (chopping stage)"
+    },
+    "cure_lot_number": {
+      "type": "string",
+      "description": "Lot number of the cure ingredient used (chopping stage)"
+    },
     "temperature_c": {
       "type": "number"
     },

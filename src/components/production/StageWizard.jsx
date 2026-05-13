@@ -66,9 +66,12 @@ function buildMeasurementSteps(stage, product, capKey, spiceMixes, casingBuckets
       fields: [
         { key: "input_lot_confirmed", label: `Confirm blend lot ${stage?.input_lot_number || "N/A"} added to bowl?`, type: "boolean" },
         { key: "spice_mix_id", label: "Spice Mix", type: "spice_select", options: spiceMixes },
+        { key: "spice_mix_lot_number", label: "Spice Mix Lot #", type: "text", placeholder: "e.g. SPICE-LOT-2024-001" },
         { key: "spice_mix_qty_lbs", label: "Spice Mix Amount (lbs)", type: "number" },
-        { key: "water_amount_lbs", label: "Water Amount Added (lbs)", type: "number" },
+        { key: "cure_lot_number", label: "Cure Lot #", type: "text", placeholder: "e.g. CURE-LOT-2024-001" },
         { key: "cure_amount_lbs", label: "Cure Added (lbs)", type: "number" },
+        { key: "water_amount_lbs", label: "Water Amount Added (lbs)", type: "number" },
+        { key: "output_qty_lbs", label: "Output Qty (lbs)", type: "number" },
         { key: "output_lot_number", label: "Chopping Output Lot #", type: "text", placeholder: "e.g. CHOP-2024-001" },
       ],
     });
