@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
-const empty = { name: "", contact_name: "", email: "", phone: "", address: "", city: "", state: "", zip: "", notes: "", status: "active" };
+const empty = { name: "", contact_name: "", email: "", phone: "", address: "", city: "", state: "", zip: "", billing_address: "", notes: "", status: "active" };
 
 export default function CustomerFormDialog({ open, customer, onClose, onSaved }) {
   const [form, setForm] = useState(empty);
@@ -63,6 +63,10 @@ export default function CustomerFormDialog({ open, customer, onClose, onSaved })
           <div className="col-span-2">
             <Label>Address</Label>
             <Input value={form.address} onChange={e => set("address", e.target.value)} />
+          </div>
+          <div className="col-span-2">
+            <Label>Billing Address</Label>
+            <Textarea value={form.billing_address} onChange={e => set("billing_address", e.target.value)} rows={2} placeholder="Full billing address" />
           </div>
           <div className="col-span-2">
             <Label>Notes</Label>

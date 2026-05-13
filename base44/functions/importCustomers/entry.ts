@@ -53,7 +53,9 @@ Deno.serve(async (req) => {
       const billTo1 = findCol(row, ['bill_to_1', 'bill_to']);
       const billTo2 = findCol(row, ['bill_to_2']);
       const billTo3 = findCol(row, ['bill_to_3']);
-      const billParts = [billTo1, billTo2, billTo3].filter(Boolean).join('\n');
+      const billTo4 = findCol(row, ['bill_to_4']);
+      const billTo5 = findCol(row, ['bill_to_5']);
+      const billParts = [billTo1, billTo2, billTo3, billTo4, billTo5].filter(Boolean).join('\n');
 
       const shipTo1 = findCol(row, ['ship_to_1', 'ship_to']);
       const shipTo2 = findCol(row, ['ship_to_2']);

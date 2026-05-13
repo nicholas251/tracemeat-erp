@@ -18,7 +18,8 @@ export default function CustomersTable({ customers, isLoading, onEdit, onPricing
           <tr>
             <th className="text-left px-4 py-3 font-medium">Customer</th>
             <th className="text-left px-4 py-3 font-medium">Contact</th>
-            <th className="text-left px-4 py-3 font-medium">Address</th>
+            <th className="text-left px-4 py-3 font-medium">Ship Address</th>
+            <th className="text-left px-4 py-3 font-medium">Bill Address</th>
             <th className="text-left px-4 py-3 font-medium">Email</th>
             <th className="text-left px-4 py-3 font-medium">Phone</th>
             <th className="text-left px-4 py-3 font-medium">Status</th>
@@ -32,6 +33,9 @@ export default function CustomersTable({ customers, isLoading, onEdit, onPricing
               <td className="px-4 py-3 text-muted-foreground">{c.contact_name || "—"}</td>
               <td className="px-4 py-3 text-muted-foreground text-xs">
                 {[c.address, c.city, c.state].filter(Boolean).join(', ') || "—"}
+              </td>
+              <td className="px-4 py-3 text-muted-foreground text-xs whitespace-pre-line">
+                {c.billing_address || "—"}
               </td>
               <td className="px-4 py-3 text-muted-foreground">{c.email || "—"}</td>
               <td className="px-4 py-3 text-muted-foreground">{c.phone || "—"}</td>
