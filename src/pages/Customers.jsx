@@ -2,15 +2,17 @@ import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Plus, Upload } from "lucide-react";
 import CustomerFormDialog from "@/components/customers/CustomerFormDialog";
 import CustomerPricingDialog from "@/components/customers/CustomerPricingDialog";
 import CustomersTable from "@/components/customers/CustomersTable";
+import ImportCustomersDialog from "@/components/customers/ImportCustomersDialog";
 
 export default function Customers() {
   const queryClient = useQueryClient();
   const [formOpen, setFormOpen] = useState(false);
   const [pricingOpen, setPricingOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [selected, setSelected] = useState(null);
 
   const { data: customers = [], isLoading } = useQuery({
@@ -36,9 +38,14 @@ export default function Customers() {
           <h1 className="text-2xl font-bold text-foreground">Customers</h1>
           <p className="text-muted-foreground text-sm mt-1">Manage customers and their product pricing</p>
         </div>
-        <Button onClick={handleNew}>
-          <Plus className="w-4 h-4 mr-2" /> New Customer
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setImportOpen(true)}>
+            <Upload className="w-4 h-4 mr-2" /> Import
+          </Button>
+          <Button onClick={handleNew}>
+            <Plus className="w-4 h-4 mr-2" /> New Customer
+          </Button>
+        </div>
       </div>
 
       <CustomersTable
@@ -54,6 +61,12 @@ export default function Customers() {
         customer={selected}
         onClose={handleClose}
         onSaved={() => { queryClient.invalidateQueries({ queryKey: ["customers"] }); handleClose(); }}
+      />
+
+      <ImportCustomersDialog
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        onImported={() => { queryClient.invalidateQueries({ queryKey: ["customers"] }); setImportOpen(false); }}
       />
 
       {selected && (
