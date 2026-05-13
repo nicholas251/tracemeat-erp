@@ -374,23 +374,80 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
 
         await base44.entities.ProductionStage.update(stage.id, updates);
 
-        // If this is packaging: create a finished goods InventoryItem with a new FG lot number
+        // If this is packaging: push into the FG bucket AND create an InventoryItem lot
         if (capKey === "packaging") {
           const order = await base44.entities.ProductionOrder.filter({ id: stage.order_id }).then(r => r?.[0]);
           if (order) {
-            // Generate FG lot number: FG-YYYYMMDD-ORDERNUM-random
             const today = new Date();
             const datePart = today.toISOString().slice(0, 10).replace(/-/g, "");
             const rand = Math.floor(Math.random() * 900 + 100);
-            const fgLot = `FG-${datePart}-${(order.order_number || "").replace(/\D/g, "").slice(-4)}-${rand}`;
+            const fgLot = updates.lot_number || `FG-${datePart}-${(order.order_number || "").replace(/\D/g, "").slice(-4)}-${rand}`;
 
             const outputLbs = updates.output_qty_lbs || stage.input_qty_lbs || 0;
+            const packagesProduced = updates.packages_produced || 0;
             const today_str = today.toISOString().slice(0, 10);
 
+            // Find the product to get shelf life and case weight
+            const product = await base44.entities.Product.filter({ id: order.product_id }).then(r => r?.[0]);
+            const shelfLifeDays = product?.shelf_life_days || null;
+            const caseWeightLbs = product?.case_weight_lbs || null;
+            const expiryDate = shelfLifeDays
+              ? new Date(today.getTime() + shelfLifeDays * 86400000).toISOString().slice(0, 10)
+              : null;
+
+            // Calculate cases from packages if case info available
+            const packagesPerCase = product?.packages_per_case || null;
+            const casesProduced = packagesPerCase && packagesProduced
+              ? Math.floor(packagesProduced / packagesPerCase)
+              : (caseWeightLbs && outputLbs ? parseFloat((outputLbs / caseWeightLbs).toFixed(2)) : 0);
+
+            // 1. Push into FinishedGoodsBucket (find or create)
+            const existingBuckets = await base44.entities.FinishedGoodsBucket.filter({ product_id: order.product_id });
+            const bucket = existingBuckets[0];
+            if (bucket) {
+              const newLots = [...(bucket.lots || []), {
+                lot_number: fgLot,
+                production_date: today_str,
+                expiry_date: expiryDate,
+                quantity_lbs: outputLbs,
+                cases: casesProduced,
+                order_number: order.order_number || "",
+                status: "available",
+              }];
+              await base44.entities.FinishedGoodsBucket.update(bucket.id, {
+                quantity_lbs: (bucket.quantity_lbs || 0) + outputLbs,
+                cases_on_hand: (bucket.cases_on_hand || 0) + casesProduced,
+                lots: newLots,
+              });
+            } else {
+              // Create bucket on the fly if missing
+              await base44.entities.FinishedGoodsBucket.create({
+                product_id: order.product_id || "",
+                product_name: stage.product_name || order.product_name || "",
+                sku: product?.sku || "",
+                product_number: product?.product_number || "",
+                category: product?.category || "",
+                quantity_lbs: outputLbs,
+                cases_on_hand: casesProduced,
+                case_weight_lbs: caseWeightLbs,
+                lots: [{
+                  lot_number: fgLot,
+                  production_date: today_str,
+                  expiry_date: expiryDate,
+                  quantity_lbs: outputLbs,
+                  cases: casesProduced,
+                  order_number: order.order_number || "",
+                  status: "available",
+                }],
+                status: "active",
+              });
+            }
+
+            // 2. Also create InventoryItem for lot-level traceability
             await base44.entities.InventoryItem.create({
               product_id: order.product_id || "",
               product_name: stage.product_name || order.product_name || "",
-              sku: order.sku || "",
+              sku: product?.sku || order.sku || "",
               batch_id: stage.order_id,
               batch_number: order.order_number || "",
               lot_number: fgLot,
@@ -398,10 +455,12 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
               original_quantity_lbs: outputLbs,
               status: "available",
               production_date: today_str,
+              expiry_date: expiryDate,
               notes: `Created from packaging stage. Cook batch: ${stage.cook_batch_lot || stage.input_lot_number || ""}`,
             });
 
             queryClient.invalidateQueries({ queryKey: ["inventory"] });
+            queryClient.invalidateQueries({ queryKey: ["fg_buckets"] });
           }
         }
 

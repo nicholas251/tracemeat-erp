@@ -1,0 +1,91 @@
+{
+  "name": "FinishedGoodsBucket",
+  "type": "object",
+  "properties": {
+    "product_id": {
+      "type": "string",
+      "description": "Linked Product ID"
+    },
+    "product_name": {
+      "type": "string",
+      "description": "Product name for display"
+    },
+    "sku": {
+      "type": "string",
+      "description": "Product SKU"
+    },
+    "product_number": {
+      "type": "string",
+      "description": "Product number"
+    },
+    "category": {
+      "type": "string",
+      "description": "Product category"
+    },
+    "quantity_lbs": {
+      "type": "number",
+      "description": "Current quantity on hand in lbs",
+      "default": 0
+    },
+    "cases_on_hand": {
+      "type": "number",
+      "description": "Current cases on hand",
+      "default": 0
+    },
+    "case_weight_lbs": {
+      "type": "number",
+      "description": "Weight per case in lbs (from product)"
+    },
+    "lots": {
+      "type": "array",
+      "description": "Individual lot entries in this bucket (FIFO)",
+      "items": {
+        "type": "object",
+        "properties": {
+          "lot_number": {
+            "type": "string"
+          },
+          "production_date": {
+            "type": "string"
+          },
+          "expiry_date": {
+            "type": "string"
+          },
+          "quantity_lbs": {
+            "type": "number"
+          },
+          "cases": {
+            "type": "number"
+          },
+          "order_number": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "available",
+              "reserved",
+              "shipped",
+              "expired"
+            ]
+          }
+        }
+      }
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "inactive"
+      ],
+      "default": "active"
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "product_id",
+    "product_name"
+  ]
+}

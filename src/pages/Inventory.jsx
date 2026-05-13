@@ -15,6 +15,7 @@ import StatusBadge from "@/components/shared/StatusBadge";
 import InventoryAdjustDialog from "@/components/inventory/InventoryAdjustDialog";
 import RawInventoryAdjustDialog from "@/components/inventory/RawInventoryAdjustDialog";
 import MaterialParDashboard from "@/components/inventory/MaterialParDashboard";
+import FGBucketsView from "@/components/inventory/FGBucketsView";
 
 export default function Inventory() {
   const [statusFilter, setStatusFilter] = useState("all");
@@ -179,7 +180,10 @@ export default function Inventory() {
             <Package className="w-4 h-4" /> Raw Materials
           </TabsTrigger>
           <TabsTrigger value="finished" className="flex items-center gap-2">
-            <Boxes className="w-4 h-4" /> Finished Goods
+            <Boxes className="w-4 h-4" /> FG Buckets
+          </TabsTrigger>
+          <TabsTrigger value="fg_lots" className="flex items-center gap-2">
+            <Package className="w-4 h-4" /> FG Lots
           </TabsTrigger>
         </TabsList>
 
@@ -311,8 +315,13 @@ export default function Inventory() {
                         )}
                         </TabsContent>
 
-                        {/* FINISHED GOODS TAB */}
+                        {/* FG BUCKETS TAB */}
         <TabsContent value="finished">
+          <FGBucketsView />
+        </TabsContent>
+
+        {/* FG LOTS TAB (legacy lot-level view) */}
+        <TabsContent value="fg_lots">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
             <Card className="p-4">
               <p className="text-xs text-muted-foreground uppercase tracking-wide">Total Available</p>
