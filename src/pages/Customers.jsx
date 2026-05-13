@@ -17,7 +17,7 @@ export default function Customers() {
 
   const { data: customers = [], isLoading } = useQuery({
     queryKey: ["customers"],
-    queryFn: () => base44.entities.Customer.list("-created_date"),
+    queryFn: () => base44.entities.Customer.list("name"),
   });
 
   const deleteMutation = useMutation({
