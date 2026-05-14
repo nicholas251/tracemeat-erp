@@ -710,6 +710,17 @@ function BatchConfirmStep({ batch, batchIdx, totalBatches, progressPct, onUpdate
                       <CheckCircle2 className="w-3.5 h-3.5" /> Confirm
                     </Button>
                   )}
+                  {ing.actual_lbs > 0 && ing.actual_lbs < ing.required_lbs && !ing.confirmed && (
+                    <div className="space-y-1">
+                      <Label className="text-xs text-amber-600">Reason for short quantity</Label>
+                      <Textarea
+                        value={ing.notes || ""}
+                        onChange={e => onUpdateIngredient(batchIdx, ingIdx, "notes", e.target.value)}
+                        placeholder="e.g. scale variance, partial lot used..."
+                        className="h-16 text-xs"
+                      />
+                    </div>
+                  )}
                   {!ing.lot_number && !ing.confirmed && (
                     <p className="text-xs text-destructive flex items-center gap-1">
                       <AlertCircle className="w-3 h-3" /> Lot code required

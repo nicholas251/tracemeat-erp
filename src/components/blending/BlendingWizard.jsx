@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { CheckCircle2, ChevronRight, ChevronLeft, Play, Package, AlertCircle } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 
 function buildBatches(stage, product) {
   const totalLbs = stage.input_qty_lbs || 0;
@@ -245,6 +246,17 @@ export default function BlendingWizard({ stage, open, onClose, onCompleted }) {
                       >
                         <CheckCircle2 className="w-3.5 h-3.5" /> Confirm
                       </Button>
+                    )}
+                    {ing.actual_lbs > 0 && ing.actual_lbs < ing.required_lbs && !ing.confirmed && (
+                      <div className="space-y-1">
+                        <Label className="text-xs text-amber-600">Reason for short quantity</Label>
+                        <Textarea
+                          value={ing.notes || ""}
+                          onChange={e => updateIngredient(step - 1, ingIdx, "notes", e.target.value)}
+                          placeholder="e.g. scale variance, partial lot used..."
+                          className="h-16 text-xs"
+                        />
+                      </div>
                     )}
                     {!ing.lot_number && !ing.confirmed && (
                       <p className="text-xs text-destructive flex items-center gap-1">
