@@ -236,20 +236,9 @@ export default function BlendingWizard({ stage, open, onClose, onCompleted }) {
                         )}
                       </div>
                     </div>
-                    {!ing.confirmed && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="w-full text-xs gap-1 mt-1"
-                        disabled={!ing.lot_number || !ing.actual_lbs || ing.actual_lbs > ing.required_lbs}
-                        onClick={() => confirmIngredient(step - 1, ingIdx)}
-                      >
-                        <CheckCircle2 className="w-3.5 h-3.5" /> Confirm
-                      </Button>
-                    )}
                     {ing.actual_lbs > 0 && ing.actual_lbs < ing.required_lbs && !ing.confirmed && (
                       <div className="space-y-1">
-                        <Label className="text-xs text-amber-600">Reason for short quantity</Label>
+                        <Label className="text-xs text-amber-600">Reason for short quantity <span className="text-destructive">*</span></Label>
                         <Textarea
                           value={ing.notes || ""}
                           onChange={e => updateIngredient(step - 1, ingIdx, "notes", e.target.value)}
@@ -257,6 +246,17 @@ export default function BlendingWizard({ stage, open, onClose, onCompleted }) {
                           className="h-16 text-xs"
                         />
                       </div>
+                    )}
+                    {!ing.confirmed && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="w-full text-xs gap-1 mt-1"
+                        disabled={!ing.lot_number || !ing.actual_lbs || ing.actual_lbs > ing.required_lbs || (ing.actual_lbs < ing.required_lbs && !ing.notes?.trim())}
+                        onClick={() => confirmIngredient(step - 1, ingIdx)}
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5" /> Confirm
+                      </Button>
                     )}
                     {!ing.lot_number && !ing.confirmed && (
                       <p className="text-xs text-destructive flex items-center gap-1">
