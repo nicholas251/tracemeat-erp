@@ -689,12 +689,14 @@ function BatchConfirmStep({ batch, batchIdx, totalBatches, progressPct, onUpdate
                      <Input
                        type="number"
                        step="0.1"
-                       max={ing.required_lbs}
                        value={ing.actual_lbs}
                        disabled={ing.confirmed}
-                       onChange={e => onUpdateIngredient(batchIdx, ingIdx, "actual_lbs", Math.min(Number(e.target.value), ing.required_lbs))}
-                       className="h-8 text-sm"
+                       onChange={e => onUpdateIngredient(batchIdx, ingIdx, "actual_lbs", Number(e.target.value))}
+                       className={`h-8 text-sm ${ing.actual_lbs > ing.required_lbs ? "border-destructive text-destructive focus-visible:ring-destructive" : ""}`}
                      />
+                     {ing.actual_lbs > ing.required_lbs && (
+                       <p className="text-xs text-destructive">Exceeds max of {ing.required_lbs} lbs</p>
+                     )}
                     </div>
                   </div>
                   {!ing.confirmed && (
@@ -702,7 +704,7 @@ function BatchConfirmStep({ batch, batchIdx, totalBatches, progressPct, onUpdate
                       size="sm"
                       variant="outline"
                       className="w-full text-xs gap-1 mt-1"
-                      disabled={!ing.lot_number || !ing.actual_lbs}
+                      disabled={!ing.lot_number || !ing.actual_lbs || ing.actual_lbs > ing.required_lbs}
                       onClick={() => onConfirmIngredient(batchIdx, ingIdx)}
                     >
                       <CheckCircle2 className="w-3.5 h-3.5" /> Confirm
