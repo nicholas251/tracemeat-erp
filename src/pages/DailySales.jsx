@@ -159,8 +159,23 @@ export default function DailySales() {
         </div>
       ) : filteredProducts.length === 0 ? (
         <Card className="p-12 text-center">
-          <h3 className="text-lg font-semibold mb-1">No products found</h3>
-          <p className="text-sm text-muted-foreground">Create active products to log sales.</p>
+          {search ? (
+            <>
+              <h3 className="text-lg font-semibold mb-1">No products found</h3>
+              <p className="text-sm text-muted-foreground">No products match your search.</p>
+            </>
+          ) : logggedProductIds.size > 0 ? (
+            <>
+              <div className="text-4xl mb-3">✅</div>
+              <h3 className="text-lg font-semibold mb-1">All sales logged for today!</h3>
+              <p className="text-sm text-muted-foreground">Tiles will reappear tomorrow for the next day's entry.</p>
+            </>
+          ) : (
+            <>
+              <h3 className="text-lg font-semibold mb-1">No active products</h3>
+              <p className="text-sm text-muted-foreground">Create active products to log sales.</p>
+            </>
+          )}
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
