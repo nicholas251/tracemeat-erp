@@ -221,13 +221,14 @@ export default function BlendingWizard({ stage, open, onClose, onCompleted }) {
                         />
                       </div>
                       <div className="space-y-1">
-                        <Label className="text-xs">Actual Qty (lbs)</Label>
+                        <Label className="text-xs">Actual Qty (lbs) <span className="text-muted-foreground font-normal">max {ing.required_lbs}</span></Label>
                         <Input
                           type="number"
                           step="0.1"
+                          max={ing.required_lbs}
                           value={ing.actual_lbs}
                           disabled={ing.confirmed}
-                          onChange={e => updateIngredient(step - 1, ingIdx, "actual_lbs", Number(e.target.value))}
+                          onChange={e => updateIngredient(step - 1, ingIdx, "actual_lbs", Math.min(Number(e.target.value), ing.required_lbs))}
                           className="h-8 text-sm"
                         />
                       </div>

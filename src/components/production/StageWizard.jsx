@@ -685,15 +685,16 @@ function BatchConfirmStep({ batch, batchIdx, totalBatches, progressPct, onUpdate
                       />
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-xs">Actual Qty (lbs)</Label>
-                      <Input
-                        type="number"
-                        step="0.1"
-                        value={ing.actual_lbs}
-                        disabled={ing.confirmed}
-                        onChange={e => onUpdateIngredient(batchIdx, ingIdx, "actual_lbs", Number(e.target.value))}
-                        className="h-8 text-sm"
-                      />
+                     <Label className="text-xs">Actual Qty (lbs) <span className="text-muted-foreground font-normal">max {ing.required_lbs}</span></Label>
+                     <Input
+                       type="number"
+                       step="0.1"
+                       max={ing.required_lbs}
+                       value={ing.actual_lbs}
+                       disabled={ing.confirmed}
+                       onChange={e => onUpdateIngredient(batchIdx, ingIdx, "actual_lbs", Math.min(Number(e.target.value), ing.required_lbs))}
+                       className="h-8 text-sm"
+                     />
                     </div>
                   </div>
                   {!ing.confirmed && (
