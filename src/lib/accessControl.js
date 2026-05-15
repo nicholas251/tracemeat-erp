@@ -8,6 +8,7 @@ const SUPERVISOR_PROFILE_NAMES = ["Supervisor"];
 const ADMIN_OR_SUPERVISOR_NAMES = ["Admin", "Supervisor"];
 const WAREHOUSE_PROFILE_NAMES = ["Warehouse Operator"];
 const QUALITY_CONTROL_NAMES = ["Quality Control"];
+const TUMBLE_OPERATOR_NAMES = ["Tumble Operator"];
 
 /** True if user has an Admin work profile */
 export function isUserAdmin(profiles = []) {
@@ -27,6 +28,11 @@ export function isUserSupervisor(profiles = []) {
 /** True if user has a Quality Control work profile */
 export function isUserQualityControl(profiles = []) {
   return profiles.some(p => QUALITY_CONTROL_NAMES.includes(p.name));
+}
+
+/** True if user has a Tumble Operator work profile */
+export function isUserTumbleOperator(profiles = []) {
+  return profiles.some(p => TUMBLE_OPERATOR_NAMES.includes(p.name));
 }
 
 /** True if user's ONLY profile is Warehouse Operator */
@@ -64,6 +70,7 @@ export function getVisibleNavRoles(profiles = []) {
   if (isUserQualityControl(profiles)) roles.add("quality_control");
   if (isUserWarehouseOnly(profiles)) roles.add("warehouse_operator");
   if (isUserProductionWorker(profiles)) roles.add("production_worker");
+  if (isUserTumbleOperator(profiles)) roles.add("tumble_operator");
 
   return roles;
 }

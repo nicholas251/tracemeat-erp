@@ -31,14 +31,14 @@ import { cn } from "@/lib/utils";
 import { getVisibleNavRoles } from "@/lib/accessControl";
 
 const allNavItems = [
-  { path: "/", label: "Dashboard", icon: LayoutDashboard, roles: ["admin", "supervisor", "quality_control", "production_worker"] },
+  { path: "/", label: "Dashboard", icon: LayoutDashboard, roles: ["admin", "supervisor", "quality_control", "production_worker", "tumble_operator"] },
   { path: "/my-work", label: "My Work", icon: Briefcase, roles: ["all"] },
   { path: "/suppliers", label: "Suppliers", icon: Building2, roles: ["admin", "supervisor", "quality_control"] },
   { path: "/purchase-orders", label: "Purchase Orders", icon: ShoppingCart, roles: ["admin", "supervisor", "quality_control", "warehouse_operator"] },
   { path: "/receiving", label: "Receiving", icon: Truck, roles: ["admin", "supervisor", "quality_control", "warehouse_operator"] },
   { path: "/products", label: "Products", icon: Package, roles: ["admin", "supervisor", "quality_control", "production_worker"] },
   { path: "/recipes", label: "Recipes", icon: UtensilsCrossed, roles: ["admin", "supervisor", "quality_control"] },
-  { path: "/spice-mixes", label: "Spice Mixes", icon: Spline, roles: ["admin", "supervisor", "quality_control"] },
+  { path: "/spice-mixes", label: "Spice Mixes", icon: Spline, roles: ["admin", "supervisor", "quality_control", "tumble_operator"] },
   { path: "/flow-builder", label: "Flow Builder", icon: Workflow, roles: ["admin", "supervisor", "quality_control"] },
   { path: "/work-profiles", label: "Work Profiles", icon: Users, roles: ["admin", "supervisor", "quality_control"] },
   { path: "/user-management", label: "User Management", icon: Users, roles: ["admin", "supervisor", "quality_control"] },
@@ -46,7 +46,7 @@ const allNavItems = [
   { path: "/floor-view", label: "Floor View", icon: Monitor, roles: ["admin", "supervisor", "quality_control"] },
   { path: "/hold-release", label: "Hold & Release", icon: ShieldAlert, roles: ["admin", "supervisor", "quality_control", "production_worker"] },
   { path: "/traceability", label: "Traceability", icon: Search, roles: ["admin", "supervisor", "quality_control"] },
-  { path: "/raw-materials", label: "Raw Materials", icon: Warehouse, roles: ["admin", "supervisor", "quality_control", "warehouse_operator"] },
+  { path: "/raw-materials", label: "Raw Materials", icon: Warehouse, roles: ["admin", "supervisor", "quality_control", "warehouse_operator", "tumble_operator"] },
   { path: "/raw-inventory", label: "Raw Inventory", icon: Boxes, roles: ["admin", "supervisor", "quality_control", "warehouse_operator"] },
   { path: "/inventory", label: "Finished Goods", icon: Boxes, roles: ["admin", "supervisor", "quality_control", "warehouse_operator", "production_worker"] },
   { path: "/customers", label: "Customers", icon: UserCheck, roles: ["admin", "supervisor"] },
