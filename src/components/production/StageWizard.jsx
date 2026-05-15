@@ -23,6 +23,8 @@ const STAGE_ICONS = {
   chopping: FlaskConical,
   linking: Layers,
   racking: Layers,
+  tumble: Thermometer,
+  mixer: Package,
   cooking: Thermometer,
   chilling: Thermometer,
   packaging: Package,
@@ -93,6 +95,33 @@ function buildMeasurementSteps(stage, product, capKey, spiceMixes, casingBuckets
     // Cook batch assembly is handled via the separate cook_batch state, not a field step
   }
 
+  if (capKey === "tumble") {
+    steps.push({
+      id: "tumble",
+      label: "Tumbling",
+      fields: [
+        { key: "duration_minutes", label: "Tumble Duration (minutes)", type: "number" },
+        { key: "temperature_c", label: "Temperature (°C)", type: "number" },
+        { key: "output_qty_lbs", label: "Output Qty (lbs)", type: "number" },
+        { key: "output_lot_number", label: "Tumbled Lot #", type: "text", placeholder: "e.g. TUMBLE-2024-001" },
+        { key: "notes", label: "Notes / Observations", type: "textarea" },
+      ],
+    });
+  }
+
+  if (capKey === "mixer") {
+    steps.push({
+      id: "mixer",
+      label: "Mixing",
+      fields: [
+        { key: "duration_minutes", label: "Mix Duration (minutes)", type: "number" },
+        { key: "output_qty_lbs", label: "Output Qty (lbs)", type: "number" },
+        { key: "output_lot_number", label: "Mixed Lot #", type: "text", placeholder: "e.g. MIX-2024-001" },
+        { key: "notes", label: "Notes / Observations", type: "textarea" },
+      ],
+    });
+  }
+
   if (capKey === "racking") {
     steps.push({
       id: "racking",
@@ -146,7 +175,7 @@ function buildMeasurementSteps(stage, product, capKey, spiceMixes, casingBuckets
   }
 
   // Generic fallback for any capability not explicitly handled above
-  const knownKeys = ["chopping", "linking", "cooking", "chilling", "packaging", "racking"];
+  const knownKeys = ["chopping", "linking", "cooking", "chilling", "packaging", "racking", "tumble", "mixer"];
   if (!knownKeys.includes(capKey)) {
     steps.push({
       id: "generic",
