@@ -70,15 +70,20 @@ export default function ProductionOrders() {
         const flow = flows.find(f => f.id === data.flow_id);
         if (flow?.steps) {
             const sorted = [...flow.steps].sort((a, b) => a.step_number - b.step_number);
-            // Calculate total raw input needed for ALL batches — read yield % directly from product
+            // Calculate total raw input needed — supports both blending-based and tumble-based flows
             const product = products.find(p => p.id === data.product_id);
             let totalRawInputLbs = data.quantity_to_produce; // fallback
-            if (product?.blend_batch_lbs && product?.yield_percent) {
+            const firstStepKey = sorted[0]?.capability_key;
+            if (firstStepKey === "blending" && product?.blend_batch_lbs && product?.yield_percent) {
               const yieldPct = product.yield_percent;
               const chopBatchWeight = (product.blend_batch_lbs || 0) + (product.chop_water_lbs || 0) + (product.chop_spice_qty_lbs || 0) + (product.chop_cure_lbs || 0);
               const finishedPerBatch = chopBatchWeight > 0 ? chopBatchWeight * (yieldPct / 100) : product.blend_batch_lbs * ((yieldPct || 100) / 100);
               const numBatches = finishedPerBatch > 0 ? Math.ceil(data.quantity_to_produce / finishedPerBatch) : 1;
               totalRawInputLbs = product.blend_batch_lbs * numBatches;
+            } else if (firstStepKey === "tumble" || firstStepKey === "mixer") {
+              // For tumble/mixer-first flows: back-calculate raw input from yield
+              const yieldPct = product?.yield_percent;
+              totalRawInputLbs = yieldPct ? Math.ceil(data.quantity_to_produce / (yieldPct / 100)) : data.quantity_to_produce;
             }
 
             // Create stages

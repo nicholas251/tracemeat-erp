@@ -344,25 +344,39 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
         // Create chopping stage for this batch
         const order = await base44.entities.ProductionOrder.filter({ id: stage.order_id }).then(r => r?.[0]);
         if (order) {
+          // Prefer unlocking the already-created next stage (created at order time)
+          // rather than creating a duplicate stage
+          const allStages = await base44.entities.ProductionStage.filter({ order_id: stage.order_id });
           const nextStepNum = (stage.step_number || 1) + 1;
-          const nextFlow = await base44.entities.ProductionFlow.filter({ id: order.flow_id }).then(r => r?.[0]);
-          const nextStep = nextFlow?.steps?.find(s => s.step_number === nextStepNum);
+          const existingNextStage = allStages.find(s => s.step_number === nextStepNum);
 
-          if (nextStep) {
-            await base44.entities.ProductionStage.create({
-              order_id: stage.order_id,
-              order_number: stage.order_number,
-              product_name: stage.product_name,
-              step_number: nextStepNum,
-              capability_id: nextStep.capability_id,
-              capability_key: nextStep.capability_key,
-              capability_name: nextStep.capability_name,
-              work_profile_id: nextStep.work_profile_id,
-              work_profile_name: nextStep.work_profile_name,
+          if (existingNextStage && existingNextStage.status === "locked") {
+            await base44.entities.ProductionStage.update(existingNextStage.id, {
               status: "available",
               input_qty_lbs: currentBatch.batchLbs,
+              input_lot_number: currentBatch.outputLotNumber || "",
             });
+          } else if (!existingNextStage) {
+            // No pre-created stage exists — create one (legacy flows)
+            const nextFlow = await base44.entities.ProductionFlow.filter({ id: order.flow_id }).then(r => r?.[0]);
+            const nextStep = nextFlow?.steps?.find(s => s.step_number === nextStepNum);
+            if (nextStep) {
+              await base44.entities.ProductionStage.create({
+                order_id: stage.order_id,
+                order_number: stage.order_number,
+                product_name: stage.product_name,
+                step_number: nextStepNum,
+                capability_id: nextStep.capability_id,
+                capability_key: nextStep.capability_key,
+                capability_name: nextStep.capability_name,
+                work_profile_id: nextStep.work_profile_id,
+                work_profile_name: nextStep.work_profile_name,
+                status: "available",
+                input_qty_lbs: currentBatch.batchLbs,
+              });
+            }
           }
+          // If existingNextStage is already available/in_progress — multiple blending batches are running, do nothing
         }
 
         // Invalidate queries
@@ -611,13 +625,12 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
           // Determine lot number to pass forward
           let nextInputLot = "";
           if (capKey === "packaging") {
-            // From packaging: use the final FG lot number
             nextInputLot = updates.lot_number || "";
-          } else if (capKey === "chopping" || capKey === "cooking" || capKey === "chilling") {
-            // From intermediate stages: use the output lot number if set, otherwise pass forward the cook batch lot
+          } else if (capKey === "chopping" || capKey === "cooking" || capKey === "chilling" || capKey === "mixer" || capKey === "racking") {
+            // These stages produce an output lot number that feeds the next stage
             nextInputLot = updates.output_lot_number || stage.cook_batch_lot || stage.input_lot_number || "";
           } else {
-            // From linking: use cook batch lot
+            // Linking: use cook batch lot
             nextInputLot = stage.cook_batch_lot || stage.input_lot_number || "";
           }
           

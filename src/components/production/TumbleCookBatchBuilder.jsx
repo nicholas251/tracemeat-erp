@@ -184,8 +184,8 @@ function CookBatchRow({ batch, lotPrefix, index, product, onChange }) {
  *   onChange   – (cookPlan | null) => void
  */
 export default function TumbleCookBatchBuilder({ totalLbs, product, cookPlan, onChange }) {
-  const [lbsPerBatch, setLbsPerBatch] = useState(cookPlan?.lbsPerBatch || "");
-  const [lbsPerRack, setLbsPerRack] = useState(cookPlan?.lbsPerRack || "");
+  const [lbsPerBatch, setLbsPerBatch] = useState(cookPlan?.lbsPerBatch || product?.tumble_batch_lbs || "");
+  const [lbsPerRack, setLbsPerRack] = useState(cookPlan?.lbsPerRack || product?.tumble_lbs_per_rack || "");
   const [lotPrefix, setLotPrefix] = useState(cookPlan?.lotPrefix || "");
   const [batchRows, setBatchRows] = useState(null); // null = not yet built
 
