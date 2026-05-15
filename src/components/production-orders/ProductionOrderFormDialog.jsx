@@ -52,7 +52,7 @@ export default function ProductionOrderFormDialog({ open, onClose, onSave, order
   const selectedProduct = freshProductData || products.find(p => p.id === form.product_id);
   const caseWeightLbs = selectedProduct?.case_weight_lbs;
   const unitLabel = selectedProduct?.finished_product_unit || "cases";
-  const yieldPct = selectedProduct?.yield_percent; // read directly from product
+  const yieldPct = selectedProduct?.yield_percent;
 
   // finished goods target (what we want out)
   const finishedLbs = parseFloat(form.quantity_to_produce) || 0;
@@ -256,7 +256,7 @@ export default function ProductionOrderFormDialog({ open, onClose, onSave, order
                     </div>
                   </>
                 ) : (
-                  <p className="text-muted-foreground italic">Link a recipe with yield % to the product to calculate batch requirements.</p>
+                  <p className="text-muted-foreground italic">Set a yield % on the product to calculate batch requirements.</p>
                 )}
               </div>
             )}
@@ -265,12 +265,9 @@ export default function ProductionOrderFormDialog({ open, onClose, onSave, order
           {selectedProduct && rawInputLbs > 0 && (
             <InventoryShortageCheck
               product={selectedProduct}
-              recipe={{ ingredients: selectedProduct?.blend_ingredients || [] }}
               rawInputLbs={rawInputLbs}
               numBatches={numBlendBatches}
-              onProductUpdated={() => {
-                // re-derive selectedProduct from the updated list — parent will refetch
-              }}
+              onProductUpdated={() => {}}
             />
           )}
 

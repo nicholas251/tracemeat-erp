@@ -86,6 +86,7 @@ export default function ProductFormDialog({ open, onClose, onSave, product }) {
       shelf_life_days: form.shelf_life_days ? Number(form.shelf_life_days) : undefined,
       storage_temp_c: form.storage_temp_c ? Number(form.storage_temp_c) : undefined,
       blend_batch_lbs: form.blend_batch_lbs ? Number(form.blend_batch_lbs) : undefined,
+      yield_percent: form.yield_percent ? Number(form.yield_percent) : undefined,
       chop_spice_qty_lbs: form.chop_spice_qty_lbs ? Number(form.chop_spice_qty_lbs) : undefined,
       chop_water_lbs: form.chop_water_lbs ? Number(form.chop_water_lbs) : undefined,
       chop_cure_lbs: form.chop_cure_lbs ? Number(form.chop_cure_lbs) : undefined,
@@ -139,6 +140,11 @@ export default function ProductFormDialog({ open, onClose, onSave, product }) {
               <Label>Blend Batch Size (lbs protein)</Label>
               <Input type="number" step="0.1" value={form.blend_batch_lbs || ""} onChange={e => update("blend_batch_lbs", e.target.value)} placeholder="e.g. 240" />
               <p className="text-xs text-muted-foreground">Total protein weight per blending batch.</p>
+            </div>
+            <div className="space-y-2">
+              <Label>Yield %</Label>
+              <Input type="number" step="0.1" min="1" max="100" value={form.yield_percent || ""} onChange={e => update("yield_percent", e.target.value ? Number(e.target.value) : "")} placeholder="e.g. 95" />
+              <p className="text-xs text-muted-foreground">e.g. 95 means 1000 lbs in → 950 lbs finished product out.</p>
             </div>
             <div className="space-y-2">
               <Label>Spice Mix</Label>

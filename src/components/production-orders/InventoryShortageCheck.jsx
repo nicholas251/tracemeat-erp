@@ -143,7 +143,7 @@ function CureCasingConfigDialog({ open, onClose, product, allBuckets, onSaved })
   );
 }
 
-export default function InventoryShortageCheck({ product: productProp, recipe, rawInputLbs, numBatches, onProductUpdated }) {
+export default function InventoryShortageCheck({ product: productProp, rawInputLbs, numBatches, onProductUpdated }) {
   const queryClient = useQueryClient();
   const [createBucketFor, setCreateBucketFor] = useState(null);
   const [showCureCasingConfig, setShowCureCasingConfig] = useState(false);
@@ -185,8 +185,8 @@ export default function InventoryShortageCheck({ product: productProp, recipe, r
       .filter(lot => lot.bucket_id === bucketId && ["available", "in_use"].includes(lot.status))
       .reduce((s, l) => s + (l.available_qty || 0), 0);
 
-  // ── 1. Blending ingredients (from recipe) ──
-  const blendIngredients = recipe?.ingredients || [];
+  // ── 1. Blending ingredients (from product.blend_ingredients) ──
+  const blendIngredients = product.blend_ingredients || [];
   const recipeTotalLbs = blendIngredients.reduce((s, i) => s + (i.quantity_lbs || 0), 0);
   const blendRatio = recipeTotalLbs > 0 ? rawInputLbs / recipeTotalLbs : 1;
 

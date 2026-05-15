@@ -71,6 +71,10 @@
       ],
       "default": "lbs"
     },
+    "yield_percent": {
+      "type": "number",
+      "description": "Yield as a percentage (e.g. 95 means 95% \u2014 1000 lbs in \u2192 950 lbs out)"
+    },
     "blend_batch_lbs": {
       "type": "number",
       "description": "Total protein batch size in lbs (blending step)"
