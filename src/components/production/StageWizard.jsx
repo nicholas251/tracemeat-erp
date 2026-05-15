@@ -16,6 +16,7 @@ import {
   Package, Thermometer, Clock, Layers, Scale, AlertCircle, FlaskConical
 } from "lucide-react";
 import LinkingCookBatchBuilder from "./LinkingCookBatchBuilder";
+import TumbleCookBatchBuilder from "./TumbleCookBatchBuilder";
 
 // ─── Stage icon map ───────────────────────────────────────────────────────────
 const STAGE_ICONS = {
@@ -102,9 +103,7 @@ function buildMeasurementSteps(stage, product, capKey, spiceMixes, casingBuckets
       fields: [
         { key: "duration_minutes", label: "Tumble Duration (minutes)", type: "number" },
         { key: "temperature_c", label: "Temperature (°C)", type: "number" },
-        { key: "output_qty_lbs", label: "Output Qty (lbs)", type: "number" },
-        { key: "output_lot_number", label: "Tumbled Lot #", type: "text", placeholder: "e.g. TUMBLE-2024-001" },
-        { key: "notes", label: "Notes / Observations", type: "textarea" },
+        // output qty / lot / cook batch plan handled by TumbleCookBatchBuilder embedded in MeasureStep
       ],
     });
   }
@@ -207,6 +206,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
   const [batches, setBatches] = useState(null);
   const [form, setForm] = useState({});
   const [cookBatch, setCookBatch] = useState(null); // for linking stage
+  const [cookPlan, setCookPlan] = useState(null);   // for tumble stage
   const [saving, setSaving] = useState(false);
   const queryClient = useQueryClient();
 
@@ -371,6 +371,48 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
         queryClient.invalidateQueries({ queryKey: ["blendingStages"] });
 
         // Close wizard after each batch completion
+        onCompleted?.();
+        onClose();
+      } else if (capKey === "tumble" && cookPlan) {
+        // ── Tumble: complete stage, then create one cooking stage per cook batch ──
+        const totalOutputLbs = cookPlan.cookBatches.reduce((s, b) => s + b.lbs, 0);
+        await base44.entities.ProductionStage.update(stage.id, {
+          status: "completed",
+          completed_at: new Date().toISOString(),
+          output_qty_lbs: totalOutputLbs,
+          racks_count: cookPlan.cookBatches.reduce((s, b) => s + b.racks, 0),
+          ...form,
+        });
+
+        // Look up the cooking/smokehouse step in the flow
+        const order = await base44.entities.ProductionOrder.filter({ id: stage.order_id }).then(r => r?.[0]);
+        if (order) {
+          const nextFlow = await base44.entities.ProductFlow.filter({ id: order.flow_id }).then(r => r?.[0]);
+          const smokeStep = nextFlow?.steps?.find(s => s.capability_key === "cooking" || s.capability_key === "smokehouse");
+          if (smokeStep) {
+            for (const cb of cookPlan.cookBatches) {
+              await base44.entities.ProductionStage.create({
+                order_id: stage.order_id,
+                order_number: stage.order_number,
+                product_name: stage.product_name,
+                step_number: smokeStep.step_number,
+                capability_id: smokeStep.capability_id,
+                capability_key: smokeStep.capability_key,
+                capability_name: smokeStep.capability_name,
+                work_profile_id: smokeStep.work_profile_id,
+                work_profile_name: smokeStep.work_profile_name,
+                status: "available",
+                input_qty_lbs: cb.lbs,
+                racks_count: cb.racks,
+                cook_batch_lot: cb.lotNumber,
+                input_lot_number: cb.lotNumber,
+              });
+            }
+          }
+        }
+
+        queryClient.invalidateQueries({ queryKey: ["allStages"] });
+        queryClient.invalidateQueries({ queryKey: ["productionOrders"] });
         onCompleted?.();
         onClose();
       } else if (capKey === "linking" && cookBatch) {
@@ -632,6 +674,8 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
             stage={stage}
             cookBatch={cookBatch}
             setCookBatch={setCookBatch}
+            cookPlan={cookPlan}
+            setCookPlan={setCookPlan}
             onBack={() => setStep(s => s - 1)}
             onNext={() => setStep(s => s + 1)}
             isLast={step === totalMeasureSteps}
@@ -647,6 +691,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
             resolvedBatches={resolvedBatches}
             form={form}
             cookBatch={cookBatch}
+            cookPlan={cookPlan}
             saving={saving}
             onBack={() => setStep(lastStep - 1)}
             onComplete={handleComplete}
@@ -754,10 +799,10 @@ function BatchConfirmStep({ batch, batchIdx, totalBatches, progressPct, onUpdate
   );
 }
 
-function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form, setForm, spiceMixes, casingBuckets, capKey, stage, cookBatch, setCookBatch, onBack, onNext, isLast }) {
+function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form, setForm, spiceMixes, casingBuckets, capKey, stage, cookBatch, setCookBatch, cookPlan, setCookPlan, onBack, onNext, isLast }) {
   const isLinking = capKey === "linking" && stepDef.id === "linking";
-  // For linking: require a cook batch to be assembled before proceeding
-  const canProceed = isLinking ? !!cookBatch : true;
+  const isTumble = capKey === "tumble" && stepDef.id === "tumble";
+  const canProceed = isLinking ? !!cookBatch : isTumble ? !!cookPlan : true;
 
   return (
     <div className="space-y-4">
@@ -782,12 +827,21 @@ function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form, setFor
         ))}
       </div>
 
-      {/* Cook batch builder — only for the linking step */}
+      {/* Cook batch builder — linking step */}
       {isLinking && (
         <LinkingCookBatchBuilder
           stage={stage}
           cookBatch={cookBatch}
           onChange={setCookBatch}
+        />
+      )}
+
+      {/* Cook batch builder — tumble step */}
+      {isTumble && (
+        <TumbleCookBatchBuilder
+          totalLbs={stage?.input_qty_lbs || 0}
+          cookPlan={cookPlan}
+          onChange={setCookPlan}
         />
       )}
 
@@ -869,13 +923,17 @@ function FieldInput({ field, value, onChange, spiceMixes, casingBuckets = [], on
   );
 }
 
-function FinalStep({ stage, capKey, stageLabel, resolvedBatches, form, cookBatch, saving, onBack, onComplete }) {
+function FinalStep({ stage, capKey, stageLabel, resolvedBatches, form, cookBatch, cookPlan, saving, onBack, onComplete }) {
+  const isLinking = capKey === "linking";
+  const isTumble = capKey === "tumble";
+
   const outputLbs = resolvedBatches
     ? resolvedBatches.reduce((s, b) => s + b.batchLbs, 0)
-    : form.output_qty_lbs || stage?.input_qty_lbs || 0;
+    : isTumble && cookPlan
+      ? cookPlan.cookBatches.reduce((s, b) => s + b.lbs, 0)
+      : form.output_qty_lbs || stage?.input_qty_lbs || 0;
 
-  const isLinking = capKey === "linking";
-  const canComplete = isLinking ? !!cookBatch : true;
+  const canComplete = isLinking ? !!cookBatch : isTumble ? !!cookPlan : true;
 
   return (
     <div className="space-y-4">
@@ -893,6 +951,20 @@ function FinalStep({ stage, capKey, stageLabel, resolvedBatches, form, cookBatch
         )}
         {isLinking && !cookBatch && (
           <p className="text-sm text-destructive mt-1">⚠ No cook batch assembled — go back to build one.</p>
+        )}
+        {isTumble && cookPlan && (
+          <div className="mt-2 text-sm space-y-0.5">
+            <p className="text-muted-foreground">Cook Batches: <span className="font-semibold text-foreground">{cookPlan.cookBatches.length}</span></p>
+            <p className="text-muted-foreground">Total Racks: <span className="font-semibold text-foreground">{cookPlan.cookBatches.reduce((s, b) => s + b.racks, 0)}</span></p>
+            {cookPlan.cookBatches.map((b, i) => (
+              <p key={i} className="text-xs text-muted-foreground pl-2">
+                {b.lotNumber} — {b.racks} racks · {b.lbs} lbs
+              </p>
+            ))}
+          </div>
+        )}
+        {isTumble && !cookPlan && (
+          <p className="text-sm text-destructive mt-1">⚠ No cook batches configured — go back to build them.</p>
         )}
       </div>
 
