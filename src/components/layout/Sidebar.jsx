@@ -37,7 +37,6 @@ const allNavItems = [
   { path: "/purchase-orders", label: "Purchase Orders", icon: ShoppingCart, roles: ["admin", "supervisor", "quality_control", "warehouse_operator"] },
   { path: "/receiving", label: "Receiving", icon: Truck, roles: ["admin", "supervisor", "quality_control", "warehouse_operator"] },
   { path: "/products", label: "Products", icon: Package, roles: ["admin", "supervisor", "quality_control", "production_worker"] },
-  { path: "/recipes", label: "Recipes", icon: UtensilsCrossed, roles: ["admin", "supervisor", "quality_control"] },
   { path: "/spice-mixes", label: "Spice Mixes", icon: Spline, roles: ["admin", "supervisor", "quality_control", "tumble_operator"] },
   { path: "/flow-builder", label: "Flow Builder", icon: Workflow, roles: ["admin", "supervisor", "quality_control"] },
   { path: "/work-profiles", label: "Work Profiles", icon: Users, roles: ["admin", "supervisor", "quality_control"] },
