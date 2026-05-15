@@ -22,6 +22,7 @@ const STAGE_ICONS = {
   blending: Package,
   chopping: FlaskConical,
   linking: Layers,
+  racking: Layers,
   cooking: Thermometer,
   chilling: Thermometer,
   packaging: Package,
@@ -92,6 +93,19 @@ function buildMeasurementSteps(stage, product, capKey, spiceMixes, casingBuckets
     // Cook batch assembly is handled via the separate cook_batch state, not a field step
   }
 
+  if (capKey === "racking") {
+    steps.push({
+      id: "racking",
+      label: "Racking",
+      fields: [
+        { key: "racks_count", label: "Number of Racks", type: "number" },
+        { key: "output_qty_lbs", label: "Output Qty (lbs)", type: "number" },
+        { key: "output_lot_number", label: "Racked Lot #", type: "text", placeholder: "e.g. RACK-2024-001" },
+        { key: "notes", label: "Notes / Observations", type: "textarea" },
+      ],
+    });
+  }
+
   if (capKey === "cooking") {
     steps.push({
       id: "cook",
@@ -127,6 +141,20 @@ function buildMeasurementSteps(stage, product, capKey, spiceMixes, casingBuckets
         { key: "packages_produced", label: "Packages Produced", type: "number" },
         { key: "packaging_weight_lbs", label: "Avg Package Weight (lbs)", type: "number" },
         { key: "lot_number", label: "Finished Goods Lot #", type: "text" },
+      ],
+    });
+  }
+
+  // Generic fallback for any capability not explicitly handled above
+  const knownKeys = ["chopping", "linking", "cooking", "chilling", "packaging", "racking"];
+  if (!knownKeys.includes(capKey)) {
+    steps.push({
+      id: "generic",
+      label: "Stage Details",
+      fields: [
+        { key: "output_qty_lbs", label: "Output Qty (lbs)", type: "number" },
+        { key: "output_lot_number", label: "Output Lot #", type: "text", placeholder: "e.g. STAGE-2024-001" },
+        { key: "notes", label: "Notes / Observations", type: "textarea" },
       ],
     });
   }
