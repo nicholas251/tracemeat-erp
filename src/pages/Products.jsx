@@ -29,6 +29,11 @@ export default function Products() {
     queryFn: () => base44.entities.Product.list("-created_date"),
   });
 
+  const { data: flows = [] } = useQuery({
+    queryKey: ["flows"],
+    queryFn: () => base44.entities.ProductionFlow.list(),
+  });
+
   const { data: recipes = [] } = useQuery({
     queryKey: ["recipes"],
     queryFn: () => base44.entities.Recipe.list(),
@@ -139,7 +144,7 @@ export default function Products() {
         />
       )}
       {editing && (
-        <ProductFormDialog open product={editing} onClose={() => setEditing(null)} onSave={(data) => updateMutation.mutate({ id: editing.id, data })} />
+        <ProductFormDialog open product={editing} flows={flows} onClose={() => setEditing(null)} onSave={(data) => updateMutation.mutate({ id: editing.id, data })} />
       )}
       {editingRecipe && (
         <RecipeFormDialog 

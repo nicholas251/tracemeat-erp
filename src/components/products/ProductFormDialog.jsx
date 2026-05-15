@@ -35,7 +35,7 @@ const finishedProductUnits = [
   { value: "packs", label: "Packs" },
 ];
 
-export default function ProductFormDialog({ open, onClose, onSave, product }) {
+export default function ProductFormDialog({ open, onClose, onSave, product, flows = [] }) {
   const [form, setForm] = useState(product || {
     name: "", product_number: "", sku: "", category: "beef", description: "",
     packaging_type: "vacuum_sealed", package_size: "", packages_per_case: "",
@@ -227,6 +227,19 @@ export default function ProductFormDialog({ open, onClose, onSave, product }) {
                     <SelectItem value="draft">Draft</SelectItem>
                     <SelectItem value="active">Active</SelectItem>
                     <SelectItem value="discontinued">Discontinued</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <Label>Production Flow</Label>
+                <Select value={form.flow_id || ""} onValueChange={v => {
+                  const f = flows.find(fl => fl.id === v);
+                  update("flow_id", v);
+                  update("flow_name", f?.name || "");
+                }}>
+                  <SelectTrigger><SelectValue placeholder="Select flow..." /></SelectTrigger>
+                  <SelectContent>
+                    {flows.map(f => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
