@@ -131,6 +131,19 @@ export default function RecipeFormDialog({ open, onClose, onSave, recipe, produc
               </Select>
             </div>
             <div>
+              <Label>Status</Label>
+              <Select value={form.status} onValueChange={v => setForm(prev => ({ ...prev, status: v }))}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent className="z-[60]">
+                  <SelectItem value="draft">Draft</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="archived">Archived</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
               <Label>Yield % *</Label>
               <div className="relative">
                 <Input
