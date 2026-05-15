@@ -233,7 +233,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
 
   const { data: casingBuckets = [] } = useQuery({
     queryKey: ["casingBuckets"],
-    queryFn: () => base44.entities.InventoryBucket.filter({ category: "spice" }),
+    queryFn: () => base44.entities.InventoryBucket.filter({ category: "casing" }),
     enabled: open && capKey === "linking",
   });
 
@@ -345,7 +345,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
         const order = await base44.entities.ProductionOrder.filter({ id: stage.order_id }).then(r => r?.[0]);
         if (order) {
           const nextStepNum = (stage.step_number || 1) + 1;
-          const nextFlow = await base44.entities.ProductFlow.filter({ id: order.flow_id }).then(r => r?.[0]);
+          const nextFlow = await base44.entities.ProductionFlow.filter({ id: order.flow_id }).then(r => r?.[0]);
           const nextStep = nextFlow?.steps?.find(s => s.step_number === nextStepNum);
 
           if (nextStep) {
@@ -376,10 +376,12 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
       } else if (capKey === "tumble" && cookPlan) {
         // ── Tumble: complete stage, then create one cooking stage per cook batch ──
         const totalOutputLbs = cookPlan.cookBatches.reduce((s, b) => s + b.lbs, 0);
+        const tumbleOutputLot = cookPlan.lotPrefix || `TUMBLE-${new Date().toISOString().slice(0,10).replace(/-/g,"")}`;
         await base44.entities.ProductionStage.update(stage.id, {
           status: "completed",
           completed_at: new Date().toISOString(),
           output_qty_lbs: totalOutputLbs,
+          output_lot_number: tumbleOutputLot,
           racks_count: cookPlan.cookBatches.reduce((s, b) => s + b.racks, 0),
           ...form,
         });
@@ -414,7 +416,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
         // Look up the cooking/smokehouse step in the flow
         const order = await base44.entities.ProductionOrder.filter({ id: stage.order_id }).then(r => r?.[0]);
         if (order) {
-          const nextFlow = await base44.entities.ProductFlow.filter({ id: order.flow_id }).then(r => r?.[0]);
+          const nextFlow = await base44.entities.ProductionFlow.filter({ id: order.flow_id }).then(r => r?.[0]);
           const smokeStep = nextFlow?.steps?.find(s => s.capability_key === "cooking" || s.capability_key === "smokehouse");
           if (smokeStep) {
             for (const cb of cookPlan.cookBatches) {
@@ -466,7 +468,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
         // Create a single cooking stage for this cook batch
         const order = await base44.entities.ProductionOrder.filter({ id: stage.order_id }).then(r => r?.[0]);
         if (order) {
-          const nextFlow = await base44.entities.ProductFlow.filter({ id: order.flow_id }).then(r => r?.[0]);
+          const nextFlow = await base44.entities.ProductionFlow.filter({ id: order.flow_id }).then(r => r?.[0]);
           const cookStep = nextFlow?.steps?.find(s => s.capability_key === "cooking");
           if (cookStep) {
             // Check if a cooking stage already exists for this cook batch lot
@@ -603,7 +605,8 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
         const nextStage = allStages.find(s => s.step_number === stage.step_number + 1);
         if (nextStage?.status === "locked") {
           const rawQty = updates.output_qty_lbs || stage.input_qty_lbs || 0;
-          const nextInputQty = capKey === "cooking" ? parseFloat((rawQty * 0.8).toFixed(2)) : rawQty;
+          const yieldFraction = (product?.yield_percent ?? 80) / 100;
+          const nextInputQty = capKey === "cooking" ? parseFloat((rawQty * yieldFraction).toFixed(2)) : rawQty;
           
           // Determine lot number to pass forward
           let nextInputLot = "";
