@@ -21,7 +21,7 @@ export default function FlowBuilder() {
 
   const { data: flows = [], isLoading } = useQuery({
     queryKey: ["productFlows"],
-    queryFn: () => base44.entities.ProductFlow.list("-created_date"),
+    queryFn: () => base44.entities.ProductionFlow.list("-created_date"),
   });
 
   const { data: products = [] } = useQuery({
@@ -40,17 +40,17 @@ export default function FlowBuilder() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (data) => base44.entities.ProductFlow.create(data),
+    mutationFn: (data) => base44.entities.ProductionFlow.create(data),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["productFlows"] }); setShowBuilder(false); setEditingFlow(null); },
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.ProductFlow.update(id, data),
+    mutationFn: ({ id, data }) => base44.entities.ProductionFlow.update(id, data),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["productFlows"] }); setShowBuilder(false); setEditingFlow(null); },
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id) => base44.entities.ProductFlow.delete(id),
+    mutationFn: (id) => base44.entities.ProductionFlow.delete(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["productFlows"] }),
   });
 
