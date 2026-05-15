@@ -7,14 +7,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { base44 } from "@/api/base44Client";
-import { ChevronRight, ChevronLeft, Plus, Trash2, Check, Blend, Scissors, Link, Flame, Snowflake, Package } from "lucide-react";
+import { ChevronRight, ChevronLeft, Plus, Trash2, Check, Blend, Scissors, Link, Flame, Snowflake, Package, RotateCcw, Layers, Shuffle } from "lucide-react";
 
 const STEPS = [
   { id: "basics",     label: "Product Info",  icon: Package },
   { id: "flow",       label: "Flow",          icon: Link },
   { id: "blending",   label: "Blending",      icon: Blend },
   { id: "chopping",   label: "Chopping",      icon: Scissors },
+  { id: "mixer",      label: "Mixer",         icon: Shuffle },
   { id: "linking",    label: "Linking",       icon: Link },
+  { id: "tumbling",   label: "Tumbling",      icon: RotateCcw },
+  { id: "racking",    label: "Racking",       icon: Layers },
   { id: "smokehouse", label: "Smokehouse",    icon: Flame },
   { id: "chilling",   label: "Chilling",      icon: Snowflake },
   { id: "packaging",  label: "Packaging",     icon: Package },
@@ -51,8 +54,10 @@ const EMPTY = {
   blend_batch_lbs: "", blend_ingredients: [],
   chop_spice_mix_id: "", chop_spice_mix_name: "", chop_spice_qty_lbs: "", chop_water_lbs: "", chop_cure_lbs: "",
   cure_bucket_id: "", cure_bucket_name: "",
+  mixer_duration_minutes: "",
   link_merge_batches: false, link_merge_ratio: 2,
   casing_bucket_id: "", casing_bucket_name: "", casing_qty_per_batch_lbs: "",
+  tumble_batch_lbs: "", tumble_lbs_per_rack: "", tumble_duration_minutes: "", yield_percent: "",
   smokehouse_cook_method: "steam", smokehouse_target_temp_c: "", smokehouse_duration_minutes: "",
   package_size: "", package_size_oz: "", packages_per_case: "", packaging_type: "vacuum_sealed",
   finished_product_unit: "lbs", shelf_life_days: "", storage_temp_c: "",
@@ -98,11 +103,27 @@ export default function ProductSetupWizard({ open, onClose, onSave }) {
     }
   }, [form.flow_id, flows]);
 
+  // Map wizard step id → capability key fragment to match
+  const STEP_KEY_MAP = {
+    blending: "blending",
+    chopping: "chopping",
+    mixer: "mixer",
+    linking: "linking",
+    tumbling: "tumble",
+    racking: "racking",
+    smokehouse: ["smok", "cooking"],
+    chilling: "chill",
+    packaging: "pack",
+  };
+
   // Build visible steps: always show basics + flow, then only steps present in the selected flow
   const visibleSteps = STEPS.filter(s => {
     if (s.id === "basics" || s.id === "flow") return true;
     if (flowStepKeys.length === 0) return true; // show all if no flow selected yet
-    return flowStepKeys.some(k => k?.includes(s.id === "smokehouse" ? "smok" : s.id === "packaging" ? "pack" : s.id));
+    const match = STEP_KEY_MAP[s.id];
+    if (!match) return false;
+    const fragments = Array.isArray(match) ? match : [match];
+    return flowStepKeys.some(k => fragments.some(f => k?.includes(f)));
   });
 
   const currentStep = visibleSteps[step];
@@ -191,6 +212,11 @@ export default function ProductSetupWizard({ open, onClose, onSave }) {
       link_merge_ratio: form.link_merge_ratio ? Number(form.link_merge_ratio) : undefined,
       smokehouse_target_temp_c: form.smokehouse_target_temp_c ? Number(form.smokehouse_target_temp_c) : undefined,
       smokehouse_duration_minutes: form.smokehouse_duration_minutes ? Number(form.smokehouse_duration_minutes) : undefined,
+      tumble_batch_lbs: form.tumble_batch_lbs ? Number(form.tumble_batch_lbs) : undefined,
+      tumble_lbs_per_rack: form.tumble_lbs_per_rack ? Number(form.tumble_lbs_per_rack) : undefined,
+      tumble_duration_minutes: form.tumble_duration_minutes ? Number(form.tumble_duration_minutes) : undefined,
+      mixer_duration_minutes: form.mixer_duration_minutes ? Number(form.mixer_duration_minutes) : undefined,
+      yield_percent: form.yield_percent ? Number(form.yield_percent) : undefined,
       package_size: packSizeNum || undefined,
       packages_per_case: form.packages_per_case ? Number(form.packages_per_case) : undefined,
       case_weight_lbs: caseWeight,
@@ -589,6 +615,72 @@ export default function ProductSetupWizard({ open, onClose, onSave }) {
                     placeholder="e.g. 5.0"
                   />
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* MIXER */}
+          {currentStep.id === "mixer" && (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">Configure the mixing step. Set the default mix duration for this product.</p>
+              <div className="space-y-1.5">
+                <Label>Default Mix Duration (minutes)</Label>
+                <Input type="number" value={form.mixer_duration_minutes} onChange={e => up("mixer_duration_minutes", e.target.value)} placeholder="e.g. 15" />
+              </div>
+              <div className="bg-blue-50 rounded-lg p-3 text-xs text-blue-700">
+                The mixer combines protein with other ingredients before the next stage. This duration is used as a default reference during production.
+              </div>
+            </div>
+          )}
+
+          {/* TUMBLING */}
+          {currentStep.id === "tumbling" && (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">Configure the tumbling step. These values are used to automatically calculate and split cook batches.</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>Lbs per Tumble Batch</Label>
+                  <Input type="number" value={form.tumble_batch_lbs} onChange={e => up("tumble_batch_lbs", e.target.value)} placeholder="e.g. 300" />
+                  <p className="text-xs text-muted-foreground">How many lbs fit in one tumble.</p>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Lbs per Rack</Label>
+                  <Input type="number" value={form.tumble_lbs_per_rack} onChange={e => up("tumble_lbs_per_rack", e.target.value)} placeholder="e.g. 100" />
+                  <p className="text-xs text-muted-foreground">Used to calculate rack counts per cook batch.</p>
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Default Tumble Duration (minutes)</Label>
+                <Input type="number" value={form.tumble_duration_minutes} onChange={e => up("tumble_duration_minutes", e.target.value)} placeholder="e.g. 30" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Cooking Yield %</Label>
+                <Input type="number" min="1" max="100" value={form.yield_percent} onChange={e => up("yield_percent", e.target.value)} placeholder="e.g. 80" />
+                <p className="text-xs text-muted-foreground">e.g. 80 means 1000 lbs tumbled → 800 lbs cooked out.</p>
+              </div>
+              {form.tumble_batch_lbs && form.tumble_lbs_per_rack && (
+                <div className="bg-muted/40 rounded-lg p-3 text-xs">
+                  Each cook batch: <span className="font-semibold">{Math.floor(Number(form.tumble_batch_lbs) / Number(form.tumble_lbs_per_rack))} racks</span>
+                  {" · "}{form.tumble_batch_lbs} lbs
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* RACKING */}
+          {currentStep.id === "racking" && (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">Racking is a pass-through step where product is loaded onto racks before entering the smokehouse. No additional configuration is required.</p>
+              <div className="bg-muted/40 rounded-lg p-4 space-y-2">
+                <p className="text-sm font-semibold">What happens at this step:</p>
+                <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+                  <li>Operator confirms product received from prior stage</li>
+                  <li>Records number of racks loaded</li>
+                  <li>Passes output lot number to the next stage</li>
+                </ul>
+              </div>
+              <div className="bg-blue-50 rounded-lg p-3 text-xs text-blue-700">
+                No extra product-level settings are needed for racking. The operator will enter actual rack count and weights during production.
               </div>
             </div>
           )}

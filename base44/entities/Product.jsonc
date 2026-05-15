@@ -159,6 +159,22 @@
     "smokehouse_duration_minutes": {
       "type": "number"
     },
+    "tumble_batch_lbs": {
+      "type": "number",
+      "description": "Lbs per tumble batch"
+    },
+    "tumble_lbs_per_rack": {
+      "type": "number",
+      "description": "Lbs per rack for tumble/cooking stage"
+    },
+    "tumble_duration_minutes": {
+      "type": "number",
+      "description": "Default tumble duration in minutes"
+    },
+    "mixer_duration_minutes": {
+      "type": "number",
+      "description": "Default mixing duration in minutes"
+    },
     "ingredients": {
       "type": "array",
       "items": {
