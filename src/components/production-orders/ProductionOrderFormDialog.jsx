@@ -10,7 +10,7 @@ import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import InventoryShortageCheck from "./InventoryShortageCheck";
 
-export default function ProductionOrderFormDialog({ open, onClose, onSave, order, products, flows, suppliers, recipes }) {
+export default function ProductionOrderFormDialog({ open, onClose, onSave, order, products, flows, suppliers }) {
   const [form, setForm] = useState({
     order_number: "", product_id: "", product_name: "", flow_id: "", flow_name: "",
     supplier_id: "", supplier_name: "", quantity_to_produce: "", order_date: new Date().toISOString().split("T")[0],
@@ -50,10 +50,9 @@ export default function ProductionOrderFormDialog({ open, onClose, onSave, order
   });
 
   const selectedProduct = freshProductData || products.find(p => p.id === form.product_id);
-  const selectedRecipe = recipes?.find(r => r.id === selectedProduct?.recipe_id);
   const caseWeightLbs = selectedProduct?.case_weight_lbs;
   const unitLabel = selectedProduct?.finished_product_unit || "cases";
-  const yieldPct = selectedRecipe?.yield_percent; // e.g. 95 means 95%
+  const yieldPct = selectedProduct?.yield_percent; // read directly from product
 
   // finished goods target (what we want out)
   const finishedLbs = parseFloat(form.quantity_to_produce) || 0;
@@ -266,7 +265,7 @@ export default function ProductionOrderFormDialog({ open, onClose, onSave, order
           {selectedProduct && rawInputLbs > 0 && (
             <InventoryShortageCheck
               product={selectedProduct}
-              recipe={selectedRecipe}
+              recipe={{ ingredients: selectedProduct?.blend_ingredients || [] }}
               rawInputLbs={rawInputLbs}
               numBatches={numBlendBatches}
               onProductUpdated={() => {
