@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { base44 } from "@/api/base44Client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useQuery } from "@tanstack/react-query";
+import { Plus, Trash2 } from "lucide-react";
 
 const categories = [
   { value: "beef", label: "Beef" },
@@ -68,6 +69,18 @@ export default function ProductFormDialog({ open, onClose, onSave, product }) {
     queryFn: () => base44.entities.SpiceMix.list(),
     enabled: open,
   });
+
+  const { data: proteinBuckets = [] } = useQuery({
+    queryKey: ["proteinBuckets"],
+    queryFn: () => base44.entities.InventoryBucket.filter({ category: "protein" }),
+    enabled: open,
+  });
+
+  // Auto-sync blend_batch_lbs from ingredient totals
+  useEffect(() => {
+    const total = (form.blend_ingredients || []).reduce((s, i) => s + (Number(i.quantity_lbs) || 0), 0);
+    if (total > 0) update("blend_batch_lbs", total);
+  }, [JSON.stringify(form.blend_ingredients)]);
 
   // Auto-calculate recipe consumption when package size/case quantity changes
   useEffect(() => {
@@ -135,11 +148,93 @@ export default function ProductFormDialog({ open, onClose, onSave, product }) {
           </TabsList>
 
           <TabsContent value="chopping" className="space-y-4 py-4">
+            {/* ── Protein Ingredients ── */}
             <div className="space-y-2">
-              <Label>Blend Batch Size (lbs protein)</Label>
-              <Input type="number" step="0.1" value={form.blend_batch_lbs || ""} onChange={e => update("blend_batch_lbs", e.target.value)} placeholder="e.g. 240" />
-              <p className="text-xs text-muted-foreground">Total protein weight per blending batch.</p>
+              <div className="flex items-center justify-between">
+                <Label>Protein Ingredients</Label>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="gap-1 h-7 text-xs"
+                  onClick={() => update("blend_ingredients", [...(form.blend_ingredients || []), { bucket_id: "", bucket_name: "", quantity_lbs: "" }])}
+                >
+                  <Plus className="w-3 h-3" /> Add Protein
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">Define each protein type and its quantity per blending batch. The system will pull from inventory FIFO during production.</p>
+
+              {(form.blend_ingredients || []).length === 0 && (
+                <div className="rounded border border-dashed border-muted-foreground/30 p-4 text-center text-xs text-muted-foreground">
+                  No protein ingredients yet. Click "Add Protein" to begin.
+                </div>
+              )}
+
+              <div className="space-y-2">
+                {(form.blend_ingredients || []).map((ing, idx) => (
+                  <div key={idx} className="rounded border p-3 space-y-2 bg-muted/20">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-muted-foreground">Protein #{idx + 1}</span>
+                      <button
+                        type="button"
+                        onClick={() => update("blend_ingredients", (form.blend_ingredients || []).filter((_, i) => i !== idx))}
+                        className="text-muted-foreground hover:text-destructive"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Inventory Bucket</Label>
+                        <Select
+                          value={ing.bucket_id || ""}
+                          onValueChange={v => {
+                            const bucket = proteinBuckets.find(b => b.id === v);
+                            update("blend_ingredients", (form.blend_ingredients || []).map((x, i) =>
+                              i === idx ? { ...x, bucket_id: v, bucket_name: bucket?.name || "" } : x
+                            ));
+                          }}
+                        >
+                          <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Select bucket…" /></SelectTrigger>
+                          <SelectContent>
+                            {proteinBuckets.map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Quantity per Batch (lbs)</Label>
+                        <Input
+                          type="number"
+                          step="0.1"
+                          value={ing.quantity_lbs || ""}
+                          onChange={e => update("blend_ingredients", (form.blend_ingredients || []).map((x, i) =>
+                            i === idx ? { ...x, quantity_lbs: Number(e.target.value) } : x
+                          ))}
+                          placeholder="e.g. 120"
+                          className="h-8 text-sm"
+                        />
+                      </div>
+                    </div>
+                    {ing.bucket_name && (
+                      <p className="text-xs text-muted-foreground">Pulls from: <span className="font-medium text-foreground">{ing.bucket_name}</span> (FIFO)</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* Auto-total blend batch lbs */}
+              {(form.blend_ingredients || []).length > 0 && (
+                <div className="rounded bg-muted/40 px-3 py-2 text-xs flex justify-between">
+                  <span className="text-muted-foreground">Total protein per batch</span>
+                  <span className="font-semibold">
+                    {(form.blend_ingredients || []).reduce((s, i) => s + (Number(i.quantity_lbs) || 0), 0).toFixed(2)} lbs
+                  </span>
+                </div>
+              )}
             </div>
+
+            {/* blend_batch_lbs kept in sync with total ingredients */}
+            {/* hidden — auto-derived from blend_ingredients total */}
             <div className="space-y-2">
               <Label>Spice Mix</Label>
               <Select value={form.chop_spice_mix_id || ""} onValueChange={v => {
