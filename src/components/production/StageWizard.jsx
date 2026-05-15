@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import IngredientLotPicker from "../blending/IngredientLotPicker";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,9 +48,9 @@ function buildIngredientBatchesMultiple(stage, product, capKey, numBatches) {
         bucket_id: ing.bucket_id,
         bucket_name: ing.bucket_name,
         required_lbs: parseFloat((ing.quantity_lbs * ratio).toFixed(2)),
-        lot_number: "",
-        actual_lbs: parseFloat((ing.quantity_lbs * ratio).toFixed(2)),
+        lot_allocations: null, // populated by IngredientLotPicker from FIFO
         confirmed: false,
+        notes: "",
       })),
     };
   });
@@ -275,7 +276,8 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
         const batchIngredients = currentBatch.ingredients.map(ing => ({
           bucket_id: ing.bucket_id,
           bucket_name: ing.bucket_name,
-          actual_lbs: ing.actual_lbs,
+          actual_lbs: ing.lot_allocations?.reduce((s, a) => s + (Number(a.actual_lbs) || 0), 0) || 0,
+          lot_allocations: ing.lot_allocations,
         }));
         base44.functions.invoke("deductRawInventoryOnBatchComplete", {
           stage_id: stage.id,
@@ -665,67 +667,13 @@ function BatchConfirmStep({ batch, batchIdx, totalBatches, progressPct, onUpdate
           <div className="space-y-3">
             {batch.ingredients.map((ing, ingIdx) => (
               <Card key={ingIdx} className={`border ${ing.confirmed ? "border-chart-2/40 bg-chart-2/5" : "border-border"}`}>
-                <CardContent className="p-3 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium text-sm">{ing.bucket_name}</span>
-                    {ing.confirmed
-                      ? <CheckCircle2 className="w-4 h-4 text-chart-2" />
-                      : <Badge variant="outline" className="text-xs">Pending</Badge>}
-                  </div>
-                  <p className="text-xs text-muted-foreground">Required: <span className="font-semibold text-foreground">{ing.required_lbs} lbs</span></p>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="space-y-1">
-                      <Label className="text-xs">Lot Code</Label>
-                      <Input
-                        value={ing.lot_number}
-                        disabled={ing.confirmed}
-                        onChange={e => onUpdateIngredient(batchIdx, ingIdx, "lot_number", e.target.value)}
-                        placeholder="e.g. LOT-2024-001"
-                        className="h-8 text-sm"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                     <Label className="text-xs">Actual Qty (lbs) <span className="text-muted-foreground font-normal">max {ing.required_lbs}</span></Label>
-                     <Input
-                       type="number"
-                       step="0.1"
-                       value={ing.actual_lbs}
-                       disabled={ing.confirmed}
-                       onChange={e => onUpdateIngredient(batchIdx, ingIdx, "actual_lbs", Number(e.target.value))}
-                       className={`h-8 text-sm ${ing.actual_lbs > ing.required_lbs ? "border-destructive text-destructive focus-visible:ring-destructive" : ""}`}
-                     />
-                     {ing.actual_lbs > ing.required_lbs && (
-                       <p className="text-xs text-destructive">Exceeds max of {ing.required_lbs} lbs</p>
-                     )}
-                    </div>
-                  </div>
-                  {ing.actual_lbs > 0 && ing.actual_lbs < ing.required_lbs && !ing.confirmed && (
-                     <div className="space-y-1">
-                       <Label className="text-xs text-amber-600">Reason for short quantity <span className="text-destructive">*</span></Label>
-                       <Textarea
-                         value={ing.notes || ""}
-                         onChange={e => onUpdateIngredient(batchIdx, ingIdx, "notes", e.target.value)}
-                         placeholder="e.g. scale variance, partial lot used..."
-                         className="h-16 text-xs"
-                       />
-                     </div>
-                   )}
-                  {!ing.confirmed && (
-                     <Button
-                       size="sm"
-                       variant="outline"
-                       className="w-full text-xs gap-1 mt-1"
-                       disabled={!ing.lot_number || !ing.actual_lbs || ing.actual_lbs > ing.required_lbs || (ing.actual_lbs < ing.required_lbs && !ing.notes?.trim())}
-                       onClick={() => onConfirmIngredient(batchIdx, ingIdx)}
-                     >
-                       <CheckCircle2 className="w-3.5 h-3.5" /> Confirm
-                     </Button>
-                   )}
-                  {!ing.lot_number && !ing.confirmed && (
-                    <p className="text-xs text-destructive flex items-center gap-1">
-                      <AlertCircle className="w-3 h-3" /> Lot code required
-                    </p>
-                  )}
+                <CardContent className="p-3">
+                  <IngredientLotPicker
+                    ing={ing}
+                    disabled={ing.confirmed}
+                    onChange={(field, value) => onUpdateIngredient(batchIdx, ingIdx, field, value)}
+                    onConfirm={() => onConfirmIngredient(batchIdx, ingIdx)}
+                  />
                 </CardContent>
               </Card>
             ))}
@@ -899,12 +847,19 @@ function FinalStep({ stage, capKey, stageLabel, resolvedBatches, form, cookBatch
           </p>
           <div className="rounded border divide-y text-sm">
             {b.ingredients.map((ing, i) => (
-              <div key={i} className="flex items-center justify-between px-3 py-2">
-                <span>{ing.bucket_name}</span>
-                <div className="text-right">
-                  <span className="font-medium">{ing.actual_lbs} lbs</span>
-                  <span className="text-muted-foreground text-xs ml-2">{ing.lot_number}</span>
+              <div key={i} className="px-3 py-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-medium">{ing.bucket_name}</span>
+                  <span className="text-muted-foreground text-xs">
+                    {(ing.lot_allocations?.reduce((s, a) => s + (Number(a.actual_lbs) || 0), 0) || 0).toFixed(2)} lbs
+                  </span>
                 </div>
+                {ing.lot_allocations?.map((a, ai) => (
+                  <div key={ai} className="flex justify-between text-xs text-muted-foreground mt-0.5 pl-2">
+                    <span className="font-mono">{a.lot_number}</span>
+                    <span>{a.actual_lbs} lbs</span>
+                  </div>
+                ))}
               </div>
             ))}
           </div>

@@ -3,12 +3,9 @@ import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { CheckCircle2, ChevronRight, ChevronLeft, Play, Package, AlertCircle } from "lucide-react";
-import { Textarea } from "@/components/ui/textarea";
+import { CheckCircle2, ChevronRight, ChevronLeft, Play, Package } from "lucide-react";
+import IngredientLotPicker from "./IngredientLotPicker";
 
 function buildBatches(stage, product) {
   const totalLbs = stage.input_qty_lbs || 0;
@@ -27,9 +24,9 @@ function buildBatches(stage, product) {
         bucket_id: ing.bucket_id,
         bucket_name: ing.bucket_name,
         required_lbs: parseFloat((ing.quantity_lbs * ratio).toFixed(2)),
-        lot_number: "",
-        actual_lbs: parseFloat((ing.quantity_lbs * ratio).toFixed(2)),
+        lot_allocations: null, // will be populated by IngredientLotPicker from FIFO
         confirmed: false,
+        notes: "",
       })),
     };
   });
@@ -44,7 +41,6 @@ export default function BlendingWizard({ stage, open, onClose, onCompleted }) {
   const { data: product } = useQuery({
     queryKey: ["product", stage?.product_id || stage?.order_id],
     queryFn: async () => {
-      // Try to find product from production order
       const orders = await base44.entities.ProductionOrder.filter({ id: stage.order_id });
       const order = orders[0];
       if (!order?.product_id) return null;
@@ -54,7 +50,6 @@ export default function BlendingWizard({ stage, open, onClose, onCompleted }) {
     enabled: open && !!stage,
   });
 
-  // Build batches once product is loaded
   const resolvedBatches = batches || (product ? buildBatches(stage, product) : null);
 
   const totalBatches = resolvedBatches?.length || 0;
@@ -94,18 +89,18 @@ export default function BlendingWizard({ stage, open, onClose, onCompleted }) {
 
   const handleComplete = async () => {
     setSaving(true);
-    const allIngs = resolvedBatches.flatMap(b => b.ingredients);
     const outputLbs = resolvedBatches.reduce((sum, b) => sum + b.batchLbs, 0);
 
-    // Save blend log in sub_batches
     const subBatches = resolvedBatches.map((b) => ({
       sub_batch_id: `blend-${b.batchNumber}`,
       label: `Blend Batch #${b.batchNumber}`,
       qty_lbs: b.batchLbs,
       ingredients: b.ingredients.map(ing => ({
         bucket_name: ing.bucket_name,
-        lot_number: ing.lot_number,
-        actual_lbs: ing.actual_lbs,
+        lot_allocations: ing.lot_allocations,
+        // keep backward compat: flatten to single lot if only one
+        lot_number: ing.lot_allocations?.length === 1 ? ing.lot_allocations[0].lot_number : (ing.lot_allocations?.map(a => a.lot_number).join(", ") || ""),
+        actual_lbs: ing.lot_allocations?.reduce((s, a) => s + (Number(a.actual_lbs) || 0), 0) || 0,
       })),
       status: "completed",
     }));
@@ -117,7 +112,6 @@ export default function BlendingWizard({ stage, open, onClose, onCompleted }) {
       sub_batches: subBatches,
     });
 
-    // Unlock next stage
     const allStages = await base44.entities.ProductionStage.filter({ order_id: stage.order_id });
     const nextStage = allStages.find(s => s.step_number === stage.step_number + 1);
     if (nextStage?.status === "locked") {
@@ -201,68 +195,13 @@ export default function BlendingWizard({ stage, open, onClose, onCompleted }) {
             <div className="space-y-3">
               {currentBatch.ingredients.map((ing, ingIdx) => (
                 <Card key={ingIdx} className={`border ${ing.confirmed ? "border-chart-2/40 bg-chart-2/5" : "border-border"}`}>
-                  <CardContent className="p-3 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium text-sm">{ing.bucket_name}</span>
-                      {ing.confirmed
-                        ? <CheckCircle2 className="w-4 h-4 text-chart-2" />
-                        : <Badge variant="outline" className="text-xs">Pending</Badge>
-                      }
-                    </div>
-                    <p className="text-xs text-muted-foreground">Required: <span className="font-semibold text-foreground">{ing.required_lbs} lbs</span></p>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="space-y-1">
-                        <Label className="text-xs">Lot Code</Label>
-                        <Input
-                          value={ing.lot_number}
-                          disabled={ing.confirmed}
-                          onChange={e => updateIngredient(step - 1, ingIdx, "lot_number", e.target.value)}
-                          placeholder="e.g. LOT-2024-001"
-                          className="h-8 text-sm"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs">Actual Qty (lbs) <span className="text-muted-foreground font-normal">max {ing.required_lbs}</span></Label>
-                        <Input
-                          type="number"
-                          step="0.1"
-                          value={ing.actual_lbs}
-                          disabled={ing.confirmed}
-                          onChange={e => updateIngredient(step - 1, ingIdx, "actual_lbs", Number(e.target.value))}
-                          className={`h-8 text-sm ${ing.actual_lbs > ing.required_lbs ? "border-destructive text-destructive focus-visible:ring-destructive" : ""}`}
-                        />
-                        {ing.actual_lbs > ing.required_lbs && (
-                          <p className="text-xs text-destructive">Exceeds max of {ing.required_lbs} lbs</p>
-                        )}
-                      </div>
-                    </div>
-                    {ing.actual_lbs > 0 && ing.actual_lbs < ing.required_lbs && !ing.confirmed && (
-                      <div className="space-y-1">
-                        <Label className="text-xs text-amber-600">Reason for short quantity <span className="text-destructive">*</span></Label>
-                        <Textarea
-                          value={ing.notes || ""}
-                          onChange={e => updateIngredient(step - 1, ingIdx, "notes", e.target.value)}
-                          placeholder="e.g. scale variance, partial lot used..."
-                          className="h-16 text-xs"
-                        />
-                      </div>
-                    )}
-                    {!ing.confirmed && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="w-full text-xs gap-1 mt-1"
-                        disabled={!ing.lot_number || !ing.actual_lbs || ing.actual_lbs > ing.required_lbs || (ing.actual_lbs < ing.required_lbs && !ing.notes?.trim())}
-                        onClick={() => confirmIngredient(step - 1, ingIdx)}
-                      >
-                        <CheckCircle2 className="w-3.5 h-3.5" /> Confirm
-                      </Button>
-                    )}
-                    {!ing.lot_number && !ing.confirmed && (
-                      <p className="text-xs text-destructive flex items-center gap-1">
-                        <AlertCircle className="w-3 h-3" /> Lot code required
-                      </p>
-                    )}
+                  <CardContent className="p-3">
+                    <IngredientLotPicker
+                      ing={ing}
+                      disabled={ing.confirmed}
+                      onChange={(field, value) => updateIngredient(step - 1, ingIdx, field, value)}
+                      onConfirm={() => confirmIngredient(step - 1, ingIdx)}
+                    />
                   </CardContent>
                 </Card>
               ))}
@@ -301,12 +240,19 @@ export default function BlendingWizard({ stage, open, onClose, onCompleted }) {
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Batch #{b.batchNumber} — {b.batchLbs} lbs</p>
                 <div className="rounded border divide-y text-sm">
                   {b.ingredients.map((ing, i) => (
-                    <div key={i} className="flex items-center justify-between px-3 py-2">
-                      <span>{ing.bucket_name}</span>
-                      <div className="text-right">
-                        <span className="font-medium">{ing.actual_lbs} lbs</span>
-                        <span className="text-muted-foreground text-xs ml-2">{ing.lot_number}</span>
+                    <div key={i} className="px-3 py-2">
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium">{ing.bucket_name}</span>
+                        <span className="text-muted-foreground text-xs">
+                          {ing.lot_allocations?.reduce((s, a) => s + (Number(a.actual_lbs) || 0), 0).toFixed(2)} lbs
+                        </span>
                       </div>
+                      {ing.lot_allocations?.map((a, ai) => (
+                        <div key={ai} className="flex justify-between text-xs text-muted-foreground mt-0.5 pl-2">
+                          <span className="font-mono">{a.lot_number}</span>
+                          <span>{a.actual_lbs} lbs</span>
+                        </div>
+                      ))}
                     </div>
                   ))}
                 </div>
