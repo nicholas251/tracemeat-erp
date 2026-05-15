@@ -277,37 +277,37 @@ export default function TumbleCookBatchBuilder({ totalLbs, product, cookPlan, on
           </p>
 
           <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label className="text-xs">Lbs per Tumble Batch</Label>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Lbs per Tumble Batch</Label>
               <Input
                 type="number"
                 step="0.1"
                 value={lbsPerBatch}
                 onChange={e => setLbsPerBatch(e.target.value)}
                 placeholder="e.g. 300"
-                className="h-8 text-sm"
+                className="h-10 text-sm"
               />
             </div>
-            <div className="space-y-1">
-              <Label className="text-xs">Lbs per Rack</Label>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Lbs per Rack</Label>
               <Input
                 type="number"
                 step="0.1"
                 value={lbsPerRack}
                 onChange={e => setLbsPerRack(e.target.value)}
                 placeholder="e.g. 100"
-                className="h-8 text-sm"
+                className="h-10 text-sm"
               />
             </div>
           </div>
 
-          <div className="space-y-1">
-            <Label className="text-xs">Lot # Prefix (optional)</Label>
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold">Lot # Prefix (optional)</Label>
             <Input
               value={lotPrefix}
               onChange={e => setLotPrefix(e.target.value)}
               placeholder={`e.g. COOK-${format(new Date(), "yyyyMMdd")}`}
-              className="h-8 text-sm"
+              className="h-10 text-sm"
             />
           </div>
 
@@ -328,8 +328,8 @@ export default function TumbleCookBatchBuilder({ totalLbs, product, cookPlan, on
                   </div>
                 ))}
               </div>
-              <Button size="sm" className="w-full gap-1.5 mt-1" onClick={handleBuild}>
-                <CheckCircle2 className="w-3.5 h-3.5" />
+              <Button className="w-full gap-2 h-10 font-semibold mt-1" onClick={handleBuild}>
+                <CheckCircle2 className="w-4 h-4" />
                 Build {previewBatches.length} Cook Batch{previewBatches.length !== 1 ? "es" : ""}
               </Button>
             </div>
@@ -362,11 +362,11 @@ export default function TumbleCookBatchBuilder({ totalLbs, product, cookPlan, on
           </div>
 
           <div className="flex gap-2 pt-1">
-            <Button size="sm" variant="outline" onClick={handleClear} className="text-xs">
+            <Button variant="outline" onClick={handleClear} className="h-10 px-4 text-sm">
               Reset
             </Button>
-            <Button size="sm" className="flex-1 gap-1.5 text-xs" onClick={handleConfirmPlan}>
-              <CheckCircle2 className="w-3.5 h-3.5" />
+            <Button className="flex-1 gap-2 h-10 font-semibold" onClick={handleConfirmPlan}>
+              <CheckCircle2 className="w-4 h-4" />
               Confirm Cook Plan
             </Button>
           </div>

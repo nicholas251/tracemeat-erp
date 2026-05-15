@@ -165,13 +165,13 @@ export default function IngredientLotPicker({ ing, disabled, onChange, onConfirm
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1">
-                <Label className="text-xs">Lot Number</Label>
+                <Label className="text-xs font-semibold">Lot Number</Label>
                 <Input
                   value={alloc.lot_number}
                   disabled={disabled}
                   onChange={e => updateAllocation(idx, "lot_number", e.target.value)}
                   placeholder="e.g. LOT-001"
-                  className="h-8 text-sm"
+                  className="h-10 text-sm"
                 />
                 {!alloc.lot_number && !disabled && (
                   <p className="text-xs text-destructive flex items-center gap-1">
@@ -180,7 +180,7 @@ export default function IngredientLotPicker({ ing, disabled, onChange, onConfirm
                 )}
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">
+                <Label className="text-xs font-semibold">
                   Qty (lbs)
                   {alloc.available_qty > 0 && (
                     <span className="text-muted-foreground font-normal ml-1">max {alloc.available_qty}</span>
@@ -192,7 +192,7 @@ export default function IngredientLotPicker({ ing, disabled, onChange, onConfirm
                   value={alloc.actual_lbs}
                   disabled={disabled}
                   onChange={e => updateAllocation(idx, "actual_lbs", Number(e.target.value))}
-                  className={`h-8 text-sm ${alloc.available_qty > 0 && alloc.actual_lbs > alloc.available_qty ? "border-destructive text-destructive" : ""}`}
+                  className={`h-10 text-sm ${alloc.available_qty > 0 && alloc.actual_lbs > alloc.available_qty ? "border-destructive text-destructive" : ""}`}
                 />
                 {alloc.available_qty > 0 && alloc.actual_lbs > alloc.available_qty && !disabled && (
                   <p className="text-xs text-destructive">Exceeds available {alloc.available_qty} lbs</p>
@@ -236,13 +236,12 @@ export default function IngredientLotPicker({ ing, disabled, onChange, onConfirm
       {/* Confirm button */}
       {!disabled && (
         <Button
-          size="sm"
           variant="outline"
-          className="w-full text-xs gap-1 mt-1"
+          className="w-full gap-2 h-10 font-semibold mt-1"
           disabled={!canConfirm}
           onClick={onConfirm}
         >
-          <CheckCircle2 className="w-3.5 h-3.5" /> Confirm
+          <CheckCircle2 className="w-4 h-4" /> Confirm {ing.bucket_name}
         </Button>
       )}
 

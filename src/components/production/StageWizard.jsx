@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import {
   CheckCircle2, ChevronRight, ChevronLeft, Play,
-  Package, Thermometer, Clock, Layers, Scale, AlertCircle, FlaskConical
+  Package, Thermometer, Clock, Layers, AlertCircle, FlaskConical
 } from "lucide-react";
 import LinkingCookBatchBuilder from "./LinkingCookBatchBuilder";
 import TumbleCookBatchBuilder from "./TumbleCookBatchBuilder";
@@ -647,87 +647,95 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
   // ── Render ──
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+      <DialogContent className="w-full max-w-2xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col p-0">
+        {/* ── Header ── */}
+        <div className="flex items-center gap-3 px-5 py-4 border-b bg-card shrink-0">
+          <div className="w-10 h-10 rounded-xl bg-chart-1/15 flex items-center justify-center shrink-0">
             <Icon className="w-5 h-5 text-chart-1" />
-            {stageLabel} — {stage?.product_name}
-          </DialogTitle>
-          <p className="text-sm text-muted-foreground">
-            Order #{stage?.order_number} · Step {stage?.step_number} · {stage?.input_qty_lbs || 0} lbs
-          </p>
-        </DialogHeader>
+          </div>
+          <div className="min-w-0">
+            <DialogTitle className="text-base font-bold leading-tight">{stageLabel} — {stage?.product_name}</DialogTitle>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Order <span className="font-semibold text-foreground">#{stage?.order_number}</span>
+              &nbsp;·&nbsp;Step {stage?.step_number}
+              &nbsp;·&nbsp;<span className="font-semibold text-foreground">{stage?.input_qty_lbs || 0} lbs</span> in
+            </p>
+          </div>
+        </div>
 
-        {/* ── INTRO ── */}
-        {step === 0 && (
-          <IntroStep
-            stage={stage}
-            capKey={capKey}
-            stageLabel={stageLabel}
-            resolvedBatches={resolvedBatches}
-            measureSteps={measureSteps}
-            product={product}
-            saving={saving}
-            onStart={handleStart}
-            usesIngredientBatches={usesIngredientBatches}
-          />
-        )}
+        {/* ── Scrollable body ── */}
+        <div className="flex-1 overflow-y-auto px-5 py-5 space-y-5">
+          {/* ── INTRO ── */}
+          {step === 0 && (
+            <IntroStep
+              stage={stage}
+              capKey={capKey}
+              stageLabel={stageLabel}
+              resolvedBatches={resolvedBatches}
+              measureSteps={measureSteps}
+              product={product}
+              saving={saving}
+              onStart={handleStart}
+              usesIngredientBatches={usesIngredientBatches}
+            />
+          )}
 
-        {/* ── INGREDIENT BATCH STEP (blending) ── */}
-        {isBatchStep && currentBatch && (
-          <BatchConfirmStep
-            batch={currentBatch}
-            batchIdx={step - 1}
-            totalBatches={totalBatches}
-            progressPct={progressPct}
-            onUpdateIngredient={updateIngredient}
-            onConfirmIngredient={confirmIngredient}
-            allConfirmed={allConfirmedInBatch(currentBatch)}
-            onBack={() => setStep(s => s - 1)}
-            onComplete={handleComplete}
-            saving={saving}
-          />
-        )}
+          {/* ── INGREDIENT BATCH STEP (blending) ── */}
+          {isBatchStep && currentBatch && (
+            <BatchConfirmStep
+              batch={currentBatch}
+              batchIdx={step - 1}
+              totalBatches={totalBatches}
+              progressPct={progressPct}
+              onUpdateIngredient={updateIngredient}
+              onConfirmIngredient={confirmIngredient}
+              allConfirmed={allConfirmedInBatch(currentBatch)}
+              onBack={() => setStep(s => s - 1)}
+              onComplete={handleComplete}
+              saving={saving}
+            />
+          )}
 
-        {/* ── MEASUREMENT STEP ── */}
-        {isMeasureStep && currentMeasureStep && (
-          <MeasureStep
-            stepDef={currentMeasureStep}
-            stepIndex={step - 1}
-            totalSteps={totalMeasureSteps}
-            progressPct={progressPct}
-            form={form}
-            setForm={setForm}
-            spiceMixes={spiceMixes}
-            casingBuckets={casingBuckets}
-            capKey={capKey}
-            stage={stage}
-            product={product}
-            cookBatch={cookBatch}
-            setCookBatch={setCookBatch}
-            cookPlan={cookPlan}
-            setCookPlan={setCookPlan}
-            onBack={() => setStep(s => s - 1)}
-            onNext={() => setStep(s => s + 1)}
-            isLast={step === totalMeasureSteps}
-          />
-        )}
+          {/* ── MEASUREMENT STEP ── */}
+          {isMeasureStep && currentMeasureStep && (
+            <MeasureStep
+              stepDef={currentMeasureStep}
+              stepIndex={step - 1}
+              totalSteps={totalMeasureSteps}
+              progressPct={progressPct}
+              form={form}
+              setForm={setForm}
+              spiceMixes={spiceMixes}
+              casingBuckets={casingBuckets}
+              capKey={capKey}
+              stage={stage}
+              product={product}
+              cookBatch={cookBatch}
+              setCookBatch={setCookBatch}
+              cookPlan={cookPlan}
+              setCookPlan={setCookPlan}
+              onBack={() => setStep(s => s - 1)}
+              onNext={() => setStep(s => s + 1)}
+              isLast={step === totalMeasureSteps}
+            />
+          )}
 
-        {/* ── FINAL REVIEW ── */}
-        {isFinalStep && (
-          <FinalStep
-            stage={stage}
-            capKey={capKey}
-            stageLabel={stageLabel}
-            resolvedBatches={resolvedBatches}
-            form={form}
-            cookBatch={cookBatch}
-            cookPlan={cookPlan}
-            saving={saving}
-            onBack={() => setStep(lastStep - 1)}
-            onComplete={handleComplete}
-          />
-        )}
+          {/* ── FINAL REVIEW ── */}
+          {isFinalStep && (
+            <FinalStep
+              stage={stage}
+              capKey={capKey}
+              stageLabel={stageLabel}
+              resolvedBatches={resolvedBatches}
+              form={form}
+              cookBatch={cookBatch}
+              cookPlan={cookPlan}
+              saving={saving}
+              onBack={() => setStep(lastStep - 1)}
+              onComplete={handleComplete}
+            />
+          )}
+        </div>
       </DialogContent>
     </Dialog>
   );
@@ -738,46 +746,53 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
 function IntroStep({ stage, capKey, stageLabel, resolvedBatches, measureSteps, product, saving, onStart, usesIngredientBatches }) {
   const isAlreadyStarted = stage?.status === "in_progress";
   return (
-    <div className="space-y-4">
-      <div className="rounded-lg bg-chart-1/10 border border-chart-1/20 p-4 space-y-2">
-        <p className="font-semibold text-chart-1">
-          {isAlreadyStarted ? `Continue ${stageLabel}` : `Ready to start ${stageLabel}`}
-        </p>
-        <p className="text-sm text-muted-foreground">
-          {stage?.input_qty_lbs} lbs · Order #{stage?.order_number}
-        </p>
+    <div className="space-y-5">
+      <div className="rounded-xl bg-chart-1/10 border border-chart-1/20 p-5 space-y-4">
+        <div>
+          <p className="font-bold text-chart-1 text-base">
+            {isAlreadyStarted ? `Continue ${stageLabel}` : `Ready to start ${stageLabel}`}
+          </p>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            <span className="font-semibold text-foreground">{stage?.input_qty_lbs} lbs</span> entering this stage
+          </p>
+        </div>
+
         {usesIngredientBatches && resolvedBatches && (
-          <div className="space-y-1 pt-1">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Batches to Complete</p>
+          <div className="space-y-2">
+            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Batches to Complete</p>
             {resolvedBatches.map(b => (
-              <div key={b.batchNumber} className="flex items-center gap-2 text-sm">
-                <span className="w-5 h-5 rounded-full bg-chart-1/20 text-chart-1 text-xs flex items-center justify-center font-bold">{b.batchNumber}</span>
-                <span>{b.batchLbs} lbs</span>
-                <span className="text-muted-foreground">· {b.ingredients.length} ingredient{b.ingredients.length !== 1 ? "s" : ""}</span>
+              <div key={b.batchNumber} className="flex items-center gap-3 bg-white/50 rounded-lg px-3 py-2.5">
+                <span className="w-7 h-7 rounded-full bg-chart-1/20 text-chart-1 text-sm flex items-center justify-center font-bold shrink-0">{b.batchNumber}</span>
+                <span className="font-semibold text-sm">{b.batchLbs} lbs</span>
+                <span className="text-muted-foreground text-sm">· {b.ingredients.length} ingredient{b.ingredients.length !== 1 ? "s" : ""}</span>
               </div>
             ))}
           </div>
         )}
+
         {!usesIngredientBatches && measureSteps.length > 0 && (
-          <div className="space-y-1 pt-1">
+          <div className="space-y-2">
+            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Steps in this stage</p>
             {measureSteps.map((s, i) => (
-              <div key={s.id} className="flex items-center gap-2 text-sm">
-                <span className="w-5 h-5 rounded-full bg-chart-1/20 text-chart-1 text-xs flex items-center justify-center font-bold">{i + 1}</span>
-                <span className="text-muted-foreground">{s.label}</span>
+              <div key={s.id} className="flex items-center gap-3 bg-white/50 rounded-lg px-3 py-2.5">
+                <span className="w-7 h-7 rounded-full bg-chart-1/20 text-chart-1 text-sm flex items-center justify-center font-bold shrink-0">{i + 1}</span>
+                <span className="text-sm font-medium">{s.label}</span>
               </div>
             ))}
           </div>
         )}
+
         {usesIngredientBatches && !resolvedBatches && (
           <p className="text-sm text-muted-foreground">Loading batch plan...</p>
         )}
       </div>
+
       <Button
-        className="w-full gap-2"
+        className="w-full h-12 text-base gap-2 font-semibold"
         onClick={onStart}
         disabled={saving || (usesIngredientBatches && !resolvedBatches)}
       >
-        <Play className="w-4 h-4" />
+        <Play className="w-5 h-5" />
         {isAlreadyStarted ? `Continue ${stageLabel}` : `Start ${stageLabel}`}
       </Button>
     </div>
@@ -786,44 +801,48 @@ function IntroStep({ stage, capKey, stageLabel, resolvedBatches, measureSteps, p
 
 function BatchConfirmStep({ batch, batchIdx, totalBatches, progressPct, onUpdateIngredient, onConfirmIngredient, allConfirmed, onBack, onComplete, saving }) {
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <ProgressBar current={batch.batchNumber} total={totalBatches} pct={progressPct} label="Batch" />
 
-      <div className="rounded-lg bg-muted/40 border p-3">
-        <p className="font-semibold">Blend Batch #{batch.batchNumber}</p>
-        <p className="text-sm text-muted-foreground">{batch.batchLbs} lbs</p>
+      <div className="rounded-xl bg-muted/40 border px-4 py-3 flex items-center justify-between">
+        <div>
+          <p className="font-bold text-base">Blend Batch #{batch.batchNumber}</p>
+          <p className="text-sm text-muted-foreground">{batch.batchLbs} lbs</p>
+        </div>
+        {allConfirmed && (
+          <CheckCircle2 className="w-5 h-5 text-chart-2" />
+        )}
       </div>
 
       {batch.ingredients.length > 0 && (
-        <>
-          <p className="text-sm font-medium">Confirm each ingredient:</p>
-          <div className="space-y-3">
-            {batch.ingredients.map((ing, ingIdx) => (
-              <Card key={ingIdx} className={`border ${ing.confirmed ? "border-chart-2/40 bg-chart-2/5" : "border-border"}`}>
-                <CardContent className="p-3">
-                  <IngredientLotPicker
-                    ing={ing}
-                    disabled={ing.confirmed}
-                    onChange={(field, value) => onUpdateIngredient(batchIdx, ingIdx, field, value)}
-                    onConfirm={() => onConfirmIngredient(batchIdx, ingIdx)}
-                  />
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </>
+        <div className="space-y-3">
+          <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Confirm each ingredient</p>
+          {batch.ingredients.map((ing, ingIdx) => (
+            <Card key={ingIdx} className={`border-2 transition-colors ${ing.confirmed ? "border-chart-2/40 bg-chart-2/5" : "border-border"}`}>
+              <CardContent className="p-4">
+                <IngredientLotPicker
+                  ing={ing}
+                  disabled={ing.confirmed}
+                  onChange={(field, value) => onUpdateIngredient(batchIdx, ingIdx, field, value)}
+                  onConfirm={() => onConfirmIngredient(batchIdx, ingIdx)}
+                />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       )}
 
-      <div className="flex gap-2 pt-2">
-        <Button variant="outline" className="gap-1" onClick={onBack} disabled={saving}>
+      <div className="flex gap-3 pt-1">
+        <Button variant="outline" className="gap-2 h-11 px-5" onClick={onBack} disabled={saving}>
           <ChevronLeft className="w-4 h-4" /> Back
         </Button>
-        <Button 
-          className="flex-1 gap-1 bg-chart-2 hover:bg-chart-2/90" 
-          disabled={!allConfirmed || saving} 
+        <Button
+          className="flex-1 gap-2 h-11 text-base font-semibold bg-chart-2 hover:bg-chart-2/90"
+          disabled={!allConfirmed || saving}
           onClick={onComplete}
         >
-          <CheckCircle2 className="w-4 h-4" /> Complete Batch #{batch.batchNumber}
+          <CheckCircle2 className="w-4 h-4" />
+          {saving ? "Saving…" : `Complete Batch #${batch.batchNumber}`}
         </Button>
       </div>
     </div>
@@ -836,27 +855,30 @@ function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form, setFor
   const canProceed = isLinking ? !!cookBatch : isTumble ? !!cookPlan : true;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <ProgressBar current={stepIndex + 1} total={totalSteps} pct={progressPct} label="Step" />
 
-      <div className="rounded-lg bg-muted/40 border p-3">
-        <p className="font-semibold">{stepDef.label}</p>
+      <div className="rounded-xl bg-muted/40 border px-4 py-3">
+        <p className="font-bold text-base">{stepDef.label}</p>
+        <p className="text-xs text-muted-foreground mt-0.5">Step {stepIndex + 1} of {totalSteps}</p>
       </div>
 
-      <div className="space-y-3">
-        {stepDef.fields.map(field => (
-          <FieldInput
-            key={field.key}
-            field={field}
-            value={form[field.key]}
-            spiceMixes={spiceMixes}
-            casingBuckets={casingBuckets}
-            onChange={val => setForm(f => ({ ...f, [field.key]: val }))}
-            onSpiceSelect={(id, name) => setForm(f => ({ ...f, spice_mix_id: id, spice_mix_name: name }))}
-            onCasingSelect={(id, name) => setForm(f => ({ ...f, casing_bucket_id: id, casing_bucket_name: name }))}
-          />
-        ))}
-      </div>
+      {stepDef.fields.length > 0 && (
+        <div className="space-y-4">
+          {stepDef.fields.map(field => (
+            <FieldInput
+              key={field.key}
+              field={field}
+              value={form[field.key]}
+              spiceMixes={spiceMixes}
+              casingBuckets={casingBuckets}
+              onChange={val => setForm(f => ({ ...f, [field.key]: val }))}
+              onSpiceSelect={(id, name) => setForm(f => ({ ...f, spice_mix_id: id, spice_mix_name: name }))}
+              onCasingSelect={(id, name) => setForm(f => ({ ...f, casing_bucket_id: id, casing_bucket_name: name }))}
+            />
+          ))}
+        </div>
+      )}
 
       {/* Cook batch builder — linking step */}
       {isLinking && (
@@ -891,12 +913,12 @@ function FieldInput({ field, value, onChange, spiceMixes, casingBuckets = [], on
   if (field.type === "casing_select") {
     return (
       <div className="space-y-1.5">
-        <Label>{field.label}</Label>
+        <Label className="text-sm font-semibold">{field.label}</Label>
         <Select value={value || ""} onValueChange={v => {
           const bucket = (field.options || casingBuckets).find(b => b.id === v);
           onCasingSelect(v, bucket?.name || "");
         }}>
-          <SelectTrigger><SelectValue placeholder="Select casings..." /></SelectTrigger>
+          <SelectTrigger className="h-11"><SelectValue placeholder="Select casings..." /></SelectTrigger>
           <SelectContent>
             {(field.options || casingBuckets).map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
           </SelectContent>
@@ -907,12 +929,12 @@ function FieldInput({ field, value, onChange, spiceMixes, casingBuckets = [], on
   if (field.type === "spice_select") {
     return (
       <div className="space-y-1.5">
-        <Label>{field.label}</Label>
+        <Label className="text-sm font-semibold">{field.label}</Label>
         <Select value={value || ""} onValueChange={v => {
           const mix = spiceMixes.find(m => m.id === v);
           onSpiceSelect(v, mix?.name || "");
         }}>
-          <SelectTrigger><SelectValue placeholder="Select mix..." /></SelectTrigger>
+          <SelectTrigger className="h-11"><SelectValue placeholder="Select mix..." /></SelectTrigger>
           <SelectContent>
             {spiceMixes.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
           </SelectContent>
@@ -922,34 +944,35 @@ function FieldInput({ field, value, onChange, spiceMixes, casingBuckets = [], on
   }
   if (field.type === "boolean") {
     return (
-      <div className="flex items-center gap-3">
-        <Switch checked={!!value} onCheckedChange={onChange} />
-        <Label>{field.label}</Label>
+      <div className="flex items-center gap-4 rounded-xl border bg-muted/30 px-4 py-3">
+        <Switch checked={!!value} onCheckedChange={onChange} className="scale-125" />
+        <Label className="text-sm font-medium cursor-pointer select-none">{field.label}</Label>
       </div>
     );
   }
   if (field.type === "textarea") {
     return (
       <div className="space-y-1.5">
-        <Label>{field.label}</Label>
+        <Label className="text-sm font-semibold">{field.label}</Label>
         <Textarea
           value={value || ""}
           onChange={e => onChange(e.target.value)}
-          className="h-20"
-          placeholder="Any observations..."
+          className="h-24 text-base"
+          placeholder={field.placeholder || "Any observations..."}
         />
       </div>
     );
   }
   return (
     <div className="space-y-1.5">
-      <Label>{field.label}</Label>
+      <Label className="text-sm font-semibold">{field.label}</Label>
       <Input
         type={field.type === "number" ? "number" : "text"}
         step={field.type === "number" ? "0.1" : undefined}
         value={value ?? ""}
         onChange={e => onChange(field.type === "number" ? Number(e.target.value) : e.target.value)}
-        className="h-9"
+        placeholder={field.placeholder || ""}
+        className="h-11 text-base"
       />
     </div>
   );
@@ -968,50 +991,85 @@ function FinalStep({ stage, capKey, stageLabel, resolvedBatches, form, cookBatch
   const canComplete = isLinking ? !!cookBatch : isTumble ? !!cookPlan : true;
 
   return (
-    <div className="space-y-4">
-      <div className="rounded-lg bg-chart-2/10 border border-chart-2/20 p-4">
-        <p className="font-semibold text-chart-2 flex items-center gap-2">
-          <CheckCircle2 className="w-4 h-4" /> Ready to complete {stageLabel}
-        </p>
-        <p className="text-sm text-muted-foreground mt-1">Output: {outputLbs} lbs</p>
+    <div className="space-y-5">
+      {/* Summary card */}
+      <div className={`rounded-xl border-2 p-4 space-y-3 ${canComplete ? "border-chart-2/30 bg-chart-2/8" : "border-destructive/30 bg-destructive/5"}`}>
+        <div className="flex items-center gap-2">
+          <CheckCircle2 className={`w-5 h-5 ${canComplete ? "text-chart-2" : "text-muted-foreground"}`} />
+          <p className={`font-bold text-base ${canComplete ? "text-chart-2" : "text-muted-foreground"}`}>
+            {canComplete ? `Ready to complete ${stageLabel}` : `Review required`}
+          </p>
+        </div>
+
+        <div className="flex items-center justify-between bg-white/60 rounded-lg px-3 py-2">
+          <span className="text-sm text-muted-foreground">Output quantity</span>
+          <span className="font-bold text-lg">{outputLbs} lbs</span>
+        </div>
+
         {isLinking && cookBatch && (
-          <div className="mt-2 text-sm space-y-0.5">
-            <p className="text-muted-foreground">Cook Batch Lot: <span className="font-mono font-semibold text-foreground">{cookBatch.lotNumber}</span></p>
-            <p className="text-muted-foreground">Cook Batch Qty: <span className="font-semibold text-foreground">{cookBatch.totalQty} lbs</span></p>
-            <p className="text-muted-foreground">Linking Batches Merged: <span className="font-semibold text-foreground">{cookBatch.selectedStageIds?.length || 1}</span></p>
+          <div className="space-y-1.5 pt-1">
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Cook Batch Lot</span>
+              <span className="font-mono font-bold">{cookBatch.lotNumber}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Batch Qty</span>
+              <span className="font-semibold">{cookBatch.totalQty} lbs</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Linking Batches</span>
+              <span className="font-semibold">{cookBatch.selectedStageIds?.length || 1}</span>
+            </div>
           </div>
         )}
         {isLinking && !cookBatch && (
-          <p className="text-sm text-destructive mt-1">⚠ No cook batch assembled — go back to build one.</p>
+          <p className="text-sm text-destructive font-medium flex items-center gap-1.5">
+            <AlertCircle className="w-4 h-4" /> No cook batch assembled — go back to build one.
+          </p>
         )}
         {isTumble && cookPlan && (
-          <div className="mt-2 text-sm space-y-0.5">
-            <p className="text-muted-foreground">Cook Batches: <span className="font-semibold text-foreground">{cookPlan.cookBatches.length}</span></p>
-            <p className="text-muted-foreground">Total Racks: <span className="font-semibold text-foreground">{cookPlan.cookBatches.reduce((s, b) => s + b.racks, 0)}</span></p>
-            {cookPlan.cookBatches.map((b, i) => (
-              <p key={i} className="text-xs text-muted-foreground pl-2">
-                {b.lotNumber} — {b.racks} racks · {b.lbs} lbs
-              </p>
-            ))}
+          <div className="space-y-1.5 pt-1">
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Cook Batches</span>
+              <span className="font-semibold">{cookPlan.cookBatches.length}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Total Racks</span>
+              <span className="font-semibold">{cookPlan.cookBatches.reduce((s, b) => s + b.racks, 0)}</span>
+            </div>
+            <div className="space-y-1 pt-1">
+              {cookPlan.cookBatches.map((b, i) => (
+                <div key={i} className="flex items-center justify-between bg-white/60 rounded px-2.5 py-1.5 text-xs">
+                  <span className="font-mono font-semibold">{b.lotNumber}</span>
+                  <div className="flex gap-2 text-muted-foreground">
+                    <span>{b.racks} racks</span>
+                    <span>·</span>
+                    <span>{b.lbs} lbs</span>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
         {isTumble && !cookPlan && (
-          <p className="text-sm text-destructive mt-1">⚠ No cook batches configured — go back to build them.</p>
+          <p className="text-sm text-destructive font-medium flex items-center gap-1.5">
+            <AlertCircle className="w-4 h-4" /> No cook batches configured — go back to build them.
+          </p>
         )}
       </div>
 
       {/* Batch summary (blending) */}
       {resolvedBatches && resolvedBatches.map(b => (
-        <div key={b.batchNumber} className="space-y-1">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+        <div key={b.batchNumber} className="space-y-1.5">
+          <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
             Batch #{b.batchNumber} — {b.batchLbs} lbs
           </p>
-          <div className="rounded border divide-y text-sm">
+          <div className="rounded-xl border divide-y text-sm overflow-hidden">
             {b.ingredients.map((ing, i) => (
-              <div key={i} className="px-3 py-2">
+              <div key={i} className="px-3 py-2.5">
                 <div className="flex items-center justify-between">
-                  <span className="font-medium">{ing.bucket_name}</span>
-                  <span className="text-muted-foreground text-xs">
+                  <span className="font-semibold">{ing.bucket_name}</span>
+                  <span className="text-muted-foreground text-xs font-medium">
                     {(ing.lot_allocations?.reduce((s, a) => s + (Number(a.actual_lbs) || 0), 0) || 0).toFixed(2)} lbs
                   </span>
                 </div>
@@ -1029,26 +1087,27 @@ function FinalStep({ stage, capKey, stageLabel, resolvedBatches, form, cookBatch
 
       {/* Measurement summary */}
       {!resolvedBatches && Object.keys(form).length > 0 && (
-        <div className="rounded border divide-y text-sm">
+        <div className="rounded-xl border divide-y text-sm overflow-hidden">
           {Object.entries(form).filter(([, v]) => v !== "" && v !== null && v !== undefined).map(([k, v]) => (
-            <div key={k} className="flex items-center justify-between px-3 py-2">
+            <div key={k} className="flex items-center justify-between px-3 py-2.5">
               <span className="text-muted-foreground capitalize">{k.replace(/_/g, " ")}</span>
-              <span className="font-medium">{typeof v === "boolean" ? (v ? "Yes" : "No") : String(v)}</span>
+              <span className="font-semibold">{typeof v === "boolean" ? (v ? "Yes" : "No") : String(v)}</span>
             </div>
           ))}
         </div>
       )}
 
-      <div className="flex gap-2 pt-2">
-        <Button variant="outline" className="gap-1" onClick={onBack}>
+      <div className="flex gap-3 pt-1">
+        <Button variant="outline" className="gap-2 h-11 px-5" onClick={onBack}>
           <ChevronLeft className="w-4 h-4" /> Back
         </Button>
         <Button
-          className="flex-1 gap-1 bg-chart-2 hover:bg-chart-2/90"
+          className="flex-1 gap-2 h-12 text-base font-bold bg-chart-2 hover:bg-chart-2/90"
           onClick={onComplete}
           disabled={saving || !canComplete}
         >
-          <CheckCircle2 className="w-4 h-4" /> Complete {stageLabel}
+          <CheckCircle2 className="w-5 h-5" />
+          {saving ? "Completing…" : `Complete ${stageLabel}`}
         </Button>
       </div>
     </div>
@@ -1057,13 +1116,13 @@ function FinalStep({ stage, capKey, stageLabel, resolvedBatches, form, cookBatch
 
 function ProgressBar({ current, total, pct, label }) {
   return (
-    <div className="space-y-1">
-      <div className="flex justify-between text-xs text-muted-foreground">
+    <div className="space-y-1.5">
+      <div className="flex justify-between text-xs font-semibold text-muted-foreground">
         <span>{label} {current} of {total}</span>
         <span>{pct}%</span>
       </div>
-      <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-        <div className="h-full bg-chart-1 rounded-full transition-all" style={{ width: `${pct}%` }} />
+      <div className="h-2 rounded-full bg-muted overflow-hidden">
+        <div className="h-full bg-chart-1 rounded-full transition-all duration-300" style={{ width: `${pct}%` }} />
       </div>
     </div>
   );
@@ -1071,11 +1130,11 @@ function ProgressBar({ current, total, pct, label }) {
 
 function NavButtons({ onBack, onNext, nextDisabled, nextLabel }) {
   return (
-    <div className="flex gap-2 pt-2">
-      <Button variant="outline" className="gap-1" onClick={onBack}>
+    <div className="flex gap-3 pt-1">
+      <Button variant="outline" className="gap-2 h-11 px-5" onClick={onBack}>
         <ChevronLeft className="w-4 h-4" /> Back
       </Button>
-      <Button className="flex-1 gap-1" disabled={nextDisabled} onClick={onNext}>
+      <Button className="flex-1 gap-2 h-11 font-semibold" disabled={nextDisabled} onClick={onNext}>
         {nextLabel} <ChevronRight className="w-4 h-4" />
       </Button>
     </div>

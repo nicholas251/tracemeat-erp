@@ -27,7 +27,7 @@ export default function OrderStagesPanel({ orderId, allowedCapabilityKeys = null
 
   return (
     <>
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-start gap-2">
         {stages.sort((a, b) => a.step_number - b.step_number).map((stage, idx) => {
           const cfg = STATUS_CONFIG[stage.status] || STATUS_CONFIG.locked;
           const Icon = cfg.icon;
@@ -37,23 +37,23 @@ export default function OrderStagesPanel({ orderId, allowedCapabilityKeys = null
               <button
                 disabled={!clickable}
                 onClick={() => clickable && setActiveStage(stage)}
-                className={`flex flex-col p-3 rounded-lg border text-left min-w-[120px] transition-all ${cfg.bg} ${clickable ? "cursor-pointer hover:shadow-sm" : "cursor-not-allowed opacity-50"}`}
+                className={`flex flex-col p-3.5 rounded-xl border-2 text-left min-w-[130px] transition-all active:scale-95 ${cfg.bg} ${clickable ? "cursor-pointer hover:shadow-md hover:scale-[1.02]" : "cursor-not-allowed opacity-40"}`}
               >
-                <div className={`flex items-center gap-1.5 mb-1 ${cfg.color}`}>
-                  <Icon className="w-3.5 h-3.5" />
-                  <span className="text-xs font-semibold capitalize">{stage.status?.replace("_", " ")}</span>
+                <div className={`flex items-center gap-1.5 mb-1.5 ${cfg.color}`}>
+                  <Icon className="w-4 h-4" />
+                  <span className="text-xs font-bold capitalize">{stage.status?.replace("_", " ")}</span>
                 </div>
-                <p className="text-sm font-medium leading-tight">{stage.capability_name}</p>
-                <p className="text-xs text-muted-foreground">Step {stage.step_number}</p>
+                <p className="text-sm font-bold leading-tight">{stage.capability_name}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Step {stage.step_number}</p>
                 {stage.output_qty_lbs > 0 && (
-                  <p className="text-xs font-medium mt-1">{stage.output_qty_lbs} lbs</p>
+                  <p className="text-xs font-semibold mt-1.5 text-foreground">{stage.output_qty_lbs} lbs out</p>
                 )}
                 {stage.racks_count > 0 && (
                   <p className="text-xs text-muted-foreground">{stage.racks_count} racks</p>
                 )}
               </button>
               {idx < stages.length - 1 && (
-                <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0 mt-5" />
               )}
             </React.Fragment>
           );
