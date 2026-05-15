@@ -384,6 +384,33 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
           ...form,
         });
 
+        // Deduct FIFO lots for protein + spice across all cook batches
+        for (const cb of cookPlan.cookBatches) {
+          const ingredients = [];
+          if (cb.proteinLots?.length) {
+            ingredients.push({
+              bucket_id: product?.blend_ingredients?.[0]?.bucket_id,
+              bucket_name: product?.blend_ingredients?.[0]?.bucket_name || "Protein",
+              actual_lbs: cb.proteinLots.reduce((s, a) => s + (Number(a.actual_lbs) || 0), 0),
+              lot_allocations: cb.proteinLots,
+            });
+          }
+          if (cb.spiceLots?.length) {
+            ingredients.push({
+              bucket_id: cb.spiceLots[0]?.bucket_id || null,
+              bucket_name: "Spice",
+              actual_lbs: cb.spiceLots.reduce((s, a) => s + (Number(a.actual_lbs) || 0), 0),
+              lot_allocations: cb.spiceLots,
+            });
+          }
+          if (ingredients.length) {
+            base44.functions.invoke("deductRawInventoryOnBatchComplete", {
+              stage_id: stage.id,
+              ingredients,
+            }).catch(err => console.warn("Inventory deduction failed:", err));
+          }
+        }
+
         // Look up the cooking/smokehouse step in the flow
         const order = await base44.entities.ProductionOrder.filter({ id: stage.order_id }).then(r => r?.[0]);
         if (order) {
@@ -672,6 +699,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
             casingBuckets={casingBuckets}
             capKey={capKey}
             stage={stage}
+            product={product}
             cookBatch={cookBatch}
             setCookBatch={setCookBatch}
             cookPlan={cookPlan}
@@ -799,7 +827,7 @@ function BatchConfirmStep({ batch, batchIdx, totalBatches, progressPct, onUpdate
   );
 }
 
-function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form, setForm, spiceMixes, casingBuckets, capKey, stage, cookBatch, setCookBatch, cookPlan, setCookPlan, onBack, onNext, isLast }) {
+function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form, setForm, spiceMixes, casingBuckets, capKey, stage, product, cookBatch, setCookBatch, cookPlan, setCookPlan, onBack, onNext, isLast }) {
   const isLinking = capKey === "linking" && stepDef.id === "linking";
   const isTumble = capKey === "tumble" && stepDef.id === "tumble";
   const canProceed = isLinking ? !!cookBatch : isTumble ? !!cookPlan : true;
@@ -840,6 +868,7 @@ function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form, setFor
       {isTumble && (
         <TumbleCookBatchBuilder
           totalLbs={stage?.input_qty_lbs || 0}
+          product={product}
           cookPlan={cookPlan}
           onChange={setCookPlan}
         />
