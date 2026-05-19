@@ -97,7 +97,7 @@ function buildMeasurementSteps(stage, product, capKey, casingBuckets = []) {
   }
 
   if (capKey === "tumble" || capKey === "tumbling") {
-    const spiceQty = stage?.spice_mix_qty_lbs || product?.chop_spice_qty_lbs || 0;
+    const spiceQty = stage?.spice_mix_qty_lbs || product?.tumble_spice_qty_lbs || 0;
     steps.push({
       id: "tumble",
       label: "Tumbling",
@@ -349,7 +349,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
             await base44.entities.ProductionStage.update(existingNextStage.id, {
               status: "available",
               input_qty_lbs: currentBatch.batchLbs,
-              input_lot_number: currentBatch.outputLotNumber || "",
+              input_lot_number: form.output_lot_number || "",
             });
           } else if (!existingNextStage) {
             // No pre-created stage exists — create one (legacy flows)
@@ -376,6 +376,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
 
         // Invalidate queries
         queryClient.invalidateQueries({ queryKey: ["allStages"] });
+        queryClient.invalidateQueries({ queryKey: ["orderStages", stage.order_id] });
         queryClient.invalidateQueries({ queryKey: ["productionOrders"] });
         queryClient.invalidateQueries({ queryKey: ["blendingStages"] });
 
@@ -404,9 +405,10 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
         for (const cb of cookPlan.cookBatches) {
           const ingredients = [];
           if (cb.proteinLots?.length) {
+            const proteinBucket = product?.blend_ingredients?.[0];
             ingredients.push({
-              bucket_id: product?.blend_ingredients?.[0]?.bucket_id,
-              bucket_name: product?.blend_ingredients?.[0]?.bucket_name || "Protein",
+              bucket_id: proteinBucket?.bucket_id || "",
+              bucket_name: proteinBucket?.bucket_name || "Protein",
               actual_lbs: cb.proteinLots.reduce((s, a) => s + (Number(a.actual_lbs) || 0), 0),
               lot_allocations: cb.proteinLots,
             });
@@ -513,14 +515,15 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
               });
             }
           }
-        }
+          }
 
-        queryClient.invalidateQueries({ queryKey: ["allStages"] });
-        queryClient.invalidateQueries({ queryKey: ["productionOrders"] });
-        onCompleted?.();
-        onClose();
-      } else {
-        // For non-blending/non-linking stages: complete the whole stage
+          queryClient.invalidateQueries({ queryKey: ["allStages"] });
+          queryClient.invalidateQueries({ queryKey: ["orderStages", stage.order_id] });
+          queryClient.invalidateQueries({ queryKey: ["productionOrders"] });
+          onCompleted?.();
+          onClose();
+          } else {
+          // For non-blending/non-linking stages: complete the whole stage
         const updates = {
           status: "completed",
           completed_at: new Date().toISOString(),
@@ -624,7 +627,9 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
         const nextStage = allStages.find(s => s.step_number === stage.step_number + 1);
         if (nextStage?.status === "locked") {
           const rawQty = updates.output_qty_lbs || stage.input_qty_lbs || 0;
-          const yieldFraction = (product?.yield_percent ?? 80) / 100;
+          const productYield = product?.yield_percent;
+          if (!productYield) console.warn(`Product missing yield_percent; using default 85%`);
+          const yieldFraction = (productYield ?? 85) / 100;
           const nextInputQty = capKey === "cooking" ? parseFloat((rawQty * yieldFraction).toFixed(2)) : rawQty;
           
           // Determine lot number to pass forward

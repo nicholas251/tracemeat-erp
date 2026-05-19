@@ -110,6 +110,10 @@
       "type": "number",
       "description": "Spice mix quantity per chopping batch (lbs)"
     },
+    "tumble_spice_qty_lbs": {
+      "type": "number",
+      "description": "Spice mix quantity for tumble stage (lbs)"
+    },
     "chop_water_lbs": {
       "type": "number",
       "description": "Water added per chopping batch (lbs)"
