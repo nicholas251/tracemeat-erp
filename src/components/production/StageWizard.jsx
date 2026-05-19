@@ -867,9 +867,21 @@ function BatchConfirmStep({ batch, batchIdx, totalBatches, progressPct, onUpdate
 }
 
 function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form, setForm, casingBuckets, capKey, stage, product, cookBatch, setCookBatch, cookPlan, setCookPlan, onBack, onNext, isLast }) {
+  const [spiceShortNotes, setSpiceShortNotes] = React.useState("");
   const isLinking = capKey === "linking" && stepDef.id === "linking";
   const isTumble = (capKey === "tumble" || capKey === "tumbling") && stepDef.id === "tumble";
-  const canProceed = isLinking ? !!cookBatch : isTumble ? !!cookPlan : true;
+
+  // Check if spice is short and notes are required
+  const spiceField = stepDef.fields.find(f => f.type === "spice_mix_picker");
+  const spiceValue = spiceField ? form[spiceField.key] : null;
+  const spiceTotalAllocated = spiceValue?.lots
+    ? spiceValue.lots.reduce((s, l) => s + (Number(l.spice_mix_qty_lbs) || 0), 0)
+    : (Number(spiceValue?.spice_mix_qty_lbs) || 0);
+  const spiceRequired = spiceField?.requiredLbs || 0;
+  const spiceIsShort = spiceRequired > 0 && spiceTotalAllocated > 0 && spiceTotalAllocated < spiceRequired - 0.001;
+  const spiceBlocksNext = spiceIsShort && !spiceShortNotes?.trim();
+
+  const canProceed = isLinking ? !!cookBatch : isTumble ? !!cookPlan : !spiceBlocksNext;
 
   return (
     <div className="space-y-5">
@@ -888,6 +900,8 @@ function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form, setFor
               field={field}
               value={form[field.key]}
               casingBuckets={casingBuckets}
+              spiceShortNotes={spiceShortNotes}
+              onSpiceShortNotesChange={setSpiceShortNotes}
               onChange={val => {
                 if (field.type === "spice_mix_picker") {
                   // Spread spice mix sub-fields onto form for easy saving
@@ -938,7 +952,7 @@ function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form, setFor
   );
 }
 
-function FieldInput({ field, value, onChange, casingBuckets = [], onCasingSelect }) {
+function FieldInput({ field, value, onChange, casingBuckets = [], onCasingSelect, spiceShortNotes, onSpiceShortNotesChange }) {
   if (field.type === "spice_mix_picker") {
     return (
       <SpiceMixLotPicker
@@ -947,6 +961,8 @@ function FieldInput({ field, value, onChange, casingBuckets = [], onCasingSelect
         value={value || {}}
         onChange={onChange}
         filterSpiceMixId={field.filterSpiceMixId}
+        shortNotes={spiceShortNotes}
+        onShortNotesChange={onSpiceShortNotesChange}
       />
     );
   }

@@ -98,7 +98,18 @@ export default function IngredientLotPicker({ ing, disabled, onChange, onConfirm
   const hasInsufficientInventory = allocations.some(a => a.insufficient);
 
   const updateAllocation = (idx, field, value) => {
-    const updated = allocations.map((a, i) => i === idx ? { ...a, [field]: value } : a);
+    let val = value;
+    if (field === "actual_lbs") {
+      const numVal = Number(value);
+      // Cap at available qty for that lot (if known)
+      const avail = allocations[idx]?.available_qty;
+      if (avail > 0) val = Math.min(numVal, avail);
+      // Also cap total across all lots at required_lbs
+      const otherTotal = allocations.reduce((s, a, i) => i === idx ? s : s + (Number(a.actual_lbs) || 0), 0);
+      val = Math.min(val, Math.max(0, ing.required_lbs - otherTotal));
+      val = parseFloat(val.toFixed(2));
+    }
+    const updated = allocations.map((a, i) => i === idx ? { ...a, [field]: val } : a);
     onChange("lot_allocations", updated);
   };
 

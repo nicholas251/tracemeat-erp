@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CheckCircle2, AlertCircle, FlaskConical, PlusCircle, Trash2 } from "lucide-react";
 
@@ -22,7 +23,7 @@ import { CheckCircle2, AlertCircle, FlaskConical, PlusCircle, Trash2 } from "luc
  *   onChange     – (updatedValue) => void  — always emits the multi-lot shape
  *   disabled     – boolean
  */
-export default function SpiceMixLotPicker({ label, requiredLbs, value = {}, onChange, disabled, filterSpiceMixId }) {
+export default function SpiceMixLotPicker({ label, requiredLbs, value = {}, onChange, disabled, filterSpiceMixId, shortNotes, onShortNotesChange }) {
   const { data: allSpiceMixes = [], isLoading } = useQuery({
     queryKey: ["spiceMixesActive"],
     queryFn: () => base44.entities.SpiceMix.filter({ status: "active" }),
@@ -51,6 +52,7 @@ export default function SpiceMixLotPicker({ label, requiredLbs, value = {}, onCh
   const totalAllocated = lots.reduce((s, l) => s + (Number(l.spice_mix_qty_lbs) || 0), 0);
   const remaining = Math.max(0, (requiredLbs || 0) - totalAllocated);
   const isCovered = requiredLbs > 0 ? totalAllocated >= requiredLbs : lots.length > 0;
+  const isShort = requiredLbs > 0 && totalAllocated < requiredLbs - 0.001 && totalAllocated > 0;
 
   const emitChange = (newLots) => {
     // Emit multi-lot shape, plus flatten first lot fields for backwards-compat
@@ -90,9 +92,18 @@ export default function SpiceMixLotPicker({ label, requiredLbs, value = {}, onCh
   };
 
   const handleLotField = (index, field, val) => {
-    const newLots = lots.map((l, i) =>
-      i === index ? { ...l, [field]: field === "spice_mix_qty_lbs" ? Number(val) : val } : l
-    );
+    let value = field === "spice_mix_qty_lbs" ? Number(val) : val;
+    if (field === "spice_mix_qty_lbs" && requiredLbs > 0) {
+      // Cap at per-lot available qty (if known)
+      const mix = spiceMixes.find(m => m.id === lots[index]?.spice_mix_id);
+      const available = mix?.available_qty_lbs ?? mix?.quantity_lbs ?? null;
+      if (available !== null) value = Math.min(value, available);
+      // Cap total across all lots at requiredLbs
+      const otherTotal = lots.reduce((s, l, i) => i === index ? s : s + (Number(l.spice_mix_qty_lbs) || 0), 0);
+      value = Math.min(value, Math.max(0, requiredLbs - otherTotal));
+      value = parseFloat(value.toFixed(2));
+    }
+    const newLots = lots.map((l, i) => i === index ? { ...l, [field]: value } : l);
     emitChange(newLots);
   };
 
@@ -238,6 +249,21 @@ export default function SpiceMixLotPicker({ label, requiredLbs, value = {}, onCh
           <button onClick={addLot} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
             <PlusCircle className="w-3 h-3" /> Add lot
           </button>
+        </div>
+      )}
+
+      {/* Short quantity — require a comment */}
+      {isShort && !disabled && (
+        <div className="space-y-1.5">
+          <Label className="text-xs text-amber-600 font-semibold">
+            Reason for short quantity ({remaining.toFixed(2)} lbs under) <span className="text-destructive">*</span>
+          </Label>
+          <Textarea
+            value={shortNotes || ""}
+            onChange={e => onShortNotesChange?.(e.target.value)}
+            placeholder="e.g. scale variance, partial lot used..."
+            className="h-16 text-xs"
+          />
         </div>
       )}
     </div>
