@@ -19,16 +19,12 @@ export default function AppLayout() {
       </div>
 
       {/* Tablet/Mobile sidebar overlay */}
-      <div className="lg:hidden">
-        {sidebarOpen && (
-          <div className="fixed inset-0 bg-black/50 z-30" onClick={() => setSidebarOpen(false)} />
-        )}
-        <div className={cn(
-          "fixed left-0 top-0 h-full z-40 transition-transform duration-300",
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
-        )}>
-          <Sidebar collapsed={false} onToggle={() => setSidebarOpen(false)} onClose={() => setSidebarOpen(false)} />
-        </div>
+      {sidebarOpen && <div className="fixed inset-0 bg-black/50 z-30 lg:hidden" onClick={() => setSidebarOpen(false)} />}
+      <div className={cn(
+        "fixed left-0 top-0 h-full z-40 transition-transform duration-300 lg:hidden",
+        sidebarOpen ? "translate-x-0" : "-translate-x-full"
+      )}>
+        <Sidebar collapsed={false} onToggle={() => setSidebarOpen(false)} onClose={() => setSidebarOpen(false)} />
       </div>
 
       {/* Main content */}
