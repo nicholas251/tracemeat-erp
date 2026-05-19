@@ -90,9 +90,8 @@ export default function ProductionOrders() {
             for (let i = 0; i < sorted.length; i++) {
               const step = sorted[i];
               const isTumblingStep = step.capability_key === "tumbling" || step.capability_key === "tumble";
-              const isFirstStep = i === 0;
 
-              if (isTumblingStep && isFirstStep) {
+              if (isTumblingStep) {
                 // Split into individual tumble batches (800 lbs each by default, or product.tumble_batch_lbs)
                 const tumblingBatchSize = product?.tumble_batch_lbs || 800;
                 const numTumbleBatches = Math.ceil(totalRawInputLbs / tumblingBatchSize);
@@ -136,7 +135,6 @@ export default function ProductionOrders() {
                   sub_batches: [],
                 });
               }
-              // Tumbling steps that are NOT the first step (shouldn't happen, but skip if so)
             }
           }
       }
