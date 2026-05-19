@@ -13,13 +13,13 @@ export default function AppLayout() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      {/* Sidebar — visible on tablet and larger */}
-      <div className="hidden md:block">
+      {/* Sidebar — permanent on large screens only */}
+      <div className="hidden lg:block">
         <Sidebar collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} />
       </div>
 
-      {/* Mobile sidebar overlay */}
-      <div className="md:hidden">
+      {/* Tablet/Mobile sidebar overlay */}
+      <div className="lg:hidden">
         {sidebarOpen && (
           <div className="fixed inset-0 bg-black/50 z-30" onClick={() => setSidebarOpen(false)} />
         )}
@@ -34,10 +34,10 @@ export default function AppLayout() {
       {/* Main content */}
       <main className={cn(
         "transition-all duration-300 min-h-screen",
-        "md:ml-[250px]",
-        collapsed && "md:ml-[68px]",
-        // On mobile, no left margin but add bottom padding for bottom nav
-        "pb-24 md:pb-0"
+        "lg:ml-[250px]",
+        collapsed && "lg:ml-[68px]",
+        // On tablet/mobile, no left margin but add bottom padding for bottom nav
+        "pb-24 lg:pb-0"
       )}>
         <div className="flex items-center justify-between p-3 sm:p-4 md:p-6 lg:p-8 mb-2">
           <Button 
