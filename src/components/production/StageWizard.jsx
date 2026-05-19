@@ -98,10 +98,29 @@ function buildMeasurementSteps(stage, product, capKey, spiceMixes, casingBuckets
   }
 
   if (capKey === "tumble" || capKey === "tumbling") {
+    const spiceName = stage?.spice_mix_name || "Spice Mix";
+    const spiceQty = stage?.spice_mix_qty_lbs;
+    const spiceFields = spiceQty
+      ? [
+          {
+            key: "spice_mix_lot_number",
+            label: `Spice Mix Lot # (${spiceName}${spiceQty ? ` — ${spiceQty} lbs required` : ""})`,
+            type: "text",
+            placeholder: "e.g. SPICE-LOT-2024-001",
+          },
+          {
+            key: "spice_mix_qty_confirmed",
+            label: `Confirm ${spiceQty} lbs of ${spiceName} added to tumbler?`,
+            type: "boolean",
+          },
+        ]
+      : [];
+
     steps.push({
       id: "tumble",
       label: "Tumbling",
       fields: [
+        ...spiceFields,
         { key: "duration_minutes", label: "Tumble Duration (minutes)", type: "number" },
         { key: "temperature_c", label: "Temperature (°C)", type: "number" },
         // output qty / lot / cook batch plan handled by TumbleCookBatchBuilder embedded in MeasureStep
@@ -398,6 +417,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
           output_qty_lbs: totalOutputLbs,
           output_lot_number: tumbleOutputLot,
           racks_count: cookPlan.cookBatches.reduce((s, b) => s + b.racks, 0),
+          spice_mix_lot_number: form.spice_mix_lot_number || "",
           ...form,
         });
 

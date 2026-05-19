@@ -112,6 +112,9 @@ export default function ProductionOrders() {
                     work_profile_name: step.work_profile_name || "",
                     status: "available",
                     input_qty_lbs: parseFloat(batchLbs.toFixed(2)),
+                    spice_mix_id: product?.chop_spice_mix_id || "",
+                    spice_mix_name: product?.chop_spice_mix_name || "",
+                    spice_mix_qty_lbs: product?.chop_spice_qty_lbs || 0,
                     sub_batches: [],
                     notes: numTumbleBatches > 1 ? `Tumble Batch ${t + 1} of ${numTumbleBatches}` : "",
                   });
