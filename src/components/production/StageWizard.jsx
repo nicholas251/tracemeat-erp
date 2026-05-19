@@ -25,6 +25,7 @@ const STAGE_ICONS = {
   linking: Layers,
   racking: Layers,
   tumble: Thermometer,
+  tumbling: Thermometer,
   mixer: Package,
   cooking: Thermometer,
   chilling: Thermometer,
@@ -96,7 +97,7 @@ function buildMeasurementSteps(stage, product, capKey, spiceMixes, casingBuckets
     // Cook batch assembly is handled via the separate cook_batch state, not a field step
   }
 
-  if (capKey === "tumble") {
+  if (capKey === "tumble" || capKey === "tumbling") {
     steps.push({
       id: "tumble",
       label: "Tumbling",
@@ -174,7 +175,7 @@ function buildMeasurementSteps(stage, product, capKey, spiceMixes, casingBuckets
   }
 
   // Generic fallback for any capability not explicitly handled above
-  const knownKeys = ["chopping", "linking", "cooking", "chilling", "packaging", "racking", "tumble", "mixer"];
+  const knownKeys = ["chopping", "linking", "cooking", "chilling", "packaging", "racking", "tumble", "tumbling", "mixer"];
   if (!knownKeys.includes(capKey)) {
     steps.push({
       id: "generic",
@@ -358,7 +359,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
             });
           } else if (!existingNextStage) {
             // No pre-created stage exists — create one (legacy flows)
-            const nextFlow = await base44.entities.ProductionFlow.filter({ id: order.flow_id }).then(r => r?.[0]);
+            const nextFlow = await base44.entities.ProductFlow.filter({ id: order.flow_id }).then(r => r?.[0]);
             const nextStep = nextFlow?.steps?.find(s => s.step_number === nextStepNum);
             if (nextStep) {
               await base44.entities.ProductionStage.create({
@@ -387,7 +388,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
         // Close wizard after each batch completion
         onCompleted?.();
         onClose();
-      } else if (capKey === "tumble" && cookPlan) {
+      } else if ((capKey === "tumble" || capKey === "tumbling") && cookPlan) {
         // ── Tumble: complete stage, then create one cooking stage per cook batch ──
         const totalOutputLbs = cookPlan.cookBatches.reduce((s, b) => s + b.lbs, 0);
         const tumbleOutputLot = cookPlan.lotPrefix || `TUMBLE-${new Date().toISOString().slice(0,10).replace(/-/g,"")}`;
@@ -427,29 +428,34 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
           }
         }
 
-        // Look up the cooking/smokehouse step in the flow
+        // Look up the next steps in the flow after tumbling and create independent per-batch stages
         const order = await base44.entities.ProductionOrder.filter({ id: stage.order_id }).then(r => r?.[0]);
         if (order) {
-          const nextFlow = await base44.entities.ProductionFlow.filter({ id: order.flow_id }).then(r => r?.[0]);
-          const smokeStep = nextFlow?.steps?.find(s => s.capability_key === "cooking" || s.capability_key === "smokehouse");
-          if (smokeStep) {
-            for (const cb of cookPlan.cookBatches) {
-              await base44.entities.ProductionStage.create({
-                order_id: stage.order_id,
-                order_number: stage.order_number,
-                product_name: stage.product_name,
-                step_number: smokeStep.step_number,
-                capability_id: smokeStep.capability_id,
-                capability_key: smokeStep.capability_key,
-                capability_name: smokeStep.capability_name,
-                work_profile_id: smokeStep.work_profile_id,
-                work_profile_name: smokeStep.work_profile_name,
-                status: "available",
-                input_qty_lbs: cb.lbs,
-                racks_count: cb.racks,
-                cook_batch_lot: cb.lotNumber,
-                input_lot_number: cb.lotNumber,
-              });
+          const nextFlow = await base44.entities.ProductFlow.filter({ id: order.flow_id }).then(r => r?.[0]);
+          if (nextFlow?.steps) {
+            const sortedSteps = [...nextFlow.steps].sort((a, b) => a.step_number - b.step_number);
+            const nextSteps = sortedSteps.filter(s => s.step_number > stage.step_number);
+            if (nextSteps.length > 0) {
+              const firstNextStep = nextSteps[0];
+              // Create one independent stage for this cook batch at the next step
+              for (const cb of cookPlan.cookBatches) {
+                await base44.entities.ProductionStage.create({
+                  order_id: stage.order_id,
+                  order_number: stage.order_number,
+                  product_name: stage.product_name,
+                  step_number: firstNextStep.step_number,
+                  capability_id: firstNextStep.capability_id,
+                  capability_key: firstNextStep.capability_key,
+                  capability_name: firstNextStep.capability_name,
+                  work_profile_id: firstNextStep.work_profile_id || "",
+                  work_profile_name: firstNextStep.work_profile_name || "",
+                  status: "available",
+                  input_qty_lbs: cb.lbs,
+                  racks_count: cb.racks,
+                  cook_batch_lot: cb.lotNumber,
+                  input_lot_number: cb.lotNumber,
+                });
+              }
             }
           }
         }
@@ -482,7 +488,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
         // Create a single cooking stage for this cook batch
         const order = await base44.entities.ProductionOrder.filter({ id: stage.order_id }).then(r => r?.[0]);
         if (order) {
-          const nextFlow = await base44.entities.ProductionFlow.filter({ id: order.flow_id }).then(r => r?.[0]);
+          const nextFlow = await base44.entities.ProductFlow.filter({ id: order.flow_id }).then(r => r?.[0]);
           const cookStep = nextFlow?.steps?.find(s => s.capability_key === "cooking");
           if (cookStep) {
             // Check if a cooking stage already exists for this cook batch lot
@@ -864,7 +870,7 @@ function BatchConfirmStep({ batch, batchIdx, totalBatches, progressPct, onUpdate
 
 function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form, setForm, spiceMixes, casingBuckets, capKey, stage, product, cookBatch, setCookBatch, cookPlan, setCookPlan, onBack, onNext, isLast }) {
   const isLinking = capKey === "linking" && stepDef.id === "linking";
-  const isTumble = capKey === "tumble" && stepDef.id === "tumble";
+  const isTumble = (capKey === "tumble" || capKey === "tumbling") && stepDef.id === "tumble";
   const canProceed = isLinking ? !!cookBatch : isTumble ? !!cookPlan : true;
 
   return (
@@ -993,7 +999,7 @@ function FieldInput({ field, value, onChange, spiceMixes, casingBuckets = [], on
 
 function FinalStep({ stage, capKey, stageLabel, resolvedBatches, form, cookBatch, cookPlan, saving, onBack, onComplete }) {
   const isLinking = capKey === "linking";
-  const isTumble = capKey === "tumble";
+  const isTumble = capKey === "tumble" || capKey === "tumbling";
 
   const outputLbs = resolvedBatches
     ? resolvedBatches.reduce((s, b) => s + b.batchLbs, 0)

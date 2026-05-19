@@ -86,23 +86,54 @@ export default function ProductionOrders() {
               totalRawInputLbs = yieldPct ? Math.ceil(data.quantity_to_produce / (yieldPct / 100)) : data.quantity_to_produce;
             }
 
-            // Create stages
+            // Create stages — tumbling steps get split into individual 800 lb batch stages
             for (let i = 0; i < sorted.length; i++) {
               const step = sorted[i];
-              await base44.entities.ProductionStage.create({
-                order_id: order.id,
-                order_number: order.order_number,
-                product_name: data.product_name,
-                step_number: step.step_number,
-                capability_id: step.capability_id,
-                capability_key: step.capability_key,
-                capability_name: step.capability_name,
-                work_profile_id: step.work_profile_id || "",
-                work_profile_name: step.work_profile_name || "",
-                status: i === 0 ? "available" : "locked",
-                input_qty_lbs: i === 0 ? totalRawInputLbs : 0,
-                sub_batches: [],
-              });
+              const isTumblingStep = step.capability_key === "tumbling" || step.capability_key === "tumble";
+              const isFirstStep = i === 0;
+
+              if (isTumblingStep && isFirstStep) {
+                // Split into individual tumble batches (800 lbs each by default, or product.tumble_batch_lbs)
+                const tumblingBatchSize = product?.tumble_batch_lbs || 800;
+                const numTumbleBatches = Math.ceil(totalRawInputLbs / tumblingBatchSize);
+                let remaining = totalRawInputLbs;
+                for (let t = 0; t < numTumbleBatches; t++) {
+                  const batchLbs = Math.min(tumblingBatchSize, remaining);
+                  remaining -= batchLbs;
+                  await base44.entities.ProductionStage.create({
+                    order_id: order.id,
+                    order_number: order.order_number,
+                    product_name: data.product_name,
+                    step_number: step.step_number,
+                    capability_id: step.capability_id,
+                    capability_key: step.capability_key,
+                    capability_name: step.capability_name,
+                    work_profile_id: step.work_profile_id || "",
+                    work_profile_name: step.work_profile_name || "",
+                    status: "available",
+                    input_qty_lbs: parseFloat(batchLbs.toFixed(2)),
+                    sub_batches: [],
+                    notes: numTumbleBatches > 1 ? `Tumble Batch ${t + 1} of ${numTumbleBatches}` : "",
+                  });
+                }
+              } else if (!isTumblingStep) {
+                // Non-tumbling stages: create once as locked (they get unlocked per-batch as tumbling completes)
+                await base44.entities.ProductionStage.create({
+                  order_id: order.id,
+                  order_number: order.order_number,
+                  product_name: data.product_name,
+                  step_number: step.step_number,
+                  capability_id: step.capability_id,
+                  capability_key: step.capability_key,
+                  capability_name: step.capability_name,
+                  work_profile_id: step.work_profile_id || "",
+                  work_profile_name: step.work_profile_name || "",
+                  status: "locked",
+                  input_qty_lbs: 0,
+                  sub_batches: [],
+                });
+              }
+              // Tumbling steps that are NOT the first step (shouldn't happen, but skip if so)
             }
           }
       }
