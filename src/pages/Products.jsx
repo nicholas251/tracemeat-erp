@@ -30,8 +30,8 @@ export default function Products() {
   });
 
   const { data: flows = [] } = useQuery({
-    queryKey: ["flows"],
-    queryFn: () => base44.entities.ProductionFlow.list(),
+    queryKey: ["productFlows"],
+    queryFn: () => base44.entities.ProductFlow.list(),
   });
 
   const { data: recipes = [] } = useQuery({
