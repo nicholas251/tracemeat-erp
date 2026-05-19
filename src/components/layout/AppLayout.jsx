@@ -44,7 +44,7 @@ export default function AppLayout() {
             variant="ghost" 
             size="icon" 
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="md:hidden text-slate-700 hover:bg-slate-200"
+            className="lg:hidden text-slate-700 hover:bg-slate-200"
           >
             <Menu className="w-5 h-5" />
           </Button>
