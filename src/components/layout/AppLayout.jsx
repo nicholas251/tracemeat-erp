@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 
 export default function AppLayout() {
   const [collapsed, setCollapsed] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false); // Start closed on mobile/tablet
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -27,7 +27,7 @@ export default function AppLayout() {
           "fixed left-0 top-0 h-full z-40 transition-transform duration-300",
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         )}>
-          <Sidebar collapsed={false} onToggle={() => setSidebarOpen(false)} />
+          <Sidebar collapsed={false} onToggle={() => setSidebarOpen(false)} onClose={() => setSidebarOpen(false)} />
         </div>
       </div>
 

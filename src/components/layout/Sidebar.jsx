@@ -24,7 +24,8 @@ import {
   UserCheck,
   ClipboardList,
   TrendingUp,
-  Zap
+  Zap,
+  X
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -54,7 +55,7 @@ const allNavItems = [
   { path: "/forecast", label: "Forecast", icon: Zap, roles: ["admin", "supervisor", "warehouse_operator"] },
 ];
 
-export default function Sidebar({ collapsed, onToggle }) {
+export default function Sidebar({ collapsed, onToggle, onClose }) {
   const location = useLocation();
   const [user, setUser] = useState(null);
   const [profiles, setProfiles] = useState([]);
@@ -88,7 +89,7 @@ export default function Sidebar({ collapsed, onToggle }) {
       "fixed left-0 top-0 h-full bg-slate-900 text-slate-100 z-40 transition-all duration-300 flex flex-col shadow-xl",
       collapsed ? "w-[68px]" : "w-[250px]"
     )}>
-      {/* Logo */}
+      {/* Logo + Close button on mobile */}
       <div className="flex items-center justify-between px-4 h-16 border-b border-slate-700">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center flex-shrink-0 shadow-lg">
@@ -107,6 +108,14 @@ export default function Sidebar({ collapsed, onToggle }) {
             alt="Mitty's Foods Logo"
             className="h-14 w-20 object-contain opacity-80 flex-shrink-0 -ml-3"
           />
+        )}
+        {onClose && (
+          <button 
+            onClick={onClose}
+            className="lg:hidden text-slate-400 hover:text-white p-1"
+          >
+            <X className="w-5 h-5" />
+          </button>
         )}
       </div>
 
