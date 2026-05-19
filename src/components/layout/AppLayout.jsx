@@ -10,18 +10,18 @@ export default function AppLayout() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      {/* Sidebar — visible on large screens only */}
-      <div className="hidden lg:block">
+      {/* Sidebar — visible on tablet and larger */}
+      <div className="hidden md:block">
         <Sidebar collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} />
       </div>
 
       {/* Main content */}
       <main className={cn(
         "transition-all duration-300 min-h-screen",
-        "lg:ml-[250px]",
-        collapsed && "lg:ml-[68px]",
-        // On tablet/mobile, no left margin but add bottom padding for bottom nav
-        "pb-24 lg:pb-0"
+        "md:ml-[250px]",
+        collapsed && "md:ml-[68px]",
+        // On mobile, no left margin but add bottom padding for bottom nav
+        "pb-24 md:pb-0"
       )}>
         <div className="flex justify-end p-3 sm:p-4 md:p-6 lg:p-8 mb-2">
           <UserProfileMenu />
@@ -31,8 +31,8 @@ export default function AppLayout() {
         </div>
       </main>
 
-      {/* Bottom nav — visible on tablet/mobile only */}
-      <div className="lg:hidden">
+      {/* Bottom nav — visible on mobile only */}
+      <div className="md:hidden">
         <BottomNav />
       </div>
     </div>
