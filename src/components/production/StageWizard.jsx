@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import LinkingCookBatchBuilder from "./LinkingCookBatchBuilder";
 import TumbleCookBatchBuilder from "./TumbleCookBatchBuilder";
+import RackingCookBatchBuilder from "./RackingCookBatchBuilder";
 import SpiceMixLotPicker from "./SpiceMixLotPicker";
 
 // ─── Stage icon map ───────────────────────────────────────────────────────────
@@ -127,7 +128,6 @@ function buildMeasurementSteps(stage, product, capKey, casingBuckets = []) {
       id: "racking",
       label: "Racking",
       fields: [
-        { key: "racks_count", label: "Number of Racks", type: "number" },
         { key: "output_qty_lbs", label: "Output Qty (lbs)", type: "number" },
         { key: "output_lot_number", label: "Racked Lot #", type: "text", placeholder: "e.g. RACK-2024-001" },
         { key: "notes", label: "Notes / Observations", type: "textarea" },
@@ -875,6 +875,7 @@ function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form, setFor
   const [spiceShortNotes, setSpiceShortNotes] = React.useState("");
   const isLinking = capKey === "linking" && stepDef.id === "linking";
   const isTumble = (capKey === "tumble" || capKey === "tumbling") && stepDef.id === "tumble";
+  const isRacking = capKey === "racking" && stepDef.id === "racking";
 
   // Check if spice is short and notes are required
   const spiceField = stepDef.fields.find(f => f.type === "spice_mix_picker");
@@ -886,7 +887,7 @@ function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form, setFor
   const spiceIsShort = spiceRequired > 0 && spiceTotalAllocated > 0 && spiceTotalAllocated < spiceRequired - 0.001;
   const spiceBlocksNext = spiceIsShort && !spiceShortNotes?.trim();
 
-  const canProceed = isLinking ? !!cookBatch : isTumble ? !!cookPlan : !spiceBlocksNext;
+  const canProceed = isLinking ? !!cookBatch : isTumble ? !!cookPlan : isRacking ? !!cookPlan : !spiceBlocksNext;
 
   return (
     <div className="space-y-5">
@@ -942,6 +943,15 @@ function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form, setFor
         <TumbleCookBatchBuilder
           totalLbs={stage?.input_qty_lbs || 0}
           product={product}
+          cookPlan={cookPlan}
+          onChange={setCookPlan}
+        />
+      )}
+
+      {/* Cook batch builder — racking step */}
+      {isRacking && (
+        <RackingCookBatchBuilder
+          totalLbs={form.output_qty_lbs || stage?.input_qty_lbs || 0}
           cookPlan={cookPlan}
           onChange={setCookPlan}
         />
@@ -1030,6 +1040,7 @@ function FieldInput({ field, value, onChange, casingBuckets = [], onCasingSelect
 function FinalStep({ stage, capKey, stageLabel, resolvedBatches, form, cookBatch, cookPlan, saving, onBack, onComplete }) {
   const isLinking = capKey === "linking";
   const isTumble = capKey === "tumble" || capKey === "tumbling";
+  const isRacking = capKey === "racking";
 
   const outputLbs = resolvedBatches
     ? resolvedBatches.reduce((s, b) => s + b.batchLbs, 0)
@@ -1037,7 +1048,7 @@ function FinalStep({ stage, capKey, stageLabel, resolvedBatches, form, cookBatch
       ? cookPlan.cookBatches.reduce((s, b) => s + b.lbs, 0)
       : form.output_qty_lbs || stage?.input_qty_lbs || 0;
 
-  const canComplete = isLinking ? !!cookBatch : isTumble ? !!cookPlan : true;
+  const canComplete = isLinking ? !!cookBatch : (isTumble || isRacking) ? !!cookPlan : true;
 
   return (
     <div className="space-y-5">
@@ -1101,6 +1112,35 @@ function FinalStep({ stage, capKey, stageLabel, resolvedBatches, form, cookBatch
           </div>
         )}
         {isTumble && !cookPlan && (
+          <p className="text-sm text-destructive font-medium flex items-center gap-1.5">
+            <AlertCircle className="w-4 h-4" /> No cook batches configured — go back to build them.
+          </p>
+        )}
+        {isRacking && cookPlan && (
+          <div className="space-y-1.5 pt-1">
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Cook Batches</span>
+              <span className="font-semibold">{cookPlan.cookBatches.length}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Total Racks</span>
+              <span className="font-semibold">{cookPlan.cookBatches.reduce((s, b) => s + b.racks, 0)}</span>
+            </div>
+            <div className="space-y-1 pt-1">
+              {cookPlan.cookBatches.map((b, i) => (
+                <div key={i} className="flex items-center justify-between bg-white/60 rounded px-2.5 py-1.5 text-xs">
+                  <span className="font-mono font-semibold">{b.lotNumber}</span>
+                  <div className="flex gap-2 text-muted-foreground">
+                    <span>{b.racks} racks</span>
+                    <span>·</span>
+                    <span>{b.lbs} lbs</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        {isRacking && !cookPlan && (
           <p className="text-sm text-destructive font-medium flex items-center gap-1.5">
             <AlertCircle className="w-4 h-4" /> No cook batches configured — go back to build them.
           </p>
