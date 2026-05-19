@@ -71,6 +71,11 @@
       ],
       "default": "lbs"
     },
+    "varied_weights": {
+      "type": "boolean",
+      "default": false,
+      "description": "When true, each case weight must be individually recorded at packing stage"
+    },
     "yield_percent": {
       "type": "number",
       "description": "Yield as a percentage (e.g. 95 means 95% \u2014 1000 lbs in \u2192 950 lbs out)"

@@ -138,6 +138,27 @@
         }
       }
     },
+    "cases": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "case_number": {
+            "type": "number",
+            "description": "Sequential case number"
+          },
+          "weight_lbs": {
+            "type": "number",
+            "description": "Individual case weight in lbs (for varied weights products)"
+          },
+          "lot_number": {
+            "type": "string",
+            "description": "Lot number for this case"
+          }
+        }
+      },
+      "description": "Individual case weights for products with varied weights"
+    },
     "notes": {
       "type": "string"
     },

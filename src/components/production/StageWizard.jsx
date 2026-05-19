@@ -873,9 +873,11 @@ function BatchConfirmStep({ batch, batchIdx, totalBatches, progressPct, onUpdate
 
 function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form, setForm, casingBuckets, capKey, stage, product, cookBatch, setCookBatch, cookPlan, setCookPlan, onBack, onNext, isLast }) {
   const [spiceShortNotes, setSpiceShortNotes] = React.useState("");
+  const [caseWeights, setCaseWeights] = React.useState(form.case_weights || []);
   const isLinking = capKey === "linking" && stepDef.id === "linking";
   const isTumble = (capKey === "tumble" || capKey === "tumbling") && stepDef.id === "tumble";
   const isRacking = capKey === "racking" && stepDef.id === "racking" && stage?.flow_name === "Tumbling Protein Flow (Large)";
+  const isPackaging = capKey === "packaging" && stepDef.id === "packaging" && product?.varied_weights;
 
   // Check if spice is short and notes are required
   const spiceField = stepDef.fields.find(f => f.type === "spice_mix_picker");
@@ -887,7 +889,7 @@ function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form, setFor
   const spiceIsShort = spiceRequired > 0 && spiceTotalAllocated > 0 && spiceTotalAllocated < spiceRequired - 0.001;
   const spiceBlocksNext = spiceIsShort && !spiceShortNotes?.trim();
 
-  const canProceed = isLinking ? !!cookBatch : isTumble ? !!cookPlan : isRacking ? !!cookPlan : !spiceBlocksNext;
+  const canProceed = isLinking ? !!cookBatch : isTumble ? !!cookPlan : isRacking ? !!cookPlan : isPackaging ? (form.case_count > 0 && caseWeights.length === parseInt(form.case_count)) : !spiceBlocksNext;
 
   return (
     <div className="space-y-5">
@@ -955,6 +957,44 @@ function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form, setFor
           cookPlan={cookPlan}
           onChange={setCookPlan}
         />
+      )}
+
+      {/* Case weights for varied weights products */}
+      {isPackaging && (
+        <div className="space-y-3 rounded-lg border border-border p-4 bg-muted/20">
+          <div>
+            <p className="font-semibold text-sm">Individual Case Weights</p>
+            <p className="text-xs text-muted-foreground">Enter weight for each case ({form.case_count} total)</p>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+            {Array.from({ length: parseInt(form.case_count) || 0 }).map((_, i) => (
+              <div key={i} className="space-y-1">
+                <label className="text-xs font-medium">Case {i + 1}</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={caseWeights[i]?.weight_lbs || ""}
+                  onChange={(e) => {
+                    const updated = [...caseWeights];
+                    if (!updated[i]) updated[i] = {};
+                    updated[i].weight_lbs = e.target.value ? Number(e.target.value) : 0;
+                    updated[i].case_number = i + 1;
+                    setCaseWeights(updated);
+                    setForm(prev => ({ ...prev, case_weights: updated }));
+                  }}
+                  className="h-8 px-2 border border-input rounded text-sm"
+                  placeholder="lbs"
+                />
+              </div>
+            ))}
+          </div>
+          {caseWeights.length > 0 && (
+            <div className="pt-2 border-t border-border text-xs space-y-1">
+              <p className="text-muted-foreground">Total: <span className="font-semibold text-foreground">{caseWeights.reduce((s, c) => s + (c.weight_lbs || 0), 0).toFixed(2)} lbs</span></p>
+              <p className="text-muted-foreground">Average: <span className="font-semibold text-foreground">{(caseWeights.reduce((s, c) => s + (c.weight_lbs || 0), 0) / caseWeights.length).toFixed(2)} lbs</span></p>
+            </div>
+          )}
+        </div>
       )}
 
       <NavButtons
@@ -1041,6 +1081,7 @@ function FinalStep({ stage, capKey, stageLabel, resolvedBatches, form, cookBatch
   const isLinking = capKey === "linking";
   const isTumble = capKey === "tumble" || capKey === "tumbling";
   const isRacking = capKey === "racking" && stage?.flow_name === "Tumbling Protein Flow (Large)";
+  const isPackaging = capKey === "packaging" && form.case_weights;
 
   const outputLbs = resolvedBatches
     ? resolvedBatches.reduce((s, b) => s + b.batchLbs, 0)
@@ -1048,7 +1089,7 @@ function FinalStep({ stage, capKey, stageLabel, resolvedBatches, form, cookBatch
       ? cookPlan.cookBatches.reduce((s, b) => s + b.lbs, 0)
       : form.output_qty_lbs || stage?.input_qty_lbs || 0;
 
-  const canComplete = isLinking ? !!cookBatch : (isTumble || isRacking) ? !!cookPlan : true;
+  const canComplete = isLinking ? !!cookBatch : (isTumble || isRacking) ? !!cookPlan : isPackaging ? form.case_weights?.length > 0 : true;
 
   return (
     <div className="space-y-5">

@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { base44 } from "@/api/base44Client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useQuery } from "@tanstack/react-query";
@@ -41,7 +42,8 @@ export default function ProductFormDialog({ open, onClose, onSave, product, flow
     packaging_type: "vacuum_sealed", package_size: "", packages_per_case: "",
     case_weight_lbs: "", shelf_life_days: "", storage_temp_c: "", status: "draft",
     allergens: [], regulatory_codes: [], ingredients: [],
-    recipe_consumption_per_case_lbs: "", process_id: "", process_name: "", finished_product_unit: "lbs"
+    recipe_consumption_per_case_lbs: "", process_id: "", process_name: "", finished_product_unit: "lbs",
+    varied_weights: false
   });
   const [tab, setTab] = useState("basic");
 
@@ -53,7 +55,8 @@ export default function ProductFormDialog({ open, onClose, onSave, product, flow
         packaging_type: "vacuum_sealed", package_size: "", packages_per_case: "",
         case_weight_lbs: "", shelf_life_days: "", storage_temp_c: "", status: "draft",
         allergens: [], regulatory_codes: [], ingredients: [],
-        recipe_consumption_per_case_lbs: "", process_id: "", process_name: "", finished_product_unit: "lbs"
+        recipe_consumption_per_case_lbs: "", process_id: "", process_name: "", finished_product_unit: "lbs",
+        varied_weights: false
       });
     }
   }, [open, product]);
@@ -247,8 +250,15 @@ export default function ProductFormDialog({ open, onClose, onSave, product, flow
                 <Label>Description</Label>
                 <Textarea value={form.description} onChange={e => update("description", e.target.value)} placeholder="Product specs and notes..." rows={3} />
               </div>
-            </div>
-          </TabsContent>
+              <div className="space-y-2 md:col-span-2 flex items-center justify-between rounded-lg border border-border p-3">
+                <div>
+                  <Label>Varied Weights</Label>
+                  <p className="text-xs text-muted-foreground mt-0.5">Each case weight must be recorded individually at packing stage</p>
+                </div>
+                <Switch checked={form.varied_weights || false} onCheckedChange={v => update("varied_weights", v)} />
+              </div>
+              </div>
+              </TabsContent>
         </Tabs>
 
         <DialogFooter>
