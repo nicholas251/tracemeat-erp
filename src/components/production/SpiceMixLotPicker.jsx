@@ -22,11 +22,16 @@ import { CheckCircle2, AlertCircle, FlaskConical, PlusCircle, Trash2 } from "luc
  *   onChange     – (updatedValue) => void  — always emits the multi-lot shape
  *   disabled     – boolean
  */
-export default function SpiceMixLotPicker({ label, requiredLbs, value = {}, onChange, disabled }) {
-  const { data: spiceMixes = [], isLoading } = useQuery({
+export default function SpiceMixLotPicker({ label, requiredLbs, value = {}, onChange, disabled, filterSpiceMixId }) {
+  const { data: allSpiceMixes = [], isLoading } = useQuery({
     queryKey: ["spiceMixesActive"],
     queryFn: () => base44.entities.SpiceMix.filter({ status: "active" }),
   });
+
+  // If a specific spice mix is assigned to the product, only show that one
+  const spiceMixes = filterSpiceMixId
+    ? allSpiceMixes.filter(m => m.id === filterSpiceMixId)
+    : allSpiceMixes;
 
   // Normalise incoming value to multi-lot format
   const lots = useMemo(() => {

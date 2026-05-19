@@ -102,9 +102,8 @@ function buildMeasurementSteps(stage, product, capKey, casingBuckets = []) {
       id: "tumble",
       label: "Tumbling",
       fields: [
-        { key: "spice_mix", label: "Spice Mix Added", type: "spice_mix_picker", requiredLbs: spiceQty },
+        { key: "spice_mix", label: "Spice Mix Added", type: "spice_mix_picker", requiredLbs: spiceQty, filterSpiceMixId: product?.chop_spice_mix_id },
         { key: "duration_minutes", label: "Tumble Duration (minutes)", type: "number" },
-        { key: "temperature_c", label: "Temperature (°C)", type: "number" },
         // output qty / lot / cook batch plan handled by TumbleCookBatchBuilder embedded in MeasureStep
       ],
     });
@@ -947,6 +946,7 @@ function FieldInput({ field, value, onChange, casingBuckets = [], onCasingSelect
         requiredLbs={field.requiredLbs || 0}
         value={value || {}}
         onChange={onChange}
+        filterSpiceMixId={field.filterSpiceMixId}
       />
     );
   }
