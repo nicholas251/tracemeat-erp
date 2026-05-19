@@ -54,28 +54,29 @@ export default function ProductionOrderFormDialog({ open, onClose, onSave, order
   const unitLabel = selectedProduct?.finished_product_unit || "cases";
   const yieldPct = selectedProduct?.yield_percent;
 
+  // Detect flow type
+  const selectedFlow = flows?.find(f => f.id === form.flow_id);
+  const firstStepKey = selectedFlow?.steps?.slice().sort((a, b) => a.step_number - b.step_number)[0]?.capability_key;
+  const isTumbleFlow = firstStepKey === "tumbling" || firstStepKey === "tumble" || firstStepKey === "mixer";
+
   // finished goods target (what we want out)
   const finishedLbs = parseFloat(form.quantity_to_produce) || 0;
 
-  // Per-batch weights from product config
+  // ── TUMBLE FLOW MATH ──
+  const tumbleBatchSize = selectedProduct?.tumble_batch_lbs || 800;
+  const tumbleRawInputLbs = yieldPct && finishedLbs > 0 ? Math.ceil(finishedLbs / (yieldPct / 100)) : finishedLbs;
+  const numTumbleBatches = tumbleRawInputLbs > 0 ? Math.ceil(tumbleRawInputLbs / tumbleBatchSize) : null;
+  const tumbleExpectedFinished = yieldPct ? tumbleRawInputLbs * (yieldPct / 100) : tumbleRawInputLbs;
+
+  // ── BLENDING FLOW MATH ──
   const blendBatchLbs = selectedProduct?.blend_batch_lbs || 0;
   const waterPerBatch = selectedProduct?.chop_water_lbs || 0;
   const spicePerBatch = selectedProduct?.chop_spice_qty_lbs || 0;
   const curePerBatch = selectedProduct?.chop_cure_lbs || 0;
-
-  // Total chop batch weight (protein + water + spice + cure)
   const chopBatchWeight = blendBatchLbs + waterPerBatch + spicePerBatch + curePerBatch;
-
-  // Finished output per batch = chopBatchWeight × yield%
   const finishedPerBatch = chopBatchWeight > 0 && yieldPct ? chopBatchWeight * (yieldPct / 100) : blendBatchLbs * ((yieldPct || 100) / 100);
-
-  // Number of batches needed to hit the finished goods target
   const numBlendBatches = finishedPerBatch > 0 && finishedLbs > 0 ? Math.ceil(finishedLbs / finishedPerBatch) : null;
-
-  // Raw protein input needed (what gets checked against inventory)
   const rawInputLbs = blendBatchLbs > 0 && numBlendBatches ? blendBatchLbs * numBlendBatches : finishedLbs;
-
-  // Totals for all inputs
   const totalWater = waterPerBatch * (numBlendBatches || 0);
   const totalSpice = spicePerBatch * (numBlendBatches || 0);
   const totalCure = curePerBatch * (numBlendBatches || 0);
@@ -211,62 +212,94 @@ export default function ProductionOrderFormDialog({ open, onClose, onSave, order
                   <span className="text-muted-foreground">Finished goods target:</span>
                   <span>{finishedLbs.toFixed(1)} lbs</span>
                 </div>
-                {yieldPct && numBlendBatches ? (
-                  <>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Yield:</span>
-                      <span className="font-medium">{yieldPct}%</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Batches needed:</span>
-                      <span className="font-medium">{numBlendBatches} batch{numBlendBatches > 1 ? "es" : ""}</span>
-                    </div>
-                    <div className="border-t border-accent/20 pt-1 mt-1 space-y-0.5">
-                      <p className="text-muted-foreground font-medium uppercase tracking-wide" style={{fontSize:"9px"}}>Inputs per {numBlendBatches} batch{numBlendBatches > 1 ? "es" : ""}</p>
+
+                {isTumbleFlow ? (
+                  // ── TUMBLE FLOW SUMMARY ──
+                  yieldPct && numTumbleBatches ? (
+                    <>
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">Protein (raw):</span>
-                        <span className="font-semibold text-accent">{rawInputLbs.toFixed(1)} lbs</span>
+                        <span className="text-muted-foreground">Yield:</span>
+                        <span className="font-medium">{yieldPct}%</span>
                       </div>
-                      {totalWater > 0 && (
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Water:</span>
-                          <span className="font-medium">{totalWater.toFixed(1)} lbs</span>
-                        </div>
-                      )}
-                      {totalSpice > 0 && (
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Spice mix:</span>
-                          <span className="font-medium">{totalSpice.toFixed(1)} lbs</span>
-                        </div>
-                      )}
-                      {totalCure > 0 && (
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Cure:</span>
-                          <span className="font-medium">{totalCure.toFixed(1)} lbs</span>
-                        </div>
-                      )}
-                      <div className="flex justify-between border-t border-accent/20 pt-1 mt-0.5">
-                        <span className="text-muted-foreground">Total chop weight:</span>
-                        <span className="font-medium">{totalChopWeight.toFixed(1)} lbs</span>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Raw protein needed:</span>
+                        <span className="font-semibold text-accent">{tumbleRawInputLbs.toFixed(1)} lbs</span>
                       </div>
-                      <div className="flex justify-between font-semibold">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Tumble batch size:</span>
+                        <span className="font-medium">{tumbleBatchSize} lbs</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Tumble batches needed:</span>
+                        <span className="font-medium">{numTumbleBatches} batch{numTumbleBatches > 1 ? "es" : ""}</span>
+                      </div>
+                      <div className="flex justify-between border-t border-accent/20 pt-1 mt-0.5 font-semibold">
                         <span className="text-foreground">Expected finished out:</span>
-                        <span className="text-chart-2">{expectedFinished.toFixed(1)} lbs</span>
+                        <span className="text-chart-2">{tumbleExpectedFinished.toFixed(1)} lbs</span>
                       </div>
-                    </div>
-                  </>
+                    </>
+                  ) : (
+                    <p className="text-muted-foreground italic">Set a yield % on the product to calculate batch requirements.</p>
+                  )
                 ) : (
-                  <p className="text-muted-foreground italic">Set a yield % on the product to calculate batch requirements.</p>
+                  // ── BLENDING FLOW SUMMARY ──
+                  yieldPct && numBlendBatches ? (
+                    <>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Yield:</span>
+                        <span className="font-medium">{yieldPct}%</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Batches needed:</span>
+                        <span className="font-medium">{numBlendBatches} batch{numBlendBatches > 1 ? "es" : ""}</span>
+                      </div>
+                      <div className="border-t border-accent/20 pt-1 mt-1 space-y-0.5">
+                        <p className="text-muted-foreground font-medium uppercase tracking-wide" style={{fontSize:"9px"}}>Inputs across {numBlendBatches} batch{numBlendBatches > 1 ? "es" : ""}</p>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Protein (raw):</span>
+                          <span className="font-semibold text-accent">{rawInputLbs.toFixed(1)} lbs</span>
+                        </div>
+                        {totalWater > 0 && (
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Water:</span>
+                            <span className="font-medium">{totalWater.toFixed(1)} lbs</span>
+                          </div>
+                        )}
+                        {totalSpice > 0 && (
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Spice mix:</span>
+                            <span className="font-medium">{totalSpice.toFixed(1)} lbs</span>
+                          </div>
+                        )}
+                        {totalCure > 0 && (
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Cure:</span>
+                            <span className="font-medium">{totalCure.toFixed(1)} lbs</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between border-t border-accent/20 pt-1 mt-0.5">
+                          <span className="text-muted-foreground">Total chop weight:</span>
+                          <span className="font-medium">{totalChopWeight.toFixed(1)} lbs</span>
+                        </div>
+                        <div className="flex justify-between font-semibold">
+                          <span className="text-foreground">Expected finished out:</span>
+                          <span className="text-chart-2">{expectedFinished.toFixed(1)} lbs</span>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <p className="text-muted-foreground italic">Set a yield % on the product to calculate batch requirements.</p>
+                  )
                 )}
               </div>
             )}
           </div>
 
-          {selectedProduct && rawInputLbs > 0 && (
+          {selectedProduct && (isTumbleFlow ? tumbleRawInputLbs : rawInputLbs) > 0 && (
             <InventoryShortageCheck
               product={selectedProduct}
-              rawInputLbs={rawInputLbs}
-              numBatches={numBlendBatches}
+              rawInputLbs={isTumbleFlow ? tumbleRawInputLbs : rawInputLbs}
+              numBatches={isTumbleFlow ? numTumbleBatches : numBlendBatches}
               onProductUpdated={() => {}}
             />
           )}
