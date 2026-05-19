@@ -83,7 +83,8 @@ export default function FloorView() {
                 <CardContent className="p-3 flex items-center justify-between gap-4">
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-base">{order.order_number}</p>
-                    <p className="text-sm text-muted-foreground truncate">{currentStage.capability_name}</p>
+                    <p className="text-sm text-muted-foreground">{order.product_name}</p>
+                    <p className="text-xs text-muted-foreground">{currentStage.capability_name}</p>
                   </div>
                   
                   <div className="flex items-center gap-2">
