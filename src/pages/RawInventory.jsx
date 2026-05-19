@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Settings, Search, Beef, FlaskConical, Package, Unlink, Plus } from "lucide-react";
+import { Settings, Search, Beef, FlaskConical, Package, Unlink, Plus, Pencil } from "lucide-react";
 import { format } from "date-fns";
 import PageHeader from "@/components/shared/PageHeader";
 import StatusBadge from "@/components/shared/StatusBadge";
@@ -22,7 +22,7 @@ const CATEGORY_LABELS = {
   casing: { label: "Casing", icon: Unlink, color: "text-chart-5" },
 };
 
-function BucketCard({ bucket, lots }) {
+function BucketCard({ bucket, lots, isAdmin, onEdit }) {
   const totalQty = lots.filter(l => l.status === "available").reduce((s, l) => s + (l.available_qty || 0), 0);
   const isLow = totalQty < 50;
 
@@ -30,13 +30,20 @@ function BucketCard({ bucket, lots }) {
     <Card className={`${isLow && totalQty > 0 ? "border-accent/50" : ""}`}>
       <CardHeader className="pb-2">
         <div className="flex items-start justify-between">
-          <div>
+          <div className="flex-1 min-w-0">
             <p className="text-xs font-mono text-muted-foreground">{bucket.code}</p>
             <CardTitle className="text-base leading-tight mt-0.5">{bucket.name}</CardTitle>
           </div>
-          <div className="text-right">
-            <p className="text-2xl font-bold">{totalQty.toLocaleString()}</p>
-            <p className="text-xs text-muted-foreground">{bucket.unit || "lbs"} on hand</p>
+          <div className="flex items-start gap-2 ml-2">
+            {isAdmin && (
+              <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={() => onEdit(bucket)}>
+                <Pencil className="w-3.5 h-3.5" />
+              </Button>
+            )}
+            <div className="text-right">
+              <p className="text-2xl font-bold">{totalQty.toLocaleString()}</p>
+              <p className="text-xs text-muted-foreground">{bucket.unit || "lbs"} on hand</p>
+            </div>
           </div>
         </div>
       </CardHeader>
@@ -63,7 +70,7 @@ function BucketCard({ bucket, lots }) {
   );
 }
 
-function CategoryTab({ category, buckets, allLots, search }) {
+function CategoryTab({ category, buckets, allLots, search, isAdmin, onEditBucket }) {
   const info = CATEGORY_LABELS[category];
   const Icon = info.icon;
 
@@ -94,6 +101,8 @@ function CategoryTab({ category, buckets, allLots, search }) {
               key={b.id}
               bucket={b}
               lots={allLots.filter(l => l.bucket_id === b.id)}
+              isAdmin={isAdmin}
+              onEdit={onEditBucket}
             />
           ))}
         </div>
@@ -181,7 +190,14 @@ export default function RawInventoryPage() {
   const [search, setSearch] = useState("");
   const [showBucketForm, setShowBucketForm] = useState(false);
   const [editBucket, setEditBucket] = useState(null);
+  const [currentUser, setCurrentUser] = useState(null);
   const queryClient = useQueryClient();
+
+  useEffect(() => {
+    base44.auth.me().then(setCurrentUser).catch(() => {});
+  }, []);
+
+  const isAdmin = currentUser?.role === "admin";
 
   const { data: buckets = [] } = useQuery({
     queryKey: ["inventory_buckets"],
@@ -214,9 +230,11 @@ export default function RawInventoryPage() {
         title="Raw Material Inventory"
         subtitle="On-hand stock organized by inventory buckets"
         actions={
-          <Button onClick={() => setShowBucketForm(true)} variant="outline">
-            <Settings className="w-4 h-4 mr-2" /> Manage Buckets
-          </Button>
+          isAdmin && (
+            <Button onClick={() => setShowBucketForm(true)} variant="outline">
+              <Settings className="w-4 h-4 mr-2" /> Manage Buckets
+            </Button>
+          )
         }
       />
 
@@ -269,19 +287,19 @@ export default function RawInventoryPage() {
         </div>
 
         <TabsContent value="protein">
-          <CategoryTab category="protein" buckets={buckets} allLots={lots} search={search} />
+          <CategoryTab category="protein" buckets={buckets} allLots={lots} search={search} isAdmin={isAdmin} onEditBucket={(b) => setEditBucket(b)} />
         </TabsContent>
         <TabsContent value="spice">
-          <CategoryTab category="spice" buckets={buckets} allLots={lots} search={search} />
+          <CategoryTab category="spice" buckets={buckets} allLots={lots} search={search} isAdmin={isAdmin} onEditBucket={(b) => setEditBucket(b)} />
         </TabsContent>
         <TabsContent value="spice_mix">
-          <CategoryTab category="spice_mix" buckets={buckets} allLots={lots} search={search} />
+          <CategoryTab category="spice_mix" buckets={buckets} allLots={lots} search={search} isAdmin={isAdmin} onEditBucket={(b) => setEditBucket(b)} />
         </TabsContent>
         <TabsContent value="packaging">
-          <CategoryTab category="packaging" buckets={buckets} allLots={lots} search={search} />
+          <CategoryTab category="packaging" buckets={buckets} allLots={lots} search={search} isAdmin={isAdmin} onEditBucket={(b) => setEditBucket(b)} />
         </TabsContent>
         <TabsContent value="casing">
-          <CategoryTab category="casing" buckets={buckets} allLots={lots} search={search} />
+          <CategoryTab category="casing" buckets={buckets} allLots={lots} search={search} isAdmin={isAdmin} onEditBucket={(b) => setEditBucket(b)} />
         </TabsContent>
         <TabsContent value="ledger">
           <LotLedger allLots={lots} buckets={buckets} />
