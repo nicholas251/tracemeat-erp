@@ -93,14 +93,18 @@ export default function SpiceMixLotPicker({ label, requiredLbs, value = {}, onCh
 
   const handleLotField = (index, field, val) => {
     let value = field === "spice_mix_qty_lbs" ? Number(val) : val;
-    if (field === "spice_mix_qty_lbs" && requiredLbs > 0) {
-      // Cap at per-lot available qty (if known)
-      const mix = spiceMixes.find(m => m.id === lots[index]?.spice_mix_id);
-      const available = mix?.available_qty_lbs ?? mix?.quantity_lbs ?? null;
-      if (available !== null) value = Math.min(value, available);
-      // Cap total across all lots at requiredLbs
-      const otherTotal = lots.reduce((s, l, i) => i === index ? s : s + (Number(l.spice_mix_qty_lbs) || 0), 0);
-      value = Math.min(value, Math.max(0, requiredLbs - otherTotal));
+    if (field === "spice_mix_qty_lbs") {
+      // Never allow negatives
+      value = Math.max(0, value);
+      if (requiredLbs > 0) {
+        // Cap at per-lot available qty (if known)
+        const mix = spiceMixes.find(m => m.id === lots[index]?.spice_mix_id);
+        const available = mix?.available_qty_lbs ?? mix?.quantity_lbs ?? null;
+        if (available !== null) value = Math.min(value, available);
+        // Cap total across all lots at requiredLbs
+        const otherTotal = lots.reduce((s, l, i) => i === index ? s : s + (Number(l.spice_mix_qty_lbs) || 0), 0);
+        value = Math.min(value, Math.max(0, requiredLbs - otherTotal));
+      }
       value = parseFloat(value.toFixed(2));
     }
     const newLots = lots.map((l, i) => i === index ? { ...l, [field]: value } : l);
@@ -210,6 +214,7 @@ export default function SpiceMixLotPicker({ label, requiredLbs, value = {}, onCh
                     <Input
                       type="number"
                       step="0.01"
+                      min="0"
                       value={lot.spice_mix_qty_lbs ?? ""}
                       onChange={e => handleLotField(index, "spice_mix_qty_lbs", e.target.value)}
                       className="h-9 text-sm"
