@@ -62,26 +62,29 @@ export default function ProductionOrderFormDialog({ open, onClose, onSave, order
   // finished goods target (what we want out)
   const finishedLbs = parseFloat(form.quantity_to_produce) || 0;
 
+  // Loss % = 1 - yield%. Raw input = finished × (1 + loss%)
+  const lossPct = yieldPct ? (100 - yieldPct) / 100 : 0;
+
   // ── TUMBLE FLOW MATH ──
   const tumbleBatchSize = selectedProduct?.tumble_batch_lbs || 800;
-  const tumbleRawInputLbs = yieldPct && finishedLbs > 0 ? Math.ceil(finishedLbs / (yieldPct / 100)) : finishedLbs;
+  const tumbleRawInputLbs = yieldPct && finishedLbs > 0 ? Math.ceil(finishedLbs * (1 + lossPct)) : finishedLbs;
   const numTumbleBatches = tumbleRawInputLbs > 0 ? Math.ceil(tumbleRawInputLbs / tumbleBatchSize) : null;
-  const tumbleExpectedFinished = yieldPct ? tumbleRawInputLbs * (yieldPct / 100) : tumbleRawInputLbs;
+  const tumbleExpectedFinished = tumbleRawInputLbs * (yieldPct / 100);
 
   // ── BLENDING FLOW MATH ──
   const blendBatchLbs = selectedProduct?.blend_batch_lbs || 0;
   const waterPerBatch = selectedProduct?.chop_water_lbs || 0;
   const spicePerBatch = selectedProduct?.chop_spice_qty_lbs || 0;
   const curePerBatch = selectedProduct?.chop_cure_lbs || 0;
-  const chopBatchWeight = blendBatchLbs + waterPerBatch + spicePerBatch + curePerBatch;
-  const finishedPerBatch = chopBatchWeight > 0 && yieldPct ? chopBatchWeight * (yieldPct / 100) : blendBatchLbs * ((yieldPct || 100) / 100);
-  const numBlendBatches = finishedPerBatch > 0 && finishedLbs > 0 ? Math.ceil(finishedLbs / finishedPerBatch) : null;
-  const rawInputLbs = blendBatchLbs > 0 && numBlendBatches ? blendBatchLbs * numBlendBatches : finishedLbs;
+  // For blending: back-calculate protein needed, then determine batches
+  const blendRawInputLbs = yieldPct && finishedLbs > 0 ? Math.ceil(finishedLbs * (1 + lossPct)) : finishedLbs;
+  const numBlendBatches = blendBatchLbs > 0 && blendRawInputLbs > 0 ? Math.ceil(blendRawInputLbs / blendBatchLbs) : null;
+  const rawInputLbs = blendBatchLbs > 0 && numBlendBatches ? blendBatchLbs * numBlendBatches : blendRawInputLbs;
   const totalWater = waterPerBatch * (numBlendBatches || 0);
   const totalSpice = spicePerBatch * (numBlendBatches || 0);
   const totalCure = curePerBatch * (numBlendBatches || 0);
   const totalChopWeight = (blendBatchLbs + waterPerBatch + spicePerBatch + curePerBatch) * (numBlendBatches || 0);
-  const expectedFinished = yieldPct ? totalChopWeight * (yieldPct / 100) : rawInputLbs;
+  const expectedFinished = yieldPct ? rawInputLbs * (yieldPct / 100) : rawInputLbs;
 
   const handleProductSelect = (pid) => {
     const p = products.find(prod => prod.id === pid);

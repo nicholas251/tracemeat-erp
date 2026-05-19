@@ -74,16 +74,16 @@ export default function ProductionOrders() {
             const product = products.find(p => p.id === data.product_id);
             let totalRawInputLbs = data.quantity_to_produce; // fallback
             const firstStepKey = sorted[0]?.capability_key;
-            if (firstStepKey === "blending" && product?.blend_batch_lbs && product?.yield_percent) {
-              const yieldPct = product.yield_percent;
-              const chopBatchWeight = (product.blend_batch_lbs || 0) + (product.chop_water_lbs || 0) + (product.chop_spice_qty_lbs || 0) + (product.chop_cure_lbs || 0);
-              const finishedPerBatch = chopBatchWeight > 0 ? chopBatchWeight * (yieldPct / 100) : product.blend_batch_lbs * ((yieldPct || 100) / 100);
-              const numBatches = finishedPerBatch > 0 ? Math.ceil(data.quantity_to_produce / finishedPerBatch) : 1;
+            const yieldPct = product?.yield_percent;
+            // Raw input = finished × (1 + loss%) where loss% = (100 - yield%) / 100
+            const lossPct = yieldPct ? (100 - yieldPct) / 100 : 0;
+            const rawFromLoss = yieldPct ? Math.ceil(data.quantity_to_produce * (1 + lossPct)) : data.quantity_to_produce;
+
+            if (firstStepKey === "blending" && product?.blend_batch_lbs && yieldPct) {
+              const numBatches = Math.ceil(rawFromLoss / product.blend_batch_lbs);
               totalRawInputLbs = product.blend_batch_lbs * numBatches;
             } else if (firstStepKey === "tumble" || firstStepKey === "tumbling" || firstStepKey === "mixer") {
-              // For tumble/mixer-first flows: back-calculate raw input from yield
-              const yieldPct = product?.yield_percent;
-              totalRawInputLbs = yieldPct ? Math.ceil(data.quantity_to_produce / (yieldPct / 100)) : data.quantity_to_produce;
+              totalRawInputLbs = rawFromLoss;
             }
 
             // Create stages — tumbling steps get split into individual 800 lb batch stages
