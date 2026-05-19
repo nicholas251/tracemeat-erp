@@ -875,7 +875,7 @@ function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form, setFor
   const [spiceShortNotes, setSpiceShortNotes] = React.useState("");
   const isLinking = capKey === "linking" && stepDef.id === "linking";
   const isTumble = (capKey === "tumble" || capKey === "tumbling") && stepDef.id === "tumble";
-  const isRacking = capKey === "racking" && stepDef.id === "racking";
+  const isRacking = capKey === "racking" && stepDef.id === "racking" && stage?.flow_name === "Tumbling Protein Flow (Large)";
 
   // Check if spice is short and notes are required
   const spiceField = stepDef.fields.find(f => f.type === "spice_mix_picker");
@@ -1040,7 +1040,7 @@ function FieldInput({ field, value, onChange, casingBuckets = [], onCasingSelect
 function FinalStep({ stage, capKey, stageLabel, resolvedBatches, form, cookBatch, cookPlan, saving, onBack, onComplete }) {
   const isLinking = capKey === "linking";
   const isTumble = capKey === "tumble" || capKey === "tumbling";
-  const isRacking = capKey === "racking";
+  const isRacking = capKey === "racking" && stage?.flow_name === "Tumbling Protein Flow (Large)";
 
   const outputLbs = resolvedBatches
     ? resolvedBatches.reduce((s, b) => s + b.batchLbs, 0)
