@@ -1,23 +1,25 @@
-import React from "react";
+import React, { useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CheckCircle2, AlertCircle, FlaskConical } from "lucide-react";
+import { CheckCircle2, AlertCircle, FlaskConical, PlusCircle, Trash2 } from "lucide-react";
 
 /**
  * SpiceMixLotPicker
  *
- * Dropdown of active SpiceMix records. When selected, auto-fills the lot number
- * from the SpiceMix record. Also shows required vs available qty.
+ * Supports multi-lot allocation. If the selected lot doesn't have enough qty,
+ * the user is prompted to add another lot to cover the remainder.
  *
  * Props:
  *   label        – field label string
  *   requiredLbs  – how many lbs are needed (from product config)
- *   value        – { spice_mix_id, spice_mix_name, spice_mix_lot_number, spice_mix_qty_lbs } | {}
- *   onChange     – (updatedValue) => void
+ *   value        – { lots: [{ spice_mix_id, spice_mix_name, spice_mix_lot_number, spice_mix_qty_lbs }] }
+ *                  (backwards-compatible: also accepts flat single-lot shape)
+ *   onChange     – (updatedValue) => void  — always emits the multi-lot shape
  *   disabled     – boolean
  */
 export default function SpiceMixLotPicker({ label, requiredLbs, value = {}, onChange, disabled }) {
@@ -26,33 +28,83 @@ export default function SpiceMixLotPicker({ label, requiredLbs, value = {}, onCh
     queryFn: () => base44.entities.SpiceMix.filter({ status: "active" }),
   });
 
-  const selectedMix = spiceMixes.find(m => m.id === value.spice_mix_id) || null;
-  const available = selectedMix?.available_qty_lbs ?? selectedMix?.quantity_lbs ?? null;
-  const isInsufficient = available !== null && requiredLbs > 0 && available < requiredLbs;
+  // Normalise incoming value to multi-lot format
+  const lots = useMemo(() => {
+    if (value.lots && Array.isArray(value.lots)) return value.lots;
+    // Backwards-compat: single-lot flat shape
+    if (value.spice_mix_id) {
+      return [{
+        spice_mix_id: value.spice_mix_id,
+        spice_mix_name: value.spice_mix_name || "",
+        spice_mix_lot_number: value.spice_mix_lot_number || "",
+        spice_mix_qty_lbs: value.spice_mix_qty_lbs || 0,
+      }];
+    }
+    return [];
+  }, [value]);
 
-  const handleSelectMix = (mixId) => {
-    const mix = spiceMixes.find(m => m.id === mixId);
-    if (!mix) return;
-    // SpiceMix records don't have an explicit lot_number field — use their name + date as lot ref
-    // unless a notes field or date_created is present
-    const lotRef = mix.date_created
-      ? `${mix.name.replace(/\s+/g, "-").toUpperCase()}-${mix.date_created}`
-      : mix.name.replace(/\s+/g, "-").toUpperCase();
+  const totalAllocated = lots.reduce((s, l) => s + (Number(l.spice_mix_qty_lbs) || 0), 0);
+  const remaining = Math.max(0, (requiredLbs || 0) - totalAllocated);
+  const isCovered = requiredLbs > 0 ? totalAllocated >= requiredLbs : lots.length > 0;
+
+  const emitChange = (newLots) => {
+    // Emit multi-lot shape, plus flatten first lot fields for backwards-compat
+    const first = newLots[0] || {};
     onChange({
-      spice_mix_id: mix.id,
-      spice_mix_name: mix.name,
-      spice_mix_lot_number: lotRef,
-      spice_mix_qty_lbs: requiredLbs || mix.quantity_lbs || 0,
+      lots: newLots,
+      // flat fields mirroring first lot for backwards-compat
+      spice_mix_id: first.spice_mix_id || "",
+      spice_mix_name: first.spice_mix_name || "",
+      spice_mix_lot_number: first.spice_mix_lot_number || "",
+      spice_mix_qty_lbs: newLots.reduce((s, l) => s + (Number(l.spice_mix_qty_lbs) || 0), 0),
     });
   };
 
-  const handleLotOverride = (lotVal) => {
-    onChange({ ...value, spice_mix_lot_number: lotVal });
+  const makeLotRef = (mix) =>
+    mix.date_created
+      ? `${mix.name.replace(/\s+/g, "-").toUpperCase()}-${mix.date_created}`
+      : mix.name.replace(/\s+/g, "-").toUpperCase();
+
+  const handleSelectMix = (index, mixId) => {
+    const mix = spiceMixes.find(m => m.id === mixId);
+    if (!mix) return;
+    const available = mix.available_qty_lbs ?? mix.quantity_lbs ?? 0;
+    // Suggest the smaller of: available qty, or remaining needed
+    const suggestedQty = remaining > 0 ? Math.min(available, remaining) : available;
+    const newLots = lots.map((l, i) =>
+      i === index
+        ? {
+            spice_mix_id: mix.id,
+            spice_mix_name: mix.name,
+            spice_mix_lot_number: makeLotRef(mix),
+            spice_mix_qty_lbs: suggestedQty,
+          }
+        : l
+    );
+    emitChange(newLots);
   };
 
-  const handleQtyChange = (qty) => {
-    onChange({ ...value, spice_mix_qty_lbs: Number(qty) });
+  const handleLotField = (index, field, val) => {
+    const newLots = lots.map((l, i) =>
+      i === index ? { ...l, [field]: field === "spice_mix_qty_lbs" ? Number(val) : val } : l
+    );
+    emitChange(newLots);
   };
+
+  const addLot = () => {
+    emitChange([...lots, { spice_mix_id: "", spice_mix_name: "", spice_mix_lot_number: "", spice_mix_qty_lbs: remaining }]);
+  };
+
+  const removeLot = (index) => {
+    emitChange(lots.filter((_, i) => i !== index));
+  };
+
+  // Initialise with one empty row
+  useEffect(() => {
+    if (lots.length === 0 && !disabled) {
+      emitChange([{ spice_mix_id: "", spice_mix_name: "", spice_mix_lot_number: "", spice_mix_qty_lbs: requiredLbs || 0 }]);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="space-y-3 rounded-xl border bg-muted/20 p-4">
@@ -64,76 +116,124 @@ export default function SpiceMixLotPicker({ label, requiredLbs, value = {}, onCh
         )}
       </div>
 
-      {/* Dropdown */}
-      <div className="space-y-1.5">
-        <Label className="text-xs font-semibold text-muted-foreground">Select Spice Mix</Label>
-        <Select
-          value={value.spice_mix_id || ""}
-          onValueChange={handleSelectMix}
-          disabled={disabled || isLoading}
-        >
-          <SelectTrigger className="h-11">
-            <SelectValue placeholder={isLoading ? "Loading mixes..." : "Select a pre-made spice mix..."} />
-          </SelectTrigger>
-          <SelectContent>
-            {spiceMixes.map(mix => (
-              <SelectItem key={mix.id} value={mix.id}>
-                <div className="flex items-center justify-between gap-4 w-full">
-                  <span>{mix.name}</span>
-                  {mix.available_qty_lbs != null && (
-                    <span className="text-xs text-muted-foreground">{mix.available_qty_lbs} lbs avail.</span>
-                  )}
-                </div>
-              </SelectItem>
-            ))}
-            {spiceMixes.length === 0 && !isLoading && (
-              <div className="px-3 py-2 text-xs text-muted-foreground">No active spice mixes found</div>
+      {lots.map((lot, index) => {
+        const selectedMix = spiceMixes.find(m => m.id === lot.spice_mix_id) || null;
+        const available = selectedMix?.available_qty_lbs ?? selectedMix?.quantity_lbs ?? null;
+        // How much is still needed before this lot (from prior lots)
+        const allocatedBefore = lots.slice(0, index).reduce((s, l) => s + (Number(l.spice_mix_qty_lbs) || 0), 0);
+        const remainingBeforeThis = Math.max(0, (requiredLbs || 0) - allocatedBefore);
+        const isInsufficient = available !== null && lot.spice_mix_qty_lbs > 0 && available < lot.spice_mix_qty_lbs;
+
+        return (
+          <div key={index} className="border rounded-lg p-3 space-y-2 bg-background">
+            {lots.length > 1 && (
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-semibold text-muted-foreground">Lot #{index + 1}</span>
+                {!disabled && (
+                  <button onClick={() => removeLot(index)} className="text-muted-foreground hover:text-destructive transition-colors">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
             )}
-          </SelectContent>
-        </Select>
-      </div>
 
-      {selectedMix && (
-        <>
-          {isInsufficient && (
-            <div className="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2">
-              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-              Only {available} lbs available — {requiredLbs} lbs required
+            {/* Mix selector */}
+            <div className="space-y-1">
+              <Label className="text-xs font-semibold text-muted-foreground">Select Spice Mix</Label>
+              <Select
+                value={lot.spice_mix_id || ""}
+                onValueChange={(v) => handleSelectMix(index, v)}
+                disabled={disabled || isLoading}
+              >
+                <SelectTrigger className="h-10">
+                  <SelectValue placeholder={isLoading ? "Loading..." : "Select a spice mix..."} />
+                </SelectTrigger>
+                <SelectContent>
+                  {spiceMixes.map(mix => {
+                    const avail = mix.available_qty_lbs ?? mix.quantity_lbs ?? 0;
+                    return (
+                      <SelectItem key={mix.id} value={mix.id}>
+                        <div className="flex items-center justify-between gap-4 w-full">
+                          <span>{mix.name}</span>
+                          <span className={`text-xs ${avail < remainingBeforeThis ? "text-amber-600" : "text-muted-foreground"}`}>
+                            {avail} lbs avail.
+                          </span>
+                        </div>
+                      </SelectItem>
+                    );
+                  })}
+                  {spiceMixes.length === 0 && !isLoading && (
+                    <div className="px-3 py-2 text-xs text-muted-foreground">No active spice mixes found</div>
+                  )}
+                </SelectContent>
+              </Select>
             </div>
-          )}
 
-          {/* Lot number — auto-filled, editable */}
-          <div className="space-y-1.5">
-            <Label className="text-xs font-semibold text-muted-foreground">Lot / Batch Reference</Label>
-            <Input
-              value={value.spice_mix_lot_number || ""}
-              onChange={e => handleLotOverride(e.target.value)}
-              placeholder="Auto-filled from spice mix"
-              className="h-10 text-sm"
-              disabled={disabled}
-            />
+            {selectedMix && (
+              <>
+                {isInsufficient && (
+                  <div className="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    Only {available} lbs available in this lot — adjust qty or add another lot
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <Label className="text-xs font-semibold text-muted-foreground">Lot / Batch Ref</Label>
+                    <Input
+                      value={lot.spice_mix_lot_number || ""}
+                      onChange={e => handleLotField(index, "spice_mix_lot_number", e.target.value)}
+                      placeholder="Auto-filled"
+                      className="h-9 text-sm"
+                      disabled={disabled}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs font-semibold text-muted-foreground">Qty Used (lbs)</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={lot.spice_mix_qty_lbs ?? ""}
+                      onChange={e => handleLotField(index, "spice_mix_qty_lbs", e.target.value)}
+                      className="h-9 text-sm"
+                      disabled={disabled}
+                    />
+                  </div>
+                </div>
+              </>
+            )}
           </div>
+        );
+      })}
 
-          {/* Qty used — pre-filled from product config but editable */}
-          <div className="space-y-1.5">
-            <Label className="text-xs font-semibold text-muted-foreground">Qty Used (lbs)</Label>
-            <Input
-              type="number"
-              step="0.01"
-              value={value.spice_mix_qty_lbs ?? requiredLbs ?? ""}
-              onChange={e => handleQtyChange(e.target.value)}
-              className="h-10 text-sm"
-              disabled={disabled}
-            />
+      {/* Add lot prompt — shown when not enough covered */}
+      {!disabled && !isCovered && lots.length > 0 && lots[lots.length - 1].spice_mix_id && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 text-xs text-amber-800">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span><strong>{remaining.toFixed(2)} lbs</strong> still needed — add another lot to cover</span>
           </div>
+          <Button size="sm" variant="outline" onClick={addLot} className="shrink-0 h-7 text-xs border-amber-400 text-amber-800 hover:bg-amber-100">
+            <PlusCircle className="w-3.5 h-3.5 mr-1" />
+            Add Lot
+          </Button>
+        </div>
+      )}
 
-          {!disabled && (
-            <div className="flex items-center gap-1.5 text-xs text-chart-2">
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              <span className="font-medium">{selectedMix.name} selected — lot recorded</span>
-            </div>
-          )}
-        </>
+      {/* Add lot button when already covered but want more */}
+      {!disabled && isCovered && !isLoading && (
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5 text-xs text-chart-2">
+            <CheckCircle2 className="w-3.5 h-3.5" />
+            <span className="font-medium">
+              {totalAllocated.toFixed(2)} lbs allocated across {lots.filter(l => l.spice_mix_id).length} lot{lots.filter(l => l.spice_mix_id).length !== 1 ? "s" : ""}
+            </span>
+          </div>
+          <button onClick={addLot} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
+            <PlusCircle className="w-3 h-3" /> Add lot
+          </button>
+        </div>
       )}
     </div>
   );
