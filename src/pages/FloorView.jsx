@@ -52,7 +52,88 @@ export default function FloorView() {
         }
       />
 
-      <div className="text-center py-16 text-muted-foreground">No products displayed.</div>
+      {stages.length === 0 ? (
+        <div className="text-center py-16 text-muted-foreground">No active production stages.</div>
+      ) : (
+        <div className="space-y-6">
+          {activeOrders.map((order) => {
+            const orderStages = stages.filter(s => s.order_id === order.id).sort((a, b) => a.step_number - b.step_number);
+            if (orderStages.length === 0) return null;
+
+            return (
+              <div key={order.id} className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-semibold text-lg">{order.order_number}</h3>
+                    <p className="text-sm text-muted-foreground">{order.product_name} • {order.quantity_to_produce} lbs</p>
+                  </div>
+                  <Badge variant={order.status === "in_progress" ? "default" : "secondary"}>
+                    {order.status}
+                  </Badge>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                  {orderStages.map((stage) => {
+                    const cfg = STATUS_CONFIG[stage.status] || STATUS_CONFIG.locked;
+                    const Icon = cfg.icon;
+
+                    return (
+                      <Card
+                        key={stage.id}
+                        onClick={() => setActiveStage(stage)}
+                        className="cursor-pointer hover:shadow-md hover:border-primary/30 transition-all"
+                      >
+                        <CardHeader className="pb-2">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1">
+                              <CardTitle className="text-sm font-semibold">{stage.capability_name}</CardTitle>
+                              <p className="text-xs text-muted-foreground mt-0.5">Step {stage.step_number}</p>
+                            </div>
+                            <Icon className={`w-4 h-4 ${cfg.color}`} />
+                          </div>
+                        </CardHeader>
+                        <CardContent className="space-y-2">
+                          <div className={`rounded px-2 py-1.5 ${cfg.bg}`}>
+                            <p className="text-xs font-semibold text-foreground">{cfg.label}</p>
+                          </div>
+
+                          {stage.assigned_user_name && (
+                            <div className="text-xs">
+                              <p className="text-muted-foreground">Assigned to</p>
+                              <p className="font-medium">{stage.assigned_user_name}</p>
+                            </div>
+                          )}
+
+                          {stage.input_qty_lbs && (
+                            <div className="text-xs">
+                              <p className="text-muted-foreground">Input</p>
+                              <p className="font-medium">{stage.input_qty_lbs} lbs</p>
+                            </div>
+                          )}
+
+                          {stage.output_qty_lbs && (
+                            <div className="text-xs">
+                              <p className="text-muted-foreground">Output</p>
+                              <p className="font-medium">{stage.output_qty_lbs} lbs</p>
+                            </div>
+                          )}
+
+                          {stage.input_lot_number && (
+                            <div className="text-xs">
+                              <p className="text-muted-foreground">Lot #</p>
+                              <p className="font-mono text-xs">{stage.input_lot_number}</p>
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {activeStage && (
         <StageActionDialog
