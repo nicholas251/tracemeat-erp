@@ -7,9 +7,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, Pencil, Beef, FlaskConical, Package } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 
-const EMPTY = { name: "", code: "", category: "protein", description: "", unit: "lbs", status: "active" };
+const EMPTY = { name: "", code: "", category: "protein", description: "", unit: "lbs", status: "active", is_mix: false };
 
 const categoryIcons = { protein: Beef, spice: FlaskConical, packaging: Package, casing: Package };
 
@@ -27,7 +28,7 @@ export default function BucketFormDialog({ open, bucket, onClose, onSave, allBuc
   };
 
   const handleEdit = (b) => {
-    setForm({ name: b.name, code: b.code || "", category: b.category, description: b.description || "", unit: b.unit || "lbs", status: b.status || "active" });
+    setForm({ name: b.name, code: b.code || "", category: b.category, description: b.description || "", unit: b.unit || "lbs", status: b.status || "active", is_mix: b.is_mix || false });
     setMode("edit");
     onEdit(b);
   };
@@ -146,6 +147,15 @@ export default function BucketFormDialog({ open, bucket, onClose, onSave, allBuc
                   </SelectContent>
                 </Select>
               </div>
+              {form.category === "spice" && (
+                <div className="col-span-2 flex items-center gap-3 rounded-lg border bg-muted/30 px-4 py-3">
+                  <Switch checked={!!form.is_mix} onCheckedChange={v => set("is_mix", v)} />
+                  <div>
+                    <Label className="font-semibold cursor-pointer">This is a Spice Mix</Label>
+                    <p className="text-xs text-muted-foreground">Check this if the bucket contains a pre-blended mix of multiple spice ingredients</p>
+                  </div>
+                </div>
+              )}
               <div className="col-span-2">
                 <Label>Description</Label>
                 <Textarea value={form.description} onChange={e => set("description", e.target.value)} placeholder="What types of materials go in this bucket..." className="h-20" />

@@ -20,6 +20,11 @@
       ],
       "description": "Bucket category"
     },
+    "is_mix": {
+      "type": "boolean",
+      "default": false,
+      "description": "When true (and category is spice), this bucket is a pre-blended spice mix containing multiple spice ingredients"
+    },
     "description": {
       "type": "string",
       "description": "What materials belong in this bucket"

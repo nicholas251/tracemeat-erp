@@ -17,6 +17,7 @@ import { Link } from "react-router-dom";
 const CATEGORY_LABELS = {
   protein: { label: "Protein", icon: Beef, color: "text-chart-4" },
   spice: { label: "Spice", icon: FlaskConical, color: "text-chart-3" },
+  spice_mix: { label: "Spice Mix", icon: FlaskConical, color: "text-chart-2" },
   packaging: { label: "Packaging", icon: Package, color: "text-chart-1" },
   casing: { label: "Casing", icon: Unlink, color: "text-chart-5" },
 };
@@ -67,7 +68,11 @@ function CategoryTab({ category, buckets, allLots, search }) {
   const Icon = info.icon;
 
   const filtered = buckets
-    .filter(b => b.category === category && b.status === "active")
+    .filter(b => {
+      if (category === "spice_mix") return b.category === "spice" && b.is_mix === true && b.status === "active";
+      if (category === "spice") return b.category === "spice" && !b.is_mix && b.status === "active";
+      return b.category === category && b.status === "active";
+    })
     .filter(b => !search || b.name.toLowerCase().includes(search.toLowerCase()) || b.code?.toLowerCase().includes(search.toLowerCase()));
 
   return (
@@ -252,6 +257,7 @@ export default function RawInventoryPage() {
           <TabsList>
             <TabsTrigger value="protein">Protein</TabsTrigger>
             <TabsTrigger value="spice">Spice</TabsTrigger>
+            <TabsTrigger value="spice_mix">Spice Mix</TabsTrigger>
             <TabsTrigger value="packaging">Packaging</TabsTrigger>
             <TabsTrigger value="casing">Casing</TabsTrigger>
             <TabsTrigger value="ledger">All Lots</TabsTrigger>
@@ -267,6 +273,9 @@ export default function RawInventoryPage() {
         </TabsContent>
         <TabsContent value="spice">
           <CategoryTab category="spice" buckets={buckets} allLots={lots} search={search} />
+        </TabsContent>
+        <TabsContent value="spice_mix">
+          <CategoryTab category="spice_mix" buckets={buckets} allLots={lots} search={search} />
         </TabsContent>
         <TabsContent value="packaging">
           <CategoryTab category="packaging" buckets={buckets} allLots={lots} search={search} />
