@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import LinkingCookBatchBuilder from "./LinkingCookBatchBuilder";
 import TumbleCookBatchBuilder from "./TumbleCookBatchBuilder";
+import SpiceMixLotPicker from "./SpiceMixLotPicker";
 
 // ─── Stage icon map ───────────────────────────────────────────────────────────
 const STAGE_ICONS = {
@@ -62,7 +63,7 @@ function buildIngredientBatchesMultiple(stage, product, capKey, numBatches) {
 }
 
 // ─── Build measurement steps for cooking / chilling / linking / packaging ────
-function buildMeasurementSteps(stage, product, capKey, spiceMixes, casingBuckets = []) {
+function buildMeasurementSteps(stage, product, capKey, casingBuckets = []) {
   const steps = [];
 
   if (capKey === "chopping") {
@@ -71,9 +72,7 @@ function buildMeasurementSteps(stage, product, capKey, spiceMixes, casingBuckets
       label: "Bowl Preparation",
       fields: [
         { key: "input_lot_confirmed", label: `Confirm blend lot ${stage?.input_lot_number || "N/A"} added to bowl?`, type: "boolean" },
-        { key: "spice_mix_id", label: "Spice Mix", type: "spice_select", options: spiceMixes },
-        { key: "spice_mix_lot_number", label: "Spice Mix Lot #", type: "text", placeholder: "e.g. SPICE-LOT-2024-001" },
-        { key: "spice_mix_qty_lbs", label: "Spice Mix Amount (lbs)", type: "number" },
+        { key: "spice_mix", label: "Spice Mix", type: "spice_mix_picker", requiredLbs: product?.chop_spice_qty_lbs || 0 },
         { key: "cure_lot_number", label: "Cure Lot #", type: "text", placeholder: "e.g. CURE-LOT-2024-001" },
         { key: "cure_amount_lbs", label: "Cure Added (lbs)", type: "number" },
         { key: "water_amount_lbs", label: "Water Amount Added (lbs)", type: "number" },
@@ -98,29 +97,12 @@ function buildMeasurementSteps(stage, product, capKey, spiceMixes, casingBuckets
   }
 
   if (capKey === "tumble" || capKey === "tumbling") {
-    const spiceName = stage?.spice_mix_name || "Spice Mix";
-    const spiceQty = stage?.spice_mix_qty_lbs;
-    const spiceFields = spiceQty
-      ? [
-          {
-            key: "spice_mix_lot_number",
-            label: `Spice Mix Lot # (${spiceName}${spiceQty ? ` — ${spiceQty} lbs required` : ""})`,
-            type: "text",
-            placeholder: "e.g. SPICE-LOT-2024-001",
-          },
-          {
-            key: "spice_mix_qty_confirmed",
-            label: `Confirm ${spiceQty} lbs of ${spiceName} added to tumbler?`,
-            type: "boolean",
-          },
-        ]
-      : [];
-
+    const spiceQty = stage?.spice_mix_qty_lbs || product?.chop_spice_qty_lbs || 0;
     steps.push({
       id: "tumble",
       label: "Tumbling",
       fields: [
-        ...spiceFields,
+        { key: "spice_mix", label: "Spice Mix Added", type: "spice_mix_picker", requiredLbs: spiceQty },
         { key: "duration_minutes", label: "Tumble Duration (minutes)", type: "number" },
         { key: "temperature_c", label: "Temperature (°C)", type: "number" },
         // output qty / lot / cook batch plan handled by TumbleCookBatchBuilder embedded in MeasureStep
@@ -245,12 +227,6 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
     enabled: open && !!stage,
   });
 
-  const { data: spiceMixes = [] } = useQuery({
-    queryKey: ["spiceMixes"],
-    queryFn: () => base44.entities.SpiceMix.filter({ status: "active" }),
-    enabled: open && capKey === "chopping",
-  });
-
   const { data: casingBuckets = [] } = useQuery({
     queryKey: ["casingBuckets"],
     queryFn: () => base44.entities.InventoryBucket.filter({ category: "casing" }),
@@ -273,7 +249,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
 
   // For measurement stages
   const measureSteps = !usesIngredientBatches
-    ? buildMeasurementSteps(stage, product, capKey, spiceMixes, casingBuckets)
+    ? buildMeasurementSteps(stage, product, capKey, casingBuckets)
     : [];
 
   // ── Navigation boundaries ──
@@ -417,8 +393,12 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
           output_qty_lbs: totalOutputLbs,
           output_lot_number: tumbleOutputLot,
           racks_count: cookPlan.cookBatches.reduce((s, b) => s + b.racks, 0),
+          spice_mix_id: form.spice_mix_id || "",
+          spice_mix_name: form.spice_mix_name || "",
           spice_mix_lot_number: form.spice_mix_lot_number || "",
-          ...form,
+          spice_mix_qty_lbs: form.spice_mix_qty_lbs || 0,
+          duration_minutes: form.duration_minutes || null,
+          temperature_c: form.temperature_c || null,
         });
 
         // Deduct FIFO lots for protein + spice across all cook batches
@@ -744,7 +724,6 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
               progressPct={progressPct}
               form={form}
               setForm={setForm}
-              spiceMixes={spiceMixes}
               casingBuckets={casingBuckets}
               capKey={capKey}
               stage={stage}
@@ -888,7 +867,7 @@ function BatchConfirmStep({ batch, batchIdx, totalBatches, progressPct, onUpdate
   );
 }
 
-function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form, setForm, spiceMixes, casingBuckets, capKey, stage, product, cookBatch, setCookBatch, cookPlan, setCookPlan, onBack, onNext, isLast }) {
+function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form, setForm, casingBuckets, capKey, stage, product, cookBatch, setCookBatch, cookPlan, setCookPlan, onBack, onNext, isLast }) {
   const isLinking = capKey === "linking" && stepDef.id === "linking";
   const isTumble = (capKey === "tumble" || capKey === "tumbling") && stepDef.id === "tumble";
   const canProceed = isLinking ? !!cookBatch : isTumble ? !!cookPlan : true;
@@ -909,10 +888,22 @@ function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form, setFor
               key={field.key}
               field={field}
               value={form[field.key]}
-              spiceMixes={spiceMixes}
               casingBuckets={casingBuckets}
-              onChange={val => setForm(f => ({ ...f, [field.key]: val }))}
-              onSpiceSelect={(id, name) => setForm(f => ({ ...f, spice_mix_id: id, spice_mix_name: name }))}
+              onChange={val => {
+                if (field.type === "spice_mix_picker") {
+                  // Spread spice mix sub-fields onto form for easy saving
+                  setForm(f => ({
+                    ...f,
+                    spice_mix: val,
+                    spice_mix_id: val.spice_mix_id || "",
+                    spice_mix_name: val.spice_mix_name || "",
+                    spice_mix_lot_number: val.spice_mix_lot_number || "",
+                    spice_mix_qty_lbs: val.spice_mix_qty_lbs || 0,
+                  }));
+                } else {
+                  setForm(f => ({ ...f, [field.key]: val }));
+                }
+              }}
               onCasingSelect={(id, name) => setForm(f => ({ ...f, casing_bucket_id: id, casing_bucket_name: name }))}
             />
           ))}
@@ -948,7 +939,17 @@ function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form, setFor
   );
 }
 
-function FieldInput({ field, value, onChange, spiceMixes, casingBuckets = [], onSpiceSelect, onCasingSelect }) {
+function FieldInput({ field, value, onChange, casingBuckets = [], onCasingSelect }) {
+  if (field.type === "spice_mix_picker") {
+    return (
+      <SpiceMixLotPicker
+        label={field.label}
+        requiredLbs={field.requiredLbs || 0}
+        value={value || {}}
+        onChange={onChange}
+      />
+    );
+  }
   if (field.type === "casing_select") {
     return (
       <div className="space-y-1.5">
@@ -966,20 +967,8 @@ function FieldInput({ field, value, onChange, spiceMixes, casingBuckets = [], on
     );
   }
   if (field.type === "spice_select") {
-    return (
-      <div className="space-y-1.5">
-        <Label className="text-sm font-semibold">{field.label}</Label>
-        <Select value={value || ""} onValueChange={v => {
-          const mix = spiceMixes.find(m => m.id === v);
-          onSpiceSelect(v, mix?.name || "");
-        }}>
-          <SelectTrigger className="h-11"><SelectValue placeholder="Select mix..." /></SelectTrigger>
-          <SelectContent>
-            {spiceMixes.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
-          </SelectContent>
-        </Select>
-      </div>
-    );
+    // Legacy fallback — replaced by spice_mix_picker; skip gracefully
+    return null;
   }
   if (field.type === "boolean") {
     return (
