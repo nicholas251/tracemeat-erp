@@ -80,7 +80,7 @@ export default function ProductionOrders() {
               const finishedPerBatch = chopBatchWeight > 0 ? chopBatchWeight * (yieldPct / 100) : product.blend_batch_lbs * ((yieldPct || 100) / 100);
               const numBatches = finishedPerBatch > 0 ? Math.ceil(data.quantity_to_produce / finishedPerBatch) : 1;
               totalRawInputLbs = product.blend_batch_lbs * numBatches;
-            } else if (firstStepKey === "tumble" || firstStepKey === "mixer") {
+            } else if (firstStepKey === "tumble" || firstStepKey === "tumbling" || firstStepKey === "mixer") {
               // For tumble/mixer-first flows: back-calculate raw input from yield
               const yieldPct = product?.yield_percent;
               totalRawInputLbs = yieldPct ? Math.ceil(data.quantity_to_produce / (yieldPct / 100)) : data.quantity_to_produce;
