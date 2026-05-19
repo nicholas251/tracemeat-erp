@@ -67,6 +67,13 @@ export default function FloorView() {
             const orderStages = stages.filter(s => s.order_id === order.id).sort((a, b) => a.step_number - b.step_number);
             if (orderStages.length === 0) return null;
 
+            // Find current (available or in_progress) and next stage
+            const currentStageIdx = orderStages.findIndex(s => s.status === "available" || s.status === "in_progress");
+            const currentStage = currentStageIdx >= 0 ? orderStages[currentStageIdx] : null;
+            const nextStage = currentStageIdx >= 0 && currentStageIdx < orderStages.length - 1 ? orderStages[currentStageIdx + 1] : null;
+
+            const stagesToShow = [currentStage, nextStage].filter(Boolean);
+
             return (
               <div key={order.id} className="space-y-3">
                 <div className="flex items-center justify-between">
@@ -80,15 +87,18 @@ export default function FloorView() {
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2">
-                  {orderStages.map((stage) => {
+                  {stagesToShow.map((stage) => {
                     const cfg = STATUS_CONFIG[stage.status] || STATUS_CONFIG.locked;
                     const Icon = cfg.icon;
+
+                    const isCurrentStage = stage.status === "available" || stage.status === "in_progress";
+                    const isNext = !isCurrentStage;
 
                     return (
                       <Card
                         key={stage.id}
-                        onClick={() => isAdmin && setActiveStage(stage)}
-                        className={isAdmin ? "cursor-pointer hover:shadow-sm hover:border-primary/30 transition-all" : ""}
+                        onClick={() => isAdmin && isCurrentStage && setActiveStage(stage)}
+                        className={`${isNext ? "opacity-40" : ""} ${isAdmin && isCurrentStage ? "cursor-pointer hover:shadow-sm hover:border-primary/30" : ""} transition-all`}
                       >
                         <CardHeader className="pb-1.5 pt-3 px-3">
                           <div className="flex items-start justify-between gap-1.5">
