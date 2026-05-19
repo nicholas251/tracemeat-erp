@@ -299,12 +299,13 @@ export default function ProductionOrderFormDialog({ open, onClose, onSave, order
           </div>
 
           {selectedProduct && (isTumbleFlow ? tumbleRawInputLbs : rawInputLbs) > 0 && (
-            <InventoryShortageCheck
-              product={selectedProduct}
-              rawInputLbs={isTumbleFlow ? tumbleRawInputLbs : rawInputLbs}
-              numBatches={isTumbleFlow ? numTumbleBatches : numBlendBatches}
-              onProductUpdated={() => {}}
-            />
+           <InventoryShortageCheck
+             product={selectedProduct}
+             rawInputLbs={isTumbleFlow ? tumbleRawInputLbs : rawInputLbs}
+             numBatches={isTumbleFlow ? numTumbleBatches : numBlendBatches}
+             isTumbleFlow={isTumbleFlow}
+             onProductUpdated={() => {}}
+           />
           )}
 
           <div className="grid grid-cols-2 gap-3">

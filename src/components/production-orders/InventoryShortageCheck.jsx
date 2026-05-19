@@ -144,7 +144,7 @@ function CureCasingConfigDialog({ open, onClose, product, allBuckets, onSaved })
   );
 }
 
-export default function InventoryShortageCheck({ product: productProp, rawInputLbs, numBatches, onProductUpdated }) {
+export default function InventoryShortageCheck({ product: productProp, rawInputLbs, numBatches, isTumbleFlow, onProductUpdated }) {
   const queryClient = useQueryClient();
   const [createBucketFor, setCreateBucketFor] = useState(null);
   const [showCureCasingConfig, setShowCureCasingConfig] = useState(false);
@@ -206,11 +206,11 @@ export default function InventoryShortageCheck({ product: productProp, rawInputL
   });
 
   // ── 2. Spice mix (chopping) ──
-  // Use numBatches from parent (accounts for full chop weight incl. water/spice/cure)
+  // Spice is only checked for non-tumble flows; tumble flows add spice at tumbling stage
   const numChopBatches = numBatches || 1;
   const spiceChecks = [];
 
-  if (product.chop_spice_mix_id) {
+  if (!isTumbleFlow && product.chop_spice_mix_id) {
     const spiceNeeded = parseFloat(((product.chop_spice_qty_lbs || 0) * numChopBatches).toFixed(2));
     // SpiceMix available_qty_lbs
     const spiceAvail = parseFloat((spiceMixData?.available_qty_lbs || 0).toFixed(2));
