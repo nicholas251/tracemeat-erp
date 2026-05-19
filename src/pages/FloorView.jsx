@@ -62,78 +62,38 @@ export default function FloorView() {
       {stages.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground">No active production stages.</div>
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-2">
           {activeOrders.map((order) => {
             const orderStages = stages.filter(s => s.order_id === order.id).sort((a, b) => a.step_number - b.step_number);
             if (orderStages.length === 0) return null;
 
+            // Find the first in_progress or available stage
+            const currentStage = orderStages.find(s => s.status === "in_progress" || s.status === "available") || orderStages[0];
+            if (!currentStage) return null;
+
+            const cfg = STATUS_CONFIG[currentStage.status] || STATUS_CONFIG.locked;
+            const Icon = cfg.icon;
+
             return (
-              <div key={order.id} className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="font-semibold text-lg">{order.order_number}</h3>
-                    <p className="text-sm text-muted-foreground">{order.product_name} • {order.quantity_to_produce} lbs</p>
+              <Card
+                key={order.id}
+                onClick={() => isAdmin && setActiveStage(currentStage)}
+                className={isAdmin ? "cursor-pointer hover:shadow-md hover:border-primary/30 transition-all" : ""}
+              >
+                <CardContent className="p-3 flex items-center justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-base">{order.order_number}</p>
+                    <p className="text-sm text-muted-foreground truncate">{currentStage.capability_name}</p>
                   </div>
-                  <Badge variant={order.status === "in_progress" ? "default" : "secondary"}>
-                    {order.status}
-                  </Badge>
-                </div>
-
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2">
-                  {orderStages.map((stage) => {
-                    const cfg = STATUS_CONFIG[stage.status] || STATUS_CONFIG.locked;
-                    const Icon = cfg.icon;
-
-                    return (
-                      <Card
-                        key={stage.id}
-                        onClick={() => isAdmin && setActiveStage(stage)}
-                        className={isAdmin ? "cursor-pointer hover:shadow-sm hover:border-primary/30 transition-all" : ""}
-                      >
-                        <CardHeader className="pb-1.5 pt-3 px-3">
-                          <div className="flex items-start justify-between gap-1.5">
-                            <div className="flex-1 min-w-0">
-                              <CardTitle className="text-xs font-semibold truncate">{stage.capability_name}</CardTitle>
-                              <p className="text-xs text-muted-foreground mt-0.5">#{stage.step_number}</p>
-                            </div>
-                            <Icon className={`w-3.5 h-3.5 ${cfg.color} flex-shrink-0`} />
-                          </div>
-                        </CardHeader>
-                        <CardContent className="px-3 pb-3 space-y-1">
-                          <div className={`rounded px-1.5 py-1 ${cfg.bg}`}>
-                            <p className="text-xs font-semibold text-foreground">{cfg.label}</p>
-                          </div>
-
-                          {stage.assigned_user_name && (
-                            <div className="text-xs">
-                              <p className="text-muted-foreground text-xs">Assigned</p>
-                              <p className="font-medium text-xs truncate">{stage.assigned_user_name}</p>
-                            </div>
-                          )}
-
-                          {stage.input_qty_lbs && (
-                            <div className="text-xs">
-                              <p className="font-medium">{stage.input_qty_lbs} in</p>
-                            </div>
-                          )}
-
-                          {stage.output_qty_lbs && (
-                            <div className="text-xs">
-                              <p className="font-medium">{stage.output_qty_lbs} out</p>
-                            </div>
-                          )}
-
-                          {stage.input_lot_number && (
-                            <div className="text-xs">
-                              <p className="font-mono text-xs truncate">{stage.input_lot_number}</p>
-                            </div>
-                          )}
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
-                </div>
-              </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <div className={`rounded px-2 py-1 ${cfg.bg}`}>
+                      <p className="text-xs font-semibold text-foreground">{cfg.label}</p>
+                    </div>
+                    <Icon className={`w-4 h-4 ${cfg.color}`} />
+                  </div>
+                </CardContent>
+              </Card>
             );
           })}
         </div>
