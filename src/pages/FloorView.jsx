@@ -18,7 +18,14 @@ const STATUS_CONFIG = {
 
 export default function FloorView() {
   const [activeStage, setActiveStage] = useState(null);
+  const [currentUser, setCurrentUser] = useState(null);
   const queryClient = useQueryClient();
+
+  useEffect(() => {
+    base44.auth.me().then(setCurrentUser).catch(() => setCurrentUser(null));
+  }, []);
+
+  const isAdmin = currentUser?.role === "admin";
 
   const { data: orders = [] } = useQuery({
     queryKey: ["activeOrders"],
@@ -72,7 +79,7 @@ export default function FloorView() {
                   </Badge>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2">
                   {orderStages.map((stage) => {
                     const cfg = STATUS_CONFIG[stage.status] || STATUS_CONFIG.locked;
                     const Icon = cfg.icon;
@@ -80,48 +87,45 @@ export default function FloorView() {
                     return (
                       <Card
                         key={stage.id}
-                        onClick={() => setActiveStage(stage)}
-                        className="cursor-pointer hover:shadow-md hover:border-primary/30 transition-all"
+                        onClick={() => isAdmin && setActiveStage(stage)}
+                        className={isAdmin ? "cursor-pointer hover:shadow-sm hover:border-primary/30 transition-all" : ""}
                       >
-                        <CardHeader className="pb-2">
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="flex-1">
-                              <CardTitle className="text-sm font-semibold">{stage.capability_name}</CardTitle>
-                              <p className="text-xs text-muted-foreground mt-0.5">Step {stage.step_number}</p>
+                        <CardHeader className="pb-1.5 pt-3 px-3">
+                          <div className="flex items-start justify-between gap-1.5">
+                            <div className="flex-1 min-w-0">
+                              <CardTitle className="text-xs font-semibold truncate">{stage.capability_name}</CardTitle>
+                              <p className="text-xs text-muted-foreground mt-0.5">#{stage.step_number}</p>
                             </div>
-                            <Icon className={`w-4 h-4 ${cfg.color}`} />
+                            <Icon className={`w-3.5 h-3.5 ${cfg.color} flex-shrink-0`} />
                           </div>
                         </CardHeader>
-                        <CardContent className="space-y-2">
-                          <div className={`rounded px-2 py-1.5 ${cfg.bg}`}>
+                        <CardContent className="px-3 pb-3 space-y-1">
+                          <div className={`rounded px-1.5 py-1 ${cfg.bg}`}>
                             <p className="text-xs font-semibold text-foreground">{cfg.label}</p>
                           </div>
 
                           {stage.assigned_user_name && (
                             <div className="text-xs">
-                              <p className="text-muted-foreground">Assigned to</p>
-                              <p className="font-medium">{stage.assigned_user_name}</p>
+                              <p className="text-muted-foreground text-xs">Assigned</p>
+                              <p className="font-medium text-xs truncate">{stage.assigned_user_name}</p>
                             </div>
                           )}
 
                           {stage.input_qty_lbs && (
                             <div className="text-xs">
-                              <p className="text-muted-foreground">Input</p>
-                              <p className="font-medium">{stage.input_qty_lbs} lbs</p>
+                              <p className="font-medium">{stage.input_qty_lbs} in</p>
                             </div>
                           )}
 
                           {stage.output_qty_lbs && (
                             <div className="text-xs">
-                              <p className="text-muted-foreground">Output</p>
-                              <p className="font-medium">{stage.output_qty_lbs} lbs</p>
+                              <p className="font-medium">{stage.output_qty_lbs} out</p>
                             </div>
                           )}
 
                           {stage.input_lot_number && (
                             <div className="text-xs">
-                              <p className="text-muted-foreground">Lot #</p>
-                              <p className="font-mono text-xs">{stage.input_lot_number}</p>
+                              <p className="font-mono text-xs truncate">{stage.input_lot_number}</p>
                             </div>
                           )}
                         </CardContent>
