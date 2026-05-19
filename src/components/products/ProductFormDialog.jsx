@@ -67,13 +67,13 @@ export default function ProductFormDialog({ open, onClose, onSave, product, flow
     enabled: open,
   });
 
-  // Auto-calculate case weight when package size/count changes
+  // Auto-calculate case weight when package size/count changes (unless varied weights)
   useEffect(() => {
-    if (form.package_size && form.packages_per_case) {
+    if (!form.varied_weights && form.package_size && form.packages_per_case) {
       const totalCaseWeightLbs = Number(form.package_size) * Number(form.packages_per_case);
       update("case_weight_lbs", Math.round(totalCaseWeightLbs * 100) / 100);
     }
-  }, [form.package_size, form.packages_per_case]);
+  }, [form.package_size, form.packages_per_case, form.varied_weights]);
 
   const handleSave = () => {
     onSave({
@@ -212,7 +212,7 @@ export default function ProductFormDialog({ open, onClose, onSave, product, flow
               </div>
               <div className="space-y-2">
                 <Label>{unitLabel} Weight (lbs)</Label>
-                <Input type="number" step="0.1" value={form.case_weight_lbs} disabled placeholder="Auto-calculated" />
+                <Input type="number" step="0.1" value={form.case_weight_lbs} disabled placeholder={form.varied_weights ? "Recorded at packing stage" : "Auto-calculated"} />
               </div>
               <div className="space-y-2">
                 <Label>Shelf Life (days)</Label>
