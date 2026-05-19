@@ -126,6 +126,11 @@
       "type": "string",
       "description": "Cure bucket name for display"
     },
+    "no_casings": {
+      "type": "boolean",
+      "default": false,
+      "description": "When true, this product does not use casings and skips casing inventory checks"
+    },
     "casing_bucket_id": {
       "type": "string",
       "description": "InventoryBucket ID for casings (linking step)"

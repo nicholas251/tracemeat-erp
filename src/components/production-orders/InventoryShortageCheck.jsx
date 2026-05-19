@@ -5,6 +5,7 @@ import { AlertTriangle, CheckCircle2, Loader2, Plus, Link2Off, Settings } from "
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -224,7 +225,9 @@ export default function InventoryShortageCheck({ product: productProp, rawInputL
   }
 
   // ── 3. Cure (chopping) ──
-   const missingCasingConfig = !product.casing_qty_per_batch_lbs;
+  // Casings are optional — if product has no_casings flag, skip the warning entirely
+  const noCasings = !!product.no_casings;
+  const missingCasingConfig = !noCasings && !product.casing_qty_per_batch_lbs;
 
   const cureChecks = [];
   if (product.chop_cure_lbs) {
@@ -259,9 +262,9 @@ export default function InventoryShortageCheck({ product: productProp, rawInputL
   }
 
   // ── 4. Casings (linking) ──
-   // Casings are consumed per chopping batch regardless of linking merge (material consumption doesn't change)
-   const casingChecks = [];
-   if (product.casing_qty_per_batch_lbs) {
+  // Casings are consumed per chopping batch regardless of linking merge (material consumption doesn't change)
+  const casingChecks = [];
+  if (!noCasings && product.casing_qty_per_batch_lbs) {
      const casingNeeded = parseFloat(((product.casing_qty_per_batch_lbs || 0) * numChopBatches).toFixed(2));
     if (product.casing_bucket_id) {
       const casingAvail = parseFloat(availableForBucket(product.casing_bucket_id).toFixed(2));
@@ -344,15 +347,27 @@ export default function InventoryShortageCheck({ product: productProp, rawInputL
         </div>
 
         {missingCasingConfig && (
-           <div className="flex items-center justify-between gap-2 px-3 py-2 bg-amber-50 border-b border-amber-200/60">
-             <span className="text-amber-700 text-xs">
-               Casings quantity not configured on this product
-             </span>
-             <Button size="sm" variant="outline" className="h-6 text-xs gap-1 px-2 border-amber-300 text-amber-700 hover:bg-amber-100" onClick={() => setShowCureCasingConfig(true)}>
-               <Settings className="w-3 h-3" /> Link Casing Bucket
-             </Button>
-           </div>
-         )}
+          <div className="flex items-center justify-between gap-2 px-3 py-2 bg-amber-50 border-b border-amber-200/60">
+            <div className="flex items-center gap-3 min-w-0">
+              <span className="text-amber-700 text-xs">Casings quantity not configured</span>
+              <div className="flex items-center gap-1.5 text-xs text-amber-700 shrink-0">
+                <span>No casings</span>
+                <Switch
+                  checked={false}
+                  onCheckedChange={async () => {
+                    await base44.entities.Product.update(product.id, { no_casings: true });
+                    queryClient.invalidateQueries({ queryKey: ["freshProductForOrder", product.id] });
+                    onProductUpdated?.();
+                  }}
+                  className="scale-75"
+                />
+              </div>
+            </div>
+            <Button size="sm" variant="outline" className="h-6 text-xs gap-1 px-2 border-amber-300 text-amber-700 hover:bg-amber-100 shrink-0" onClick={() => setShowCureCasingConfig(true)}>
+              <Settings className="w-3 h-3" /> Configure
+            </Button>
+          </div>
+        )}
 
         {stages.map(stageName => {
           const stageChecks = allChecks.filter(c => c.stage === stageName);
