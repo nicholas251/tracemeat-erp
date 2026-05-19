@@ -7,11 +7,12 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Settings, Search, Beef, FlaskConical, Package, Unlink, Plus, Pencil } from "lucide-react";
+import { Settings, Search, Beef, FlaskConical, Package, Unlink, Plus, Pencil, Beaker } from "lucide-react";
 import { format } from "date-fns";
 import PageHeader from "@/components/shared/PageHeader";
 import StatusBadge from "@/components/shared/StatusBadge";
 import BucketFormDialog from "@/components/inventory/BucketFormDialog";
+import TestAmountDialog from "@/components/inventory/TestAmountDialog";
 import { Link } from "react-router-dom";
 
 const CATEGORY_LABELS = {
@@ -22,7 +23,7 @@ const CATEGORY_LABELS = {
   casing: { label: "Casing", icon: Unlink, color: "text-chart-5" },
 };
 
-function BucketCard({ bucket, lots, isAdmin, onEdit }) {
+function BucketCard({ bucket, lots, isAdmin, onEdit, onAddTest }) {
   const totalQty = lots.filter(l => l.status === "available").reduce((s, l) => s + (l.available_qty || 0), 0);
   const isLow = totalQty < 50;
 
@@ -36,9 +37,14 @@ function BucketCard({ bucket, lots, isAdmin, onEdit }) {
           </div>
           <div className="flex items-start gap-2 ml-2">
             {isAdmin && (
-              <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={() => onEdit(bucket)}>
-                <Pencil className="w-3.5 h-3.5" />
-              </Button>
+              <>
+                <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={() => onAddTest(bucket)} title="Add test amount">
+                  <Beaker className="w-3.5 h-3.5" />
+                </Button>
+                <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={() => onEdit(bucket)}>
+                  <Pencil className="w-3.5 h-3.5" />
+                </Button>
+              </>
             )}
             <div className="text-right">
               <p className="text-2xl font-bold">{totalQty.toLocaleString()}</p>
@@ -70,7 +76,7 @@ function BucketCard({ bucket, lots, isAdmin, onEdit }) {
   );
 }
 
-function CategoryTab({ category, buckets, allLots, search, isAdmin, onEditBucket }) {
+function CategoryTab({ category, buckets, allLots, search, isAdmin, onEditBucket, onAddTest }) {
   const info = CATEGORY_LABELS[category];
   const Icon = info.icon;
 
@@ -103,6 +109,7 @@ function CategoryTab({ category, buckets, allLots, search, isAdmin, onEditBucket
               lots={allLots.filter(l => l.bucket_id === b.id)}
               isAdmin={isAdmin}
               onEdit={onEditBucket}
+              onAddTest={onAddTest}
             />
           ))}
         </div>
@@ -190,6 +197,7 @@ export default function RawInventoryPage() {
   const [search, setSearch] = useState("");
   const [showBucketForm, setShowBucketForm] = useState(false);
   const [editBucket, setEditBucket] = useState(null);
+  const [testBucket, setTestBucket] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
   const queryClient = useQueryClient();
 
@@ -217,6 +225,11 @@ export default function RawInventoryPage() {
   const updateBucket = useMutation({
     mutationFn: ({ id, data }) => base44.entities.InventoryBucket.update(id, data),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["inventory_buckets"] }); setEditBucket(null); },
+  });
+
+  const addTestAmount = useMutation({
+    mutationFn: (data) => base44.entities.RawInventory.create(data),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["raw_inventory"] }); setTestBucket(null); },
   });
 
   const totalProtein = lots.filter(l => l.bucket_category === "protein" && l.status === "available").reduce((s, l) => s + (l.available_qty || 0), 0);
@@ -287,19 +300,19 @@ export default function RawInventoryPage() {
         </div>
 
         <TabsContent value="protein">
-          <CategoryTab category="protein" buckets={buckets} allLots={lots} search={search} isAdmin={isAdmin} onEditBucket={(b) => setEditBucket(b)} />
+          <CategoryTab category="protein" buckets={buckets} allLots={lots} search={search} isAdmin={isAdmin} onEditBucket={(b) => setEditBucket(b)} onAddTest={(b) => setTestBucket(b)} />
         </TabsContent>
         <TabsContent value="spice">
-          <CategoryTab category="spice" buckets={buckets} allLots={lots} search={search} isAdmin={isAdmin} onEditBucket={(b) => setEditBucket(b)} />
+          <CategoryTab category="spice" buckets={buckets} allLots={lots} search={search} isAdmin={isAdmin} onEditBucket={(b) => setEditBucket(b)} onAddTest={(b) => setTestBucket(b)} />
         </TabsContent>
         <TabsContent value="spice_mix">
-          <CategoryTab category="spice_mix" buckets={buckets} allLots={lots} search={search} isAdmin={isAdmin} onEditBucket={(b) => setEditBucket(b)} />
+          <CategoryTab category="spice_mix" buckets={buckets} allLots={lots} search={search} isAdmin={isAdmin} onEditBucket={(b) => setEditBucket(b)} onAddTest={(b) => setTestBucket(b)} />
         </TabsContent>
         <TabsContent value="packaging">
-          <CategoryTab category="packaging" buckets={buckets} allLots={lots} search={search} isAdmin={isAdmin} onEditBucket={(b) => setEditBucket(b)} />
+          <CategoryTab category="packaging" buckets={buckets} allLots={lots} search={search} isAdmin={isAdmin} onEditBucket={(b) => setEditBucket(b)} onAddTest={(b) => setTestBucket(b)} />
         </TabsContent>
         <TabsContent value="casing">
-          <CategoryTab category="casing" buckets={buckets} allLots={lots} search={search} isAdmin={isAdmin} onEditBucket={(b) => setEditBucket(b)} />
+          <CategoryTab category="casing" buckets={buckets} allLots={lots} search={search} isAdmin={isAdmin} onEditBucket={(b) => setEditBucket(b)} onAddTest={(b) => setTestBucket(b)} />
         </TabsContent>
         <TabsContent value="ledger">
           <LotLedger allLots={lots} buckets={buckets} />
@@ -316,6 +329,13 @@ export default function RawInventoryPage() {
           onEdit={(b) => setEditBucket(b)}
         />
       )}
+
+      <TestAmountDialog
+        open={!!testBucket}
+        bucket={testBucket}
+        onClose={() => setTestBucket(null)}
+        onAdd={(data) => addTestAmount.mutate(data)}
+      />
     </div>
   );
 }
