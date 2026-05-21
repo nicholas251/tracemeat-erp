@@ -211,7 +211,8 @@
         "bulk_box",
         "retail_pack",
         "case_ready",
-        "chub"
+        "chub",
+        "gas_flush"
       ]
     },
     "shelf_life_days": {

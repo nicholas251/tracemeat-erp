@@ -27,6 +27,7 @@ const packagingTypes = [
   { value: "retail_pack", label: "Retail Pack" },
   { value: "case_ready", label: "Case Ready" },
   { value: "chub", label: "Chub" },
+  { value: "gas_flush", label: "Gas Flush" },
 ];
 
 const finishedProductUnits = [
