@@ -111,13 +111,25 @@ function buildMeasurementSteps(stage, product, capKey, casingBuckets = []) {
   }
 
   if (capKey === "mixer") {
+    const porkLot = stage?.pork_lot_number || stage?.input_lot_number || "N/A";
+    const binderLot = stage?.binder_lot_number || "";
+    steps.push({
+      id: "mixer_inputs",
+      label: "Confirm Incoming Batches",
+      fields: [
+        { key: "pork_lot_confirmed", label: `Confirm Pork batch lot "${porkLot}" added to mixer?`, type: "boolean" },
+        { key: "pork_qty_lbs", label: "Pork Batch Qty (lbs)", type: "number", defaultValue: stage?.input_qty_lbs },
+        { key: "binder_lot_confirmed", label: `Confirm Binder batch lot "${binderLot || "— awaiting bowl chopper"}" added to mixer?`, type: "boolean" },
+        { key: "binder_qty_lbs", label: "Binder Batch Qty (lbs)", type: "number", defaultValue: stage?.binder_qty_lbs },
+      ],
+    });
     steps.push({
       id: "mixer",
       label: "Mixing",
       fields: [
         { key: "duration_minutes", label: "Mix Duration (minutes)", type: "number" },
-        { key: "output_qty_lbs", label: "Output Qty (lbs)", type: "number" },
-        { key: "output_lot_number", label: "Mixed Lot #", type: "text", placeholder: "e.g. MIX-2024-001" },
+        { key: "output_qty_lbs", label: "Combined Output Qty (lbs)", type: "number" },
+        { key: "output_lot_number", label: "Linker Batch Lot #", type: "text", placeholder: "e.g. MIX-2024-001" },
         { key: "notes", label: "Notes / Observations", type: "textarea" },
       ],
     });
@@ -336,42 +348,118 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
           ingredients: batchIngredients,
         }).catch(err => console.warn("Inventory deduction failed:", err));
 
-        // Create chopping stage for this batch
+        // Route blending outputs: beef → chopping (step 2), pork → mixer (step 3) directly
         const order = await base44.entities.ProductionOrder.filter({ id: stage.order_id }).then(r => r?.[0]);
         if (order) {
-          // Prefer unlocking the already-created next stage (created at order time)
-          // rather than creating a duplicate stage
           const allStages = await base44.entities.ProductionStage.filter({ order_id: stage.order_id });
-          const nextStepNum = (stage.step_number || 1) + 1;
-          const existingNextStage = allStages.find(s => s.step_number === nextStepNum);
+          const nextFlow = await base44.entities.ProductFlow.filter({ id: order.flow_id }).then(r => r?.[0]);
 
-          if (existingNextStage && existingNextStage.status === "locked") {
-            await base44.entities.ProductionStage.update(existingNextStage.id, {
-              status: "available",
-              input_qty_lbs: currentBatch.batchLbs,
-              input_lot_number: form.output_lot_number || "",
-            });
-          } else if (!existingNextStage) {
-            // No pre-created stage exists — create one (legacy flows)
-            const nextFlow = await base44.entities.ProductFlow.filter({ id: order.flow_id }).then(r => r?.[0]);
-            const nextStep = nextFlow?.steps?.find(s => s.step_number === nextStepNum);
-            if (nextStep) {
+          // Detect if this is a kielbasa-style flow with a mixer step
+          const hasMixerStep = nextFlow?.steps?.some(s => s.capability_key === "mixer");
+
+          // Separate pork and beef ingredients from this batch
+          const porkIngredients = currentBatch.ingredients.filter(ing =>
+            ing.bucket_name?.toLowerCase().includes("pork")
+          );
+          const beefIngredients = currentBatch.ingredients.filter(ing =>
+            !ing.bucket_name?.toLowerCase().includes("pork")
+          );
+
+          const porkLbs = porkIngredients.reduce((s, ing) =>
+            s + (ing.lot_allocations?.reduce((ss, a) => ss + (Number(a.actual_lbs) || 0), 0) || ing.required_lbs || 0), 0
+          );
+          const beefLbs = currentBatch.batchLbs - porkLbs;
+
+          const blendOutputLot = form.output_lot_number || `BLEND-${Date.now()}`;
+          const porkLotNumber = porkIngredients[0]?.lot_allocations?.[0]?.lot_number || blendOutputLot;
+
+          if (hasMixerStep && porkLbs > 0 && beefLbs > 0) {
+            // ── Kielbasa flow: route beef to chopping, pork to mixer ──
+            const nextStepNum = (stage.step_number || 1) + 1; // chopping
+            const mixerStep = nextFlow?.steps?.find(s => s.capability_key === "mixer");
+            const choppingStep = nextFlow?.steps?.find(s => s.capability_key === "chopping");
+
+            // Unlock/create chopping stage with beef qty + lot
+            const existingChoppingStage = allStages.find(s => s.step_number === nextStepNum && s.capability_key === "chopping");
+            if (existingChoppingStage && existingChoppingStage.status === "locked") {
+              await base44.entities.ProductionStage.update(existingChoppingStage.id, {
+                status: "available",
+                input_qty_lbs: parseFloat(beefLbs.toFixed(2)),
+                input_lot_number: blendOutputLot,
+              });
+            } else if (!existingChoppingStage && choppingStep) {
               await base44.entities.ProductionStage.create({
                 order_id: stage.order_id,
                 order_number: stage.order_number,
                 product_name: stage.product_name,
-                step_number: nextStepNum,
-                capability_id: nextStep.capability_id,
-                capability_key: nextStep.capability_key,
-                capability_name: nextStep.capability_name,
-                work_profile_id: nextStep.work_profile_id,
-                work_profile_name: nextStep.work_profile_name,
+                step_number: choppingStep.step_number,
+                capability_id: choppingStep.capability_id,
+                capability_key: choppingStep.capability_key,
+                capability_name: choppingStep.capability_name,
+                work_profile_id: choppingStep.work_profile_id || "",
+                work_profile_name: choppingStep.work_profile_name || "",
                 status: "available",
-                input_qty_lbs: currentBatch.batchLbs,
+                input_qty_lbs: parseFloat(beefLbs.toFixed(2)),
+                input_lot_number: blendOutputLot,
               });
             }
+
+            // Unlock/create mixer stage with pork qty + lot (pork bypasses chopping)
+            const existingMixerStage = allStages.find(s => s.capability_key === "mixer");
+            if (existingMixerStage && existingMixerStage.status === "locked") {
+              await base44.entities.ProductionStage.update(existingMixerStage.id, {
+                // Store pork lot info on the mixer stage for the wizard to read
+                pork_lot_number: porkLotNumber,
+                input_qty_lbs: parseFloat(porkLbs.toFixed(2)),
+                input_lot_number: porkLotNumber,
+              });
+            } else if (!existingMixerStage && mixerStep) {
+              await base44.entities.ProductionStage.create({
+                order_id: stage.order_id,
+                order_number: stage.order_number,
+                product_name: stage.product_name,
+                step_number: mixerStep.step_number,
+                capability_id: mixerStep.capability_id,
+                capability_key: mixerStep.capability_key,
+                capability_name: mixerStep.capability_name,
+                work_profile_id: mixerStep.work_profile_id || "",
+                work_profile_name: mixerStep.work_profile_name || "",
+                status: "locked", // stays locked until chopping completes and provides the binder
+                pork_lot_number: porkLotNumber,
+                input_qty_lbs: parseFloat(porkLbs.toFixed(2)),
+                input_lot_number: porkLotNumber,
+              });
+            }
+          } else {
+            // ── Standard flow: unlock the immediately next stage ──
+            const nextStepNum = (stage.step_number || 1) + 1;
+            const existingNextStage = allStages.find(s => s.step_number === nextStepNum);
+
+            if (existingNextStage && existingNextStage.status === "locked") {
+              await base44.entities.ProductionStage.update(existingNextStage.id, {
+                status: "available",
+                input_qty_lbs: currentBatch.batchLbs,
+                input_lot_number: blendOutputLot,
+              });
+            } else if (!existingNextStage) {
+              const nextStep = nextFlow?.steps?.find(s => s.step_number === nextStepNum);
+              if (nextStep) {
+                await base44.entities.ProductionStage.create({
+                  order_id: stage.order_id,
+                  order_number: stage.order_number,
+                  product_name: stage.product_name,
+                  step_number: nextStepNum,
+                  capability_id: nextStep.capability_id,
+                  capability_key: nextStep.capability_key,
+                  capability_name: nextStep.capability_name,
+                  work_profile_id: nextStep.work_profile_id,
+                  work_profile_name: nextStep.work_profile_name,
+                  status: "available",
+                  input_qty_lbs: currentBatch.batchLbs,
+                });
+              }
+            }
           }
-          // If existingNextStage is already available/in_progress — multiple blending batches are running, do nothing
         }
 
         // Invalidate queries
@@ -643,12 +731,23 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
             // Linking: use cook batch lot
             nextInputLot = stage.cook_batch_lot || stage.input_lot_number || "";
           }
-          
-          await base44.entities.ProductionStage.update(nextStage.id, {
-            status: "available",
-            input_qty_lbs: nextInputQty,
-            input_lot_number: nextInputLot,
-          });
+
+          // Special case: chopping feeds into a mixer stage — unlock it and store the binder lot
+          if (capKey === "chopping" && nextStage.capability_key === "mixer") {
+            await base44.entities.ProductionStage.update(nextStage.id, {
+              status: "available",
+              input_qty_lbs: nextInputQty,
+              input_lot_number: nextStage.input_lot_number || "", // keep pork lot that was set by blending
+              binder_lot_number: nextInputLot, // chopping output becomes the binder
+              binder_qty_lbs: nextInputQty,
+            });
+          } else {
+            await base44.entities.ProductionStage.update(nextStage.id, {
+              status: "available",
+              input_qty_lbs: nextInputQty,
+              input_lot_number: nextInputLot,
+            });
+          }
         }
 
         queryClient.invalidateQueries({ queryKey: ["allStages"] });
@@ -878,6 +977,7 @@ function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form, setFor
   const isTumble = (capKey === "tumble" || capKey === "tumbling") && stepDef.id === "tumble";
   const isRacking = capKey === "racking" && stepDef.id === "racking" && stage?.flow_name === "Tumbling Protein Flow (Large)";
   const isPackaging = capKey === "packaging" && stepDef.id === "packaging" && product?.varied_weights;
+  const isMixerInputs = capKey === "mixer" && stepDef.id === "mixer_inputs";
 
   // Check if spice is short and notes are required
   const spiceField = stepDef.fields.find(f => f.type === "spice_mix_picker");
@@ -889,7 +989,12 @@ function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form, setFor
   const spiceIsShort = spiceRequired > 0 && spiceTotalAllocated > 0 && spiceTotalAllocated < spiceRequired - 0.001;
   const spiceBlocksNext = spiceIsShort && !spiceShortNotes?.trim();
 
-  const canProceed = isLinking ? !!cookBatch : isTumble ? !!cookPlan : isRacking ? !!cookPlan : isPackaging ? (form.case_count > 0 && caseWeights.length === parseInt(form.case_count)) : !spiceBlocksNext;
+  const canProceed = isLinking ? !!cookBatch
+    : isTumble ? !!cookPlan
+    : isRacking ? !!cookPlan
+    : isPackaging ? (form.case_count > 0 && caseWeights.length === parseInt(form.case_count))
+    : isMixerInputs ? (!!form.pork_lot_confirmed && !!form.binder_lot_confirmed)
+    : !spiceBlocksNext;
 
   return (
     <div className="space-y-5">
@@ -928,6 +1033,30 @@ function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form, setFor
               onCasingSelect={(id, name) => setForm(f => ({ ...f, casing_bucket_id: id, casing_bucket_name: name }))}
             />
           ))}
+        </div>
+      )}
+
+      {/* Mixer batch merge summary */}
+      {isMixerInputs && (
+        <div className="rounded-xl border border-chart-1/30 bg-chart-1/5 p-4 space-y-3">
+          <p className="text-xs font-bold text-chart-1 uppercase tracking-wider">Batches Being Combined</p>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between bg-white/60 rounded-lg px-3 py-2 text-sm">
+              <div>
+                <span className="font-semibold">Pork Batch</span>
+                <span className="text-muted-foreground text-xs ml-2">from Blending</span>
+              </div>
+              <span className="font-mono text-xs font-bold">{stage?.pork_lot_number || stage?.input_lot_number || "—"}</span>
+            </div>
+            <div className="flex items-center justify-between bg-white/60 rounded-lg px-3 py-2 text-sm">
+              <div>
+                <span className="font-semibold">Binder Batch</span>
+                <span className="text-muted-foreground text-xs ml-2">from Bowl Chopper</span>
+              </div>
+              <span className="font-mono text-xs font-bold">{stage?.binder_lot_number || "awaiting chopper"}</span>
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">Both batches must be confirmed before proceeding to mix.</p>
         </div>
       )}
 
@@ -1068,7 +1197,7 @@ function FieldInput({ field, value, onChange, casingBuckets = [], onCasingSelect
       <Input
         type={field.type === "number" ? "number" : "text"}
         step={field.type === "number" ? "0.1" : undefined}
-        value={value ?? ""}
+        value={value ?? field.defaultValue ?? ""}
         onChange={e => onChange(field.type === "number" ? Number(e.target.value) : e.target.value)}
         placeholder={field.placeholder || ""}
         className="h-11 text-base"
