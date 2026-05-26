@@ -33,6 +33,12 @@ export default function StageDashboard({ user, profile, onBack, singleProfile = 
     (s.status === "in_progress" || s.status === "available")
   );
 
+  // Group stages by capability
+  const cookingStages = myStages.filter(s => s.capability_key === "cooking");
+  const chillingStages = myStages.filter(s => s.capability_key === "chilling");
+  const otherStages = myStages.filter(s => s.capability_key !== "cooking" && s.capability_key !== "chilling");
+  const sortedStages = [...cookingStages, ...otherStages, ...chillingStages];
+
   const title = profile.name;
 
   return (
@@ -49,7 +55,7 @@ export default function StageDashboard({ user, profile, onBack, singleProfile = 
 
       {myStages.length > 0 ? (
         <div className="space-y-2">
-          {myStages.map(stage => {
+           {sortedStages.map(stage => {
             const bgClass = stage.capability_key === "cooking" 
               ? "bg-red-50 hover:bg-red-100 border-red-200" 
               : stage.capability_key === "chilling" 
