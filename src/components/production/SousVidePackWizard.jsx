@@ -75,6 +75,8 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
     queryKey: ["svStage", stage?.id],
     queryFn: () => base44.entities.ProductionStage.filter({ id: stage.id }).then(r => r?.[0]),
     enabled: open && !!stage?.id,
+    refetchOnMount: "always",
+    staleTime: 0,
   });
 
   // Use fresh stage data if available, otherwise fall back to prop
@@ -147,20 +149,13 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
     }
   }, [product, blendBuckets.length]);
 
-  // Refetch fresh stage data when dialog opens
+  // Sync updatedSubs with fresh stage data—merge instead of replace
   useEffect(() => {
-    if (open && stage?.id) {
-      refetchStage();
+    const subs = stageToUse?.sub_batches ?? [];
+    if (subs.length) {
+      setUpdatedSubs(prev => (subs.length >= prev.length ? subs : prev));
     }
-  }, [open]);
-
-  // Initialize updatedSubs from stage data when freshStage updates
-  useEffect(() => {
-    if (open && freshStage) {
-      const subs = freshStage.sub_batches && freshStage.sub_batches.length > 0 ? freshStage.sub_batches : [];
-      setUpdatedSubs(subs);
-    }
-  }, [open, freshStage?.id]);
+  }, [open, stageToUse?.id, stageToUse?.sub_batches]);
 
   const plan = useMemo(() => {
     if (!stageToUse) return null;
@@ -235,8 +230,10 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
     const lbs = parseFloat(editForm.lbs) || editingRack.lbs;
     const lot = editForm.lot_number || `SV-R${rackNum}-${Date.now()}`;
 
-    // Rebuild sub_batches from scratch using effectiveRackData (the merged local state)
-    // This prevents accumulation of duplicate entries from database stale data
+    // Use freshest available sub_batches as the base
+    const currentSubs = stageToUse.sub_batches?.length ? stageToUse.sub_batches : updatedSubs;
+    
+    // Build the new sub-batch entry
     const newSubBatch = {
       sub_batch_id: `rack-${rackNum}-${Date.now()}`,
       rack_number: rackNum,
@@ -249,23 +246,11 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
       status: "completed",
     };
     
-    // Build fresh array: include all completed racks from effectiveRackData (merged local + persisted)
-    const newUpdatedSubs = plan.racks
-      .filter(r => effectiveRackData[r.rackNumber]?.completed)
-      .map(r => {
-        const rd = effectiveRackData[r.rackNumber];
-        return {
-          sub_batch_id: `rack-${r.rackNumber}-${Date.now()}`,
-          rack_number: r.rackNumber,
-          label: `Rack #${r.rackNumber}`,
-          lbs: rd.lbs || r.lbs,
-          lot_number: rd.lot_number || "",
-          notes: rd.notes || "",
-          cook_batch_number: r.cookBatchNumber,
-          status: "completed",
-        };
-      })
-      .concat([newSubBatch]); // Add the newly completed rack
+    // Build array from current source + add newly completed rack
+    const newUpdatedSubs = [
+      ...currentSubs.filter(sb => sb.rack_number !== rackNum),
+      newSubBatch
+    ];
     
     // Save to DB
     await base44.entities.ProductionStage.update(stageToUse.id, {
