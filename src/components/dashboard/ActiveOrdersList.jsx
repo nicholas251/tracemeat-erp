@@ -1,4 +1,6 @@
 import React from "react";
+import { useQuery } from "@tanstack/react-query";
+import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Factory, ChevronRight } from "lucide-react";
@@ -12,19 +14,30 @@ const STATUS_STYLES = {
   cancelled:   "bg-destructive/15 text-destructive",
 };
 
-const STAGE_NAMES = {
-  0: "Blending",
-  1: "Chopping",
-  2: "Linking",
-  3: "Cooking",
-  4: "Chilling",
-  5: "Packaging"
-};
-
 export default function ActiveOrdersList({ orders }) {
   const active = orders
     .filter(o => o.status === "pending" || o.status === "in_progress")
     .slice(0, 8);
+
+  const { data: allStages = [] } = useQuery({
+    queryKey: ["allStages"],
+    queryFn: () => base44.entities.ProductionStage.list(),
+    enabled: active.length > 0,
+  });
+
+  const getOrderStageInfo = (order) => {
+    const stages = allStages
+      .filter(s => s.order_id === order.id)
+      .sort((a, b) => a.step_number - b.step_number);
+
+    if (stages.length === 0) return { label: "Starting", completed: 0, total: 1 };
+
+    const completed = stages.filter(s => s.status === "completed").length;
+    const active = stages.find(s => s.status === "in_progress" || s.status === "available");
+    const label = active?.capability_name || stages[stages.length - 1]?.capability_name || "Pending";
+
+    return { label, completed, total: stages.length };
+  };
 
   return (
     <Card>
@@ -45,10 +58,8 @@ export default function ActiveOrdersList({ orders }) {
         ) : (
           <div className="divide-y">
             {active.map(order => {
-              const currentStage = order.current_stage || 0;
-              const totalStages = 6;
-              const stages = Array.from({ length: totalStages }, (_, i) => i);
-              
+              const { label, completed, total } = getOrderStageInfo(order);
+
               return (
                 <div key={order.id} className="px-6 py-4 space-y-3 hover:bg-slate-50 transition-colors">
                   <div className="flex items-start justify-between">
@@ -60,21 +71,21 @@ export default function ActiveOrdersList({ orders }) {
                       {order.status?.replace("_", " ")}
                     </Badge>
                   </div>
-                  
+
                   {/* Stage Progress Indicator */}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-medium text-slate-600">Stage {currentStage + 1}: {STAGE_NAMES[currentStage]}</span>
-                      <span className="text-xs text-slate-500">{currentStage + 1}/{totalStages}</span>
+                      <span className="text-xs font-medium text-slate-600">Current: {label}</span>
+                      <span className="text-xs text-slate-500">{completed}/{total} stages done</span>
                     </div>
                     <div className="flex gap-1">
-                      {stages.map(idx => (
+                      {Array.from({ length: total }, (_, i) => (
                         <div
-                          key={idx}
+                          key={i}
                           className={`h-2 flex-1 rounded-full transition-colors ${
-                            idx < currentStage
+                            i < completed
                               ? "bg-green-500"
-                              : idx === currentStage
+                              : i === completed
                               ? "bg-blue-500"
                               : "bg-slate-200"
                           }`}
