@@ -355,9 +355,17 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
 
   const completedCount = plan.racks.filter(r => effectiveRackData[r.rackNumber]?.completed).length;
 
+  const handleDialogClose = () => {
+    setRackData({});
+    setUpdatedSubs([]);
+    setLotsConfirmed(false);
+    setEditingRack(null);
+    onClose();
+  };
+
   return (
     <>
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={handleDialogClose}>
       <DialogContent className="w-full max-w-2xl max-h-[95vh] overflow-hidden flex flex-col p-0">
         {/* Header */}
         <div className="flex items-center gap-3 px-5 py-4 border-b bg-card shrink-0">
