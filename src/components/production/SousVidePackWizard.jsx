@@ -61,7 +61,7 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
   const [rackData, setRackData] = useState({});
   // Which rack is being edited
   const [editingRack, setEditingRack] = useState(null);
-  const [editForm, setEditForm] = useState({ lot_number: "", notes: "", lbs: "" });
+  const [editForm, setEditForm] = useState({ lot_number: "", notes: "", lbs: "", short_weight_reason: "" });
   // Per-bucket selected lot: { [bucket_id]: { raw_inventory_id, lot_number, available_qty } }
   const [selectedLots, setSelectedLots] = useState({});
   const [lotsConfirmed, setLotsConfirmed] = useState(false);
@@ -219,6 +219,7 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
       lbs,
       lot_number: lot,
       notes: editForm.notes,
+      short_weight_reason: lbs < 610 ? editForm.short_weight_reason : null,
       cook_batch_number: editingRack.cookBatchNumber,
       status: "completed",
     };
@@ -540,12 +541,28 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
                 <Input
                   type="number"
                   step="0.1"
+                  min="0"
                   value={editForm.lbs}
-                  onChange={e => setEditForm(f => ({ ...f, lbs: e.target.value }))}
+                  onChange={e => {
+                    const val = e.target.value === "" ? "" : Math.max(0, parseFloat(e.target.value) || 0);
+                    setEditForm(f => ({ ...f, lbs: val }));
+                  }}
                   placeholder={String(editingRack.lbs)}
                   className="h-11"
                 />
               </div>
+
+              {editForm.lbs && parseFloat(editForm.lbs) < 610 && (
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-semibold text-amber-600">Reason for Short Weight (required)</Label>
+                  <Textarea
+                    value={editForm.short_weight_reason}
+                    onChange={e => setEditForm(f => ({ ...f, short_weight_reason: e.target.value }))}
+                    placeholder="Why is this rack below 610 lbs?"
+                    className="h-16"
+                  />
+                </div>
+              )}
 
               <div className="space-y-1.5">
                 <Label className="text-sm font-semibold">Lot Number</Label>
@@ -583,7 +600,7 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
                 <Button
                   className="flex-1 bg-chart-2 hover:bg-chart-2/90 gap-2"
                   onClick={handleCompleteRack}
-                  disabled={saving || !editForm.lbs}
+                  disabled={saving || !editForm.lbs || (parseFloat(editForm.lbs) < 610 && !editForm.short_weight_reason?.trim())}
                 >
                   <CheckCircle2 className="w-4 h-4" />
                   {saving ? "Saving…" : "Complete Rack"}
