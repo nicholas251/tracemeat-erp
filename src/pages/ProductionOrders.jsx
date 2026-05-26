@@ -120,6 +120,10 @@ export default function ProductionOrders() {
                 }
               } else if (!isTumblingStep) {
                 // Non-tumbling stages: create once as locked (they get unlocked per-batch as tumbling completes)
+                // Exception: if there is no tumbling step at all, the first step should be available immediately
+                const hasTumblingStep = sorted.some(s => s.capability_key === "tumbling" || s.capability_key === "tumble");
+                const isFirstStep = i === 0;
+                const shouldBeAvailable = isFirstStep && !hasTumblingStep;
                 await base44.entities.ProductionStage.create({
                   order_id: order.id,
                   order_number: order.order_number,
@@ -130,8 +134,8 @@ export default function ProductionOrders() {
                   capability_name: step.capability_name,
                   work_profile_id: step.work_profile_id || "",
                   work_profile_name: step.work_profile_name || "",
-                  status: "locked",
-                  input_qty_lbs: 0,
+                  status: shouldBeAvailable ? "available" : "locked",
+                  input_qty_lbs: shouldBeAvailable ? totalRawInputLbs : 0,
                   sub_batches: [],
                 });
               }
