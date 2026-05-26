@@ -148,16 +148,13 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
     }
   }, [product, blendBuckets.length]);
 
-  // Initialize updatedSubs from fresh stage data when dialog opens or stage changes
+  // Initialize updatedSubs from stage data when dialog opens or stage ID changes
   useEffect(() => {
-    if (open && freshStage) {
-      if (freshStage.sub_batches && freshStage.sub_batches.length > 0) {
-        setUpdatedSubs(freshStage.sub_batches);
-      } else {
-        setUpdatedSubs([]);
-      }
+    if (open && stageToUse) {
+      const subs = stageToUse.sub_batches && stageToUse.sub_batches.length > 0 ? stageToUse.sub_batches : [];
+      setUpdatedSubs(subs);
     }
-  }, [open, freshStage?.id, freshStage?.sub_batches]);
+  }, [open, stageToUse?.id]);
 
   const plan = useMemo(() => {
     if (!stageToUse) return null;
