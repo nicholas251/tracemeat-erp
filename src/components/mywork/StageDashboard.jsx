@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { ChevronLeft, Briefcase } from "lucide-react";
 import PageHeader from "@/components/shared/PageHeader";
 import StageWizard from "@/components/production/StageWizard";
+import SousVidePackWizard from "@/components/production/SousVidePackWizard";
 
 export default function StageDashboard({ user, profile, onBack, singleProfile = false }) {
   const [activeStage, setActiveStage] = useState(null);
@@ -72,7 +73,16 @@ export default function StageDashboard({ user, profile, onBack, singleProfile = 
         </div>
       )}
 
-      {activeStage && (
+      {activeStage && activeStage.capability_key === "sous_vide_pack" && (
+        <SousVidePackWizard
+          stage={activeStage}
+          open={!!activeStage}
+          onClose={() => setActiveStage(null)}
+          onCompleted={handleUpdated}
+        />
+      )}
+
+      {activeStage && activeStage.capability_key !== "sous_vide_pack" && (
         <StageWizard
           stage={activeStage}
           open={!!activeStage}
