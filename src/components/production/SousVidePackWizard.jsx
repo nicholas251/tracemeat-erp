@@ -229,7 +229,12 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
 
       if (batchComplete) {
         // Fire off a cooking stage for this cook batch
-        const flowSteps = flow?.steps || [];
+        // Fetch the flow fresh inline (do not rely on React query state which may not be loaded yet)
+        const freshOrder = await base44.entities.ProductionOrder.filter({ id: stage.order_id }).then(r => r?.[0]);
+        const freshFlow = freshOrder?.flow_id
+          ? await base44.entities.ProductFlow.filter({ id: freshOrder.flow_id }).then(r => r?.[0])
+          : null;
+        const flowSteps = freshFlow?.steps || flow?.steps || [];
         const cookStep = flowSteps.find(s => s.capability_key === "cooking");
         if (cookStep) {
           const cookBatchLbs = cookBatch.racks.reduce((s, r) => s + (updatedRackData[r.rackNumber]?.lbs || r.lbs), 0);
