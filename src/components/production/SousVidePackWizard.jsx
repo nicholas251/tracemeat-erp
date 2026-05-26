@@ -235,7 +235,8 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
     const lbs = parseFloat(editForm.lbs) || editingRack.lbs;
     const lot = editForm.lot_number || `SV-R${rackNum}-${Date.now()}`;
 
-    // Build new sub_batches array first (source of truth for this completion)
+    // Rebuild sub_batches from scratch using effectiveRackData (the merged local state)
+    // This prevents accumulation of duplicate entries from database stale data
     const newSubBatch = {
       sub_batch_id: `rack-${rackNum}-${Date.now()}`,
       rack_number: rackNum,
@@ -247,9 +248,24 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
       cook_batch_number: editingRack.cookBatchNumber,
       status: "completed",
     };
-    const currentSubs = updatedSubs.length > 0 ? updatedSubs : (stageToUse.sub_batches || []);
-    const existingSubs = currentSubs.filter(sb => sb.rack_number !== rackNum);
-    const newUpdatedSubs = [...existingSubs, newSubBatch];
+    
+    // Build fresh array: include all completed racks from effectiveRackData (merged local + persisted)
+    const newUpdatedSubs = plan.racks
+      .filter(r => effectiveRackData[r.rackNumber]?.completed)
+      .map(r => {
+        const rd = effectiveRackData[r.rackNumber];
+        return {
+          sub_batch_id: `rack-${r.rackNumber}-${Date.now()}`,
+          rack_number: r.rackNumber,
+          label: `Rack #${r.rackNumber}`,
+          lbs: rd.lbs || r.lbs,
+          lot_number: rd.lot_number || "",
+          notes: rd.notes || "",
+          cook_batch_number: r.cookBatchNumber,
+          status: "completed",
+        };
+      })
+      .concat([newSubBatch]); // Add the newly completed rack
     
     // Save to DB
     await base44.entities.ProductionStage.update(stageToUse.id, {
