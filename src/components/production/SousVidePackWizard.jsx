@@ -540,10 +540,10 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
                       </button>
                     );
                   })}
-                  </div>}
-                  </div>
-                  );
-                  })}
+                </div>}
+              </div>
+            );
+          })}
         </div>
       </DialogContent>
 
