@@ -219,7 +219,7 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
       cook_batch_number: editingRack.cookBatchNumber,
       status: "completed",
     };
-    const existingSubs = (stage.sub_batches || []).filter(sb => sb.rack_number !== rackNum);
+    const existingSubs = (stageToUse.sub_batches || []).filter(sb => sb.rack_number !== rackNum);
     const updatedSubs = [...existingSubs, newSubBatch];
 
     // Accumulate into existing rackData state so prior completions are not lost
