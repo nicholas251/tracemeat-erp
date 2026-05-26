@@ -210,25 +210,26 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
 
     // Accumulate into existing rackData state so prior completions are not lost
     setRackData(prev => ({
-      ...prev,
-      [rackNum]: { completed: true, lot_number: lot, notes: editForm.notes, lbs },
+     ...prev,
+     [rackNum]: { completed: true, lot_number: lot, notes: editForm.notes, lbs },
     }));
 
     await base44.entities.ProductionStage.update(stage.id, {
-      status: "in_progress",
-      started_at: stage.started_at || new Date().toISOString(),
-      sub_batches: updatedSubs,
+     status: "in_progress",
+     started_at: stage.started_at || new Date().toISOString(),
+     sub_batches: updatedSubs,
     });
 
-    // Build a merged view of all completed racks (persisted + state + new) for completion checks
-    const mergedRackData = { ...persistedRacks, ...rackData, [rackNum]: { completed: true, lot_number: lot, notes: editForm.notes, lbs } };
+    // Build a merged view of all completed racks (persisted + current state + this new one)
+    const newRackData = { ...rackData, [rackNum]: { completed: true, lot_number: lot, notes: editForm.notes, lbs } };
+    const mergedRackData = { ...persistedRacks, ...newRackData };
 
     // Check if the cook batch this rack belongs to is now complete
     const cookBatch = plan.cookBatches.find(cb => cb.cookBatchNumber === editingRack.cookBatchNumber);
     if (cookBatch) {
       const allRacksInBatch = cookBatch.racks.map(r => r.rackNumber);
       const completedInBatch = allRacksInBatch.filter(rn => mergedRackData[rn]?.completed);
-      const batchComplete = completedInBatch.length === allRacksInBatch.length;
+      const batchComplete = completedInBatch.length > 0 && completedInBatch.length === allRacksInBatch.length;
 
       if (batchComplete) {
         // Fire off a cooking stage for this cook batch
