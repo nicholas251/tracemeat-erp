@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Factory, Package, ShieldAlert, Boxes, ShoppingCart, Users } from "lucide-react";
 import PageHeader from "@/components/shared/PageHeader";
@@ -9,6 +9,7 @@ import { isUserAdminOrSupervisor, isUserQualityControl } from "@/lib/accessContr
 import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
 import QADashboard from "@/components/dashboard/QADashboard";
+import ResetDataPanel from "@/components/admin/ResetDataPanel";
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -93,8 +94,9 @@ export default function Dashboard() {
           <div className="lg:col-span-2">
             <ActiveOrdersList orders={orders} />
           </div>
-          <div>
+          <div className="space-y-6">
             <ActiveHolds holds={holds} />
+            <ResetDataPanel />
           </div>
         </div>
       )}
