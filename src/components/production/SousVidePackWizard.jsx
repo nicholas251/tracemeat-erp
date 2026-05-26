@@ -62,6 +62,7 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
     queryKey: ["svFlow", order?.flow_id],
     queryFn: () => base44.entities.ProductFlow.filter({ id: order.flow_id }).then(r => r?.[0]),
     enabled: !!order?.flow_id,
+    staleTime: Infinity,
   });
 
   const plan = useMemo(() => {
@@ -134,16 +135,17 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
 
       if (batchComplete) {
         // Fire off a cooking stage for this cook batch
-        const cookStep = flow?.steps?.find(s => s.capability_key === "cooking");
+        const flowSteps = flow?.steps || [];
+        const cookStep = flowSteps.find(s => s.capability_key === "cooking");
         if (cookStep) {
           const cookBatchLbs = cookBatch.racks.reduce((s, r) => s + (updatedRackData[r.rackNumber]?.lbs || r.lbs), 0);
           const cookBatchLot = `SV-CB${editingRack.cookBatchNumber}-${Date.now()}`;
-          // Check if already created
+          // Check if already created (guard against double-tap)
           const existingCookStages = await base44.entities.ProductionStage.filter({
             order_id: stage.order_id,
             capability_key: "cooking",
           });
-          const alreadyExists = existingCookStages.some(s => s.cook_batch_lot?.includes(`CB${editingRack.cookBatchNumber}`));
+          const alreadyExists = existingCookStages.some(s => s.notes?.includes(`Cook Batch #${editingRack.cookBatchNumber}`));
           if (!alreadyExists) {
             await base44.entities.ProductionStage.create({
               order_id: stage.order_id,
@@ -339,7 +341,7 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
                 <Button
                   className="flex-1 bg-chart-2 hover:bg-chart-2/90 gap-2"
                   onClick={handleCompleteRack}
-                  disabled={saving || !editForm.lbs}
+                  disabled={saving || !editForm.lbs || !flow}
                 >
                   <CheckCircle2 className="w-4 h-4" />
                   {saving ? "Saving…" : "Complete Rack"}

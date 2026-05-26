@@ -86,10 +86,21 @@ export default function ProductionOrders() {
               totalRawInputLbs = rawFromLoss;
             }
 
+            // Detect flow type
+            const isSousVideFlow = sorted.some(s => s.capability_key === "sous_vide_pack");
+            const hasTumblingStep = sorted.some(s => s.capability_key === "tumbling" || s.capability_key === "tumble");
+
             // Create stages — tumbling steps get split into individual 800 lb batch stages
             for (let i = 0; i < sorted.length; i++) {
               const step = sorted[i];
               const isTumblingStep = step.capability_key === "tumbling" || step.capability_key === "tumble";
+              const isSousVidePackStep = step.capability_key === "sous_vide_pack";
+
+              // For sous vide flows: only create the sous_vide_pack stage upfront.
+              // Cooking/chilling/packaging stages are created dynamically by the wizard as cook batches complete.
+              if (isSousVideFlow && !isSousVidePackStep) {
+                continue;
+              }
 
               if (isTumblingStep) {
                 // Split into individual tumble batches (800 lbs each by default, or product.tumble_batch_lbs)
@@ -118,10 +129,9 @@ export default function ProductionOrders() {
                     notes: numTumbleBatches > 1 ? `Tumble Batch ${t + 1} of ${numTumbleBatches}` : "",
                   });
                 }
-              } else if (!isTumblingStep) {
+              } else {
                 // Non-tumbling stages: create once as locked (they get unlocked per-batch as tumbling completes)
                 // Exception: if there is no tumbling step at all, the first step should be available immediately
-                const hasTumblingStep = sorted.some(s => s.capability_key === "tumbling" || s.capability_key === "tumble");
                 const isFirstStep = i === 0;
                 const shouldBeAvailable = isFirstStep && !hasTumblingStep;
                 await base44.entities.ProductionStage.create({
