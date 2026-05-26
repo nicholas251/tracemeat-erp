@@ -194,17 +194,7 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
     const lbs = parseFloat(editForm.lbs) || editingRack.lbs;
     const lot = editForm.lot_number || `SV-R${rackNum}-${Date.now()}`;
 
-    // Build updatedRackData from persisted sub_batches (source of truth) + new rack.
-    // Do NOT rely on rackData state (which resets to {} when wizard is reopened).
-    const updatedRackData = { ...persistedRacks };
-    for (const sb of updatedSubs) {
-      if (sb.rack_number) {
-        updatedRackData[sb.rack_number] = { completed: true, lot_number: sb.lot_number || "", notes: sb.notes || "", lbs: sb.lbs || RACK_LBS };
-      }
-    }
-    setRackData(updatedRackData);
-
-    // Build new sub_batches array
+    // Build new sub_batches array first (source of truth for this completion)
     const newSubBatch = {
       sub_batch_id: `rack-${rackNum}-${Date.now()}`,
       rack_number: rackNum,
@@ -217,6 +207,15 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
     };
     const existingSubs = (stage.sub_batches || []).filter(sb => sb.rack_number !== rackNum);
     const updatedSubs = [...existingSubs, newSubBatch];
+
+    // Build updatedRackData from updatedSubs (source of truth, includes all prior + new rack)
+    const updatedRackData = {};
+    for (const sb of updatedSubs) {
+      if (sb.rack_number) {
+        updatedRackData[sb.rack_number] = { completed: true, lot_number: sb.lot_number || "", notes: sb.notes || "", lbs: sb.lbs || RACK_LBS };
+      }
+    }
+    setRackData(updatedRackData);
 
     await base44.entities.ProductionStage.update(stage.id, {
       status: "in_progress",
