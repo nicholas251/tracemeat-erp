@@ -286,16 +286,31 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
     }
 
     // Check if ALL racks are done → mark the sous vide pack stage as completed
-    const allRacksDone = plan.racks.every(r => mergedRackData[r.rackNumber]?.completed);
-    if (allRacksDone) {
-      await base44.entities.ProductionStage.update(stageToUse.id, {
-        status: "completed",
-        completed_at: new Date().toISOString(),
-        output_qty_lbs: plan.racks.reduce((s, r) => s + (mergedRackData[r.rackNumber]?.lbs || r.lbs), 0),
-        racks_count: plan.totalRacks,
-        sub_batches: updatedSubs,
-      });
-    }
+     const allRacksDone = plan.racks.every(r => mergedRackData[r.rackNumber]?.completed);
+     if (allRacksDone) {
+       // Rebuild final sub_batches from merged data to ensure all racks are included
+       const finalSubs = plan.racks.map(r => {
+         const data = mergedRackData[r.rackNumber];
+         return {
+           sub_batch_id: `rack-${r.rackNumber}-final`,
+           rack_number: r.rackNumber,
+           label: `Rack #${r.rackNumber}`,
+           lbs: data?.lbs || r.lbs,
+           lot_number: data?.lot_number || "",
+           notes: data?.notes || "",
+           cook_batch_number: r.cookBatchNumber,
+           status: "completed",
+         };
+       });
+
+       await base44.entities.ProductionStage.update(stageToUse.id, {
+         status: "completed",
+         completed_at: new Date().toISOString(),
+         output_qty_lbs: plan.racks.reduce((s, r) => s + (mergedRackData[r.rackNumber]?.lbs || r.lbs), 0),
+         racks_count: plan.totalRacks,
+         sub_batches: finalSubs,
+       });
+     }
 
     queryClient.invalidateQueries({ queryKey: ["orderStages", stageToUse.order_id] });
     queryClient.invalidateQueries({ queryKey: ["allStages"] });
@@ -373,10 +388,12 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
                           value={sel?.raw_inventory_id || ""}
                           onValueChange={val => {
                             const row = rawInventoryAll.find(r => r.id === val);
-                            setSelectedLots(prev => ({
-                              ...prev,
-                              [bucket.bucket_id]: { raw_inventory_id: row.id, lot_number: row.lot_number || "", available_qty: row.available_qty }
-                            }));
+                            if (row) {
+                              setSelectedLots(prev => ({
+                                ...prev,
+                                [bucket.bucket_id]: { raw_inventory_id: row.id, lot_number: row.lot_number || "", available_qty: row.available_qty }
+                              }));
+                            }
                           }}
                         >
                           <SelectTrigger className="h-10">
