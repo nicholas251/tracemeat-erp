@@ -755,7 +755,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
           }
         }
 
-        if (nextStage?.status === "locked" && capKey !== "chilling") {
+        if (nextStage?.status === "locked") {
            const rawQty = updates.output_qty_lbs || stage.input_qty_lbs || 0;
           const productYield = product?.yield_percent;
           if (!productYield) console.warn(`Product missing yield_percent; using default 85%`);
