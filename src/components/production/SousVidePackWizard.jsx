@@ -357,7 +357,6 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
 
   const handleDialogClose = () => {
     setRackData({});
-    setUpdatedSubs([]);
     setLotsConfirmed(false);
     setEditingRack(null);
     onClose();
