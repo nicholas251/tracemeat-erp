@@ -222,21 +222,19 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
     const existingSubs = (stageToUse.sub_batches || []).filter(sb => sb.rack_number !== rackNum);
     const updatedSubs = [...existingSubs, newSubBatch];
 
-    // Accumulate into existing rackData state so prior completions are not lost
-    setRackData(prev => ({
-     ...prev,
-     [rackNum]: { completed: true, lot_number: lot, notes: editForm.notes, lbs },
-    }));
-
     await base44.entities.ProductionStage.update(stageToUse.id, {
       status: "in_progress",
       started_at: stageToUse.started_at || new Date().toISOString(),
       sub_batches: updatedSubs,
     });
 
-    // Build a merged view of all completed racks (persisted + current state + this new one)
-    const newRackData = { ...rackData, [rackNum]: { completed: true, lot_number: lot, notes: editForm.notes, lbs } };
-    const mergedRackData = { ...persistedRacks, ...newRackData };
+    // Build a merged view of all completed racks from the newly persisted sub_batches
+    const mergedRackData = {};
+    for (const sb of updatedSubs) {
+      if (sb.rack_number) {
+        mergedRackData[sb.rack_number] = { completed: true, lot_number: sb.lot_number || "", notes: sb.notes || "", lbs: sb.lbs || RACK_LBS };
+      }
+    }
 
     // Check if the cook batch this rack belongs to is now complete
     const cookBatch = plan.cookBatches.find(cb => cb.cookBatchNumber === editingRack.cookBatchNumber);
