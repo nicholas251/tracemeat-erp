@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -8,11 +8,35 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { CheckCircle2, Circle, Package, ChevronRight, AlertCircle } from "lucide-react";
+import { CheckCircle2, Circle, Package, ChevronRight, AlertCircle, Trash2, Plus } from "lucide-react";
 
 const RACK_LBS = 610;
 const RACKS_PER_COOK_BATCH = 3;
 const COOK_BATCH_LBS = RACK_LBS * RACKS_PER_COOK_BATCH; // 1830
+const CHICKEN_CHUNK_BUCKET_ID = "69fb2aeb65903d7a68dad422";
+const CHICKEN_CHUNK_BUCKET_NAME = "Chicken Chunk NAE";
+
+function buildFifoAllocations(inventoryRows, requiredLbs) {
+  const sorted = [...inventoryRows]
+    .filter(r => (r.available_qty || 0) > 0)
+    .sort((a, b) => {
+      const da = a.received_date || a.created_date || "";
+      const db = b.received_date || b.created_date || "";
+      return da < db ? -1 : da > db ? 1 : 0;
+    });
+  const allocations = [];
+  let remaining = requiredLbs;
+  for (const row of sorted) {
+    if (remaining <= 0) break;
+    const take = Math.min(row.available_qty, remaining);
+    allocations.push({ lot_number: row.lot_number || "", available_qty: row.available_qty, raw_inventory_id: row.id, actual_lbs: parseFloat(take.toFixed(2)) });
+    remaining -= take;
+  }
+  if (allocations.length === 0 || remaining > 0.001) {
+    allocations.push({ lot_number: "", available_qty: 0, raw_inventory_id: null, actual_lbs: parseFloat(remaining.toFixed(2)), insufficient: true });
+  }
+  return allocations;
+}
 
 function buildRackPlan(totalLbs) {
   const totalRacks = Math.ceil(totalLbs / RACK_LBS);
@@ -51,6 +75,9 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
   // Which rack is being edited
   const [editingRack, setEditingRack] = useState(null);
   const [editForm, setEditForm] = useState({ lot_number: "", notes: "", lbs: "" });
+  // Raw material lot allocations for chicken
+  const [lotAllocations, setLotAllocations] = useState(null);
+  const [lotsConfirmed, setLotsConfirmed] = useState(false);
 
   const { data: order } = useQuery({
     queryKey: ["svOrder", stage?.order_id],
@@ -64,6 +91,26 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
     enabled: !!order?.flow_id,
     staleTime: Infinity,
   });
+
+  const { data: chickenInventory = [] } = useQuery({
+    queryKey: ["rawInventory", CHICKEN_CHUNK_BUCKET_ID],
+    queryFn: () => base44.entities.RawInventory.filter({ bucket_id: CHICKEN_CHUNK_BUCKET_ID }),
+    enabled: open,
+  });
+
+  // Auto-init FIFO allocations once inventory loads
+  useEffect(() => {
+    if (chickenInventory.length > 0 && !lotAllocations && stage) {
+      setLotAllocations(buildFifoAllocations(chickenInventory, stage.input_qty_lbs || 0));
+    }
+  }, [chickenInventory, lotAllocations, stage]);
+
+  // Also restore confirmed state from saved stage data
+  useEffect(() => {
+    if (stage?.input_lot_number) {
+      setLotsConfirmed(true);
+    }
+  }, [stage]);
 
   const plan = useMemo(() => {
     if (!stage) return null;
@@ -82,6 +129,47 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
   }, [stage]);
 
   const effectiveRackData = { ...persistedRacks, ...rackData };
+
+  const updateAllocation = (idx, field, value) => {
+    setLotAllocations(prev => prev.map((a, i) => i === idx ? { ...a, [field]: value } : a));
+  };
+
+  const addLotRow = () => {
+    const total = (lotAllocations || []).reduce((s, a) => s + (Number(a.actual_lbs) || 0), 0);
+    setLotAllocations(prev => [...(prev || []), { lot_number: "", available_qty: 0, raw_inventory_id: null, actual_lbs: parseFloat(Math.max(0, (stage?.input_qty_lbs || 0) - total).toFixed(2)) }]);
+  };
+
+  const removeLotRow = (idx) => {
+    setLotAllocations(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const handleConfirmLots = async () => {
+    setSaving(true);
+    // Save lot info onto stage and deduct raw inventory
+    const primaryLot = lotAllocations?.[0]?.lot_number || "";
+    await base44.entities.ProductionStage.update(stage.id, {
+      input_lot_number: primaryLot,
+    });
+    // Deduct from each raw inventory lot
+    for (const alloc of (lotAllocations || [])) {
+      if (alloc.raw_inventory_id && alloc.actual_lbs > 0) {
+        const row = chickenInventory.find(r => r.id === alloc.raw_inventory_id);
+        if (row) {
+          const newQty = Math.max(0, (row.available_qty || 0) - alloc.actual_lbs);
+          await base44.entities.RawInventory.update(alloc.raw_inventory_id, {
+            available_qty: parseFloat(newQty.toFixed(2)),
+            status: newQty <= 0 ? "depleted" : "in_use",
+          });
+        }
+      }
+    }
+    setLotsConfirmed(true);
+    queryClient.invalidateQueries({ queryKey: ["rawInventory", CHICKEN_CHUNK_BUCKET_ID] });
+    setSaving(false);
+  };
+
+  const totalAllocated = (lotAllocations || []).reduce((s, a) => s + (Number(a.actual_lbs) || 0), 0);
+  const lotsValid = (lotAllocations || []).every(a => a.lot_number?.trim()) && Math.abs(totalAllocated - (stage?.input_qty_lbs || 0)) < 0.01;
 
   const openEditRack = (rack) => {
     setEditingRack(rack);
@@ -219,6 +307,73 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto px-5 py-5 space-y-6">
+
+          {/* Raw Material Lot Section */}
+          <div className={`rounded-xl border-2 p-4 space-y-3 ${lotsConfirmed ? "border-chart-2/40 bg-chart-2/5" : "border-amber-300 bg-amber-50/30"}`}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                {lotsConfirmed
+                  ? <CheckCircle2 className="w-4 h-4 text-chart-2" />
+                  : <AlertCircle className="w-4 h-4 text-amber-500" />
+                }
+                <p className="font-bold text-sm">{CHICKEN_CHUNK_BUCKET_NAME}</p>
+                <span className="text-xs text-muted-foreground">{stage?.input_qty_lbs} lbs required</span>
+              </div>
+              {lotsConfirmed && <Badge className="bg-chart-2/15 text-chart-2 border-0 text-xs">Confirmed</Badge>}
+            </div>
+
+            {!lotsConfirmed && (
+              <div className="space-y-2">
+                {(lotAllocations || []).map((alloc, idx) => (
+                  <div key={idx} className={`rounded border p-2 space-y-1.5 ${alloc.insufficient ? "border-amber-300 bg-amber-50" : "border-border bg-white"}`}>
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <span>Lot {idx + 1}</span>
+                      {alloc.available_qty > 0 && <span>· {alloc.available_qty} lbs available</span>}
+                      {(lotAllocations || []).length > 1 && (
+                        <button onClick={() => removeLotRow(idx)} className="ml-auto hover:text-destructive">
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <Label className="text-xs font-semibold">Lot Number</Label>
+                        <Input value={alloc.lot_number} onChange={e => updateAllocation(idx, "lot_number", e.target.value)} placeholder="e.g. 050626" className="h-9 text-sm" />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs font-semibold">Qty (lbs)</Label>
+                        <Input type="number" step="0.1" value={alloc.actual_lbs} onChange={e => updateAllocation(idx, "actual_lbs", Number(e.target.value))} className="h-9 text-sm" />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                <div className="flex items-center justify-between text-xs">
+                  <Button size="sm" variant="ghost" className="h-7 gap-1 border border-dashed text-xs" onClick={addLotRow}>
+                    <Plus className="w-3 h-3" /> Add lot
+                  </Button>
+                  <span className={`font-semibold ${Math.abs(totalAllocated - (stage?.input_qty_lbs || 0)) < 0.01 ? "text-chart-2" : "text-amber-600"}`}>
+                    {parseFloat(totalAllocated.toFixed(2))} / {stage?.input_qty_lbs} lbs
+                  </span>
+                </div>
+                <Button className="w-full h-9 gap-2" disabled={!lotsValid || saving} onClick={handleConfirmLots}>
+                  <CheckCircle2 className="w-4 h-4" />
+                  {saving ? "Saving…" : "Confirm Raw Material Lots"}
+                </Button>
+              </div>
+            )}
+
+            {lotsConfirmed && (
+              <div className="rounded bg-chart-2/5 border border-chart-2/20 divide-y text-xs">
+                {(lotAllocations || []).map((a, i) => (
+                  <div key={i} className="flex justify-between px-2 py-1.5">
+                    <span className="font-mono text-muted-foreground">{a.lot_number}</span>
+                    <span className="font-semibold">{a.actual_lbs} lbs</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           {plan.cookBatches.map(cb => {
             const completedInBatch = cb.racks.filter(r => effectiveRackData[r.rackNumber]?.completed).length;
             const batchComplete = completedInBatch === cb.racks.length;
