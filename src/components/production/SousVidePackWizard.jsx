@@ -147,10 +147,17 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
     }
   }, [product, blendBuckets.length]);
 
-  // Initialize updatedSubs from stage data when dialog opens or freshStage updates
+  // Refetch fresh stage data when dialog opens
   useEffect(() => {
-    if (open && stageToUse) {
-      const subs = stageToUse.sub_batches && stageToUse.sub_batches.length > 0 ? stageToUse.sub_batches : [];
+    if (open && stage?.id) {
+      refetchStage();
+    }
+  }, [open]);
+
+  // Initialize updatedSubs from stage data when freshStage updates
+  useEffect(() => {
+    if (open && freshStage) {
+      const subs = freshStage.sub_batches && freshStage.sub_batches.length > 0 ? freshStage.sub_batches : [];
       setUpdatedSubs(subs);
     }
   }, [open, freshStage?.id]);
