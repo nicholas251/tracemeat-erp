@@ -166,13 +166,18 @@ function buildMeasurementSteps(stage, product, capKey, casingBuckets = []) {
   }
 
   if (capKey === "chilling") {
+    const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+    // Extract cooking batch number from cook_batch_lot (e.g., "CB1" from "SV-CB1-2024...")
+    const cookBatchMatch = stage?.cook_batch_lot?.match(/CB(\d+)/);
+    const cookBatchNumber = cookBatchMatch ? cookBatchMatch[1] : "?";
+    const chillLotDefault = `CHILL-${today}-CB${cookBatchNumber}`;
     steps.push({
       id: "chill",
       label: "Chill Check",
       fields: [
         { key: "temperature_c", label: "Exit Temp (°C)", type: "number" },
         { key: "duration_minutes", label: "Chill Duration (minutes)", type: "number" },
-        { key: "output_lot_number", label: "Chilled Lot #", type: "text", placeholder: "e.g. CHILL-2024-001" },
+        { key: "output_lot_number", label: "Chilled Lot #", type: "text", placeholder: "e.g. CHILL-2024-001", defaultValue: chillLotDefault },
       ],
     });
   }
