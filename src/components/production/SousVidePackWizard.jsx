@@ -208,14 +208,11 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
     const existingSubs = (stage.sub_batches || []).filter(sb => sb.rack_number !== rackNum);
     const updatedSubs = [...existingSubs, newSubBatch];
 
-    // Build updatedRackData from updatedSubs (source of truth, includes all prior + new rack)
-    const updatedRackData = {};
-    for (const sb of updatedSubs) {
-      if (sb.rack_number) {
-        updatedRackData[sb.rack_number] = { completed: true, lot_number: sb.lot_number || "", notes: sb.notes || "", lbs: sb.lbs || RACK_LBS };
-      }
-    }
-    setRackData(updatedRackData);
+    // Accumulate into existing rackData state so prior completions are not lost
+    setRackData(prev => ({
+      ...prev,
+      [rackNum]: { completed: true, lot_number: lot, notes: editForm.notes, lbs },
+    }));
 
     await base44.entities.ProductionStage.update(stage.id, {
       status: "in_progress",
@@ -223,11 +220,14 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
       sub_batches: updatedSubs,
     });
 
+    // Build a merged view of all completed racks (persisted + state + new) for completion checks
+    const mergedRackData = { ...persistedRacks, ...rackData, [rackNum]: { completed: true, lot_number: lot, notes: editForm.notes, lbs } };
+
     // Check if the cook batch this rack belongs to is now complete
     const cookBatch = plan.cookBatches.find(cb => cb.cookBatchNumber === editingRack.cookBatchNumber);
     if (cookBatch) {
       const allRacksInBatch = cookBatch.racks.map(r => r.rackNumber);
-      const completedInBatch = allRacksInBatch.filter(rn => updatedRackData[rn]?.completed);
+      const completedInBatch = allRacksInBatch.filter(rn => mergedRackData[rn]?.completed);
       const batchComplete = completedInBatch.length === allRacksInBatch.length;
 
       if (batchComplete) {
@@ -240,7 +240,7 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
         const flowSteps = freshFlow?.steps || flow?.steps || [];
         const cookStep = flowSteps.find(s => s.capability_key === "cooking");
         if (cookStep) {
-          const cookBatchLbs = cookBatch.racks.reduce((s, r) => s + (updatedRackData[r.rackNumber]?.lbs || r.lbs), 0);
+          const cookBatchLbs = cookBatch.racks.reduce((s, r) => s + (mergedRackData[r.rackNumber]?.lbs || r.lbs), 0);
           const cookBatchLot = `SV-CB${editingRack.cookBatchNumber}-${Date.now()}`;
           // Check if already created (guard against double-tap)
           const existingCookStages = await base44.entities.ProductionStage.filter({
@@ -272,12 +272,12 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
     }
 
     // Check if ALL racks are done → mark the sous vide pack stage as completed
-    const allRacksDone = plan.racks.every(r => updatedRackData[r.rackNumber]?.completed);
+    const allRacksDone = plan.racks.every(r => mergedRackData[r.rackNumber]?.completed);
     if (allRacksDone) {
       await base44.entities.ProductionStage.update(stage.id, {
         status: "completed",
         completed_at: new Date().toISOString(),
-        output_qty_lbs: plan.racks.reduce((s, r) => s + (updatedRackData[r.rackNumber]?.lbs || r.lbs), 0),
+        output_qty_lbs: plan.racks.reduce((s, r) => s + (mergedRackData[r.rackNumber]?.lbs || r.lbs), 0),
         racks_count: plan.totalRacks,
         sub_batches: updatedSubs,
       });
