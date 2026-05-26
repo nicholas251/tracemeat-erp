@@ -71,11 +71,10 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
   const [expandedBatches, setExpandedBatches] = useState({});
 
   // Fetch the latest stage data to ensure sub_batches are current
-  const { data: freshStage } = useQuery({
+  const { data: freshStage, refetch: refetchStage } = useQuery({
     queryKey: ["svStage", stage?.id],
     queryFn: () => base44.entities.ProductionStage.filter({ id: stage.id }).then(r => r?.[0]),
     enabled: open && !!stage?.id,
-    staleTime: 0, // Always fetch fresh when dialog opens
   });
 
   // Use fresh stage data if available, otherwise fall back to prop
@@ -338,10 +337,10 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
       });
     }
 
+    await refetchStage();
     queryClient.invalidateQueries({ queryKey: ["orderStages", stageToUse.order_id] });
     queryClient.invalidateQueries({ queryKey: ["allStages"] });
     queryClient.invalidateQueries({ queryKey: ["productionOrders"] });
-    queryClient.invalidateQueries({ queryKey: ["svStage", stageToUse.id] });
 
     setSaving(false);
     setEditingRack(null);
