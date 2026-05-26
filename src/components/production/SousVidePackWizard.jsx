@@ -13,8 +13,6 @@ import { CheckCircle2, Circle, Package, ChevronRight, AlertCircle, Trash2, Plus 
 const RACK_LBS = 610;
 const RACKS_PER_COOK_BATCH = 3;
 const COOK_BATCH_LBS = RACK_LBS * RACKS_PER_COOK_BATCH; // 1830
-const CHICKEN_CHUNK_BUCKET_ID = "69fb2aeb65903d7a68dad422";
-const CHICKEN_CHUNK_BUCKET_NAME = "Chicken Chunk NAE";
 
 function buildFifoAllocations(inventoryRows, requiredLbs) {
   const sorted = [...inventoryRows]
@@ -92,18 +90,35 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
     staleTime: Infinity,
   });
 
-  const { data: chickenInventory = [] } = useQuery({
-    queryKey: ["rawInventory", CHICKEN_CHUNK_BUCKET_ID],
-    queryFn: () => base44.entities.RawInventory.filter({ bucket_id: CHICKEN_CHUNK_BUCKET_ID }),
-    enabled: open,
+  const { data: product } = useQuery({
+    queryKey: ["svProduct", order?.product_id],
+    queryFn: () => base44.entities.Product.filter({ id: order.product_id }).then(r => r?.[0]),
+    enabled: !!order?.product_id,
+    staleTime: Infinity,
   });
 
-  // Auto-init FIFO allocations once inventory loads
+  // Derive the protein buckets this product uses from blend_ingredients
+  const blendBuckets = product?.blend_ingredients || [];
+
+  // Fetch raw inventory for all relevant buckets
+  const { data: rawInventoryAll = [] } = useQuery({
+    queryKey: ["rawInventory", blendBuckets.map(b => b.bucket_id).join(",")],
+    queryFn: async () => {
+      if (!blendBuckets.length) return [];
+      const results = await Promise.all(
+        blendBuckets.map(b => base44.entities.RawInventory.filter({ bucket_id: b.bucket_id }))
+      );
+      return results.flat();
+    },
+    enabled: open && blendBuckets.length > 0,
+  });
+
+  // Auto-init FIFO allocations once inventory + product loads
   useEffect(() => {
-    if (chickenInventory.length > 0 && !lotAllocations && stage) {
-      setLotAllocations(buildFifoAllocations(chickenInventory, stage.input_qty_lbs || 0));
+    if (rawInventoryAll.length > 0 && !lotAllocations && stage) {
+      setLotAllocations(buildFifoAllocations(rawInventoryAll, stage.input_qty_lbs || 0));
     }
-  }, [chickenInventory, lotAllocations, stage]);
+  }, [rawInventoryAll, lotAllocations, stage]);
 
   // Also restore confirmed state from saved stage data
   useEffect(() => {
@@ -153,7 +168,7 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
     // Deduct from each raw inventory lot
     for (const alloc of (lotAllocations || [])) {
       if (alloc.raw_inventory_id && alloc.actual_lbs > 0) {
-        const row = chickenInventory.find(r => r.id === alloc.raw_inventory_id);
+        const row = rawInventoryAll.find(r => r.id === alloc.raw_inventory_id);
         if (row) {
           const newQty = Math.max(0, (row.available_qty || 0) - alloc.actual_lbs);
           await base44.entities.RawInventory.update(alloc.raw_inventory_id, {
@@ -164,7 +179,7 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
       }
     }
     setLotsConfirmed(true);
-    queryClient.invalidateQueries({ queryKey: ["rawInventory", CHICKEN_CHUNK_BUCKET_ID] });
+    queryClient.invalidateQueries({ queryKey: ["rawInventory"] });
     setSaving(false);
   };
 
@@ -316,7 +331,7 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
                   ? <CheckCircle2 className="w-4 h-4 text-chart-2" />
                   : <AlertCircle className="w-4 h-4 text-amber-500" />
                 }
-                <p className="font-bold text-sm">{CHICKEN_CHUNK_BUCKET_NAME}</p>
+                <p className="font-bold text-sm">{blendBuckets.map(b => b.bucket_name).join(", ") || "Raw Material"}</p>
                 <span className="text-xs text-muted-foreground">{stage?.input_qty_lbs} lbs required</span>
               </div>
               {lotsConfirmed && <Badge className="bg-chart-2/15 text-chart-2 border-0 text-xs">Confirmed</Badge>}
