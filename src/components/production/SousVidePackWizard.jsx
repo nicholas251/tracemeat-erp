@@ -232,41 +232,32 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
 
       if (batchComplete) {
         // Fire off a cooking stage for this cook batch
-        // Fetch the flow fresh inline (do not rely on React query state which may not be loaded yet)
-        const freshOrder = await base44.entities.ProductionOrder.filter({ id: stage.order_id }).then(r => r?.[0]);
-        const freshFlow = freshOrder?.flow_id
-          ? await base44.entities.ProductFlow.filter({ id: freshOrder.flow_id }).then(r => r?.[0])
-          : null;
-        const flowSteps = freshFlow?.steps || flow?.steps || [];
-        const cookStep = flowSteps.find(s => s.capability_key === "cooking");
-        if (cookStep) {
-          const cookBatchLbs = cookBatch.racks.reduce((s, r) => s + (mergedRackData[r.rackNumber]?.lbs || r.lbs), 0);
-          const cookBatchLot = `SV-CB${editingRack.cookBatchNumber}-${Date.now()}`;
-          // Check if already created (guard against double-tap)
-          const existingCookStages = await base44.entities.ProductionStage.filter({
+        const cookBatchLbs = cookBatch.racks.reduce((s, r) => s + (mergedRackData[r.rackNumber]?.lbs || r.lbs), 0);
+        const cookBatchLot = `SV-CB${editingRack.cookBatchNumber}-${Date.now()}`;
+        
+        // Check if already created (guard against double-tap)
+        const existingCookStages = await base44.entities.ProductionStage.filter({
+          order_id: stage.order_id,
+          capability_key: "cooking",
+        });
+        const alreadyExists = existingCookStages.some(s => s.notes?.includes(`Cook Batch #${editingRack.cookBatchNumber}`));
+        
+        if (!alreadyExists) {
+          // Create cooking stage with basic required fields
+          await base44.entities.ProductionStage.create({
             order_id: stage.order_id,
+            order_number: stage.order_number,
+            product_name: stage.product_name,
+            step_number: stage.step_number + 1,
             capability_key: "cooking",
+            capability_name: "Cooking",
+            status: "available",
+            input_qty_lbs: parseFloat(cookBatchLbs.toFixed(2)),
+            racks_count: allRacksInBatch.length,
+            cook_batch_lot: cookBatchLot,
+            input_lot_number: cookBatchLot,
+            notes: `Cook Batch #${editingRack.cookBatchNumber} — Racks ${allRacksInBatch.join(", ")}`,
           });
-          const alreadyExists = existingCookStages.some(s => s.notes?.includes(`Cook Batch #${editingRack.cookBatchNumber}`));
-          if (!alreadyExists) {
-            await base44.entities.ProductionStage.create({
-              order_id: stage.order_id,
-              order_number: stage.order_number,
-              product_name: stage.product_name,
-              step_number: cookStep.step_number,
-              capability_id: cookStep.capability_id,
-              capability_key: cookStep.capability_key,
-              capability_name: cookStep.capability_name,
-              work_profile_id: cookStep.work_profile_id || "",
-              work_profile_name: cookStep.work_profile_name || "",
-              status: "available",
-              input_qty_lbs: parseFloat(cookBatchLbs.toFixed(2)),
-              racks_count: allRacksInBatch.length,
-              cook_batch_lot: cookBatchLot,
-              input_lot_number: cookBatchLot,
-              notes: `Cook Batch #${editingRack.cookBatchNumber} — Racks ${allRacksInBatch.join(", ")}`,
-            });
-          }
         }
       }
     }
