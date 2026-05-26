@@ -149,6 +149,10 @@ function buildMeasurementSteps(stage, product, capKey, casingBuckets = []) {
   }
 
   if (capKey === "cooking") {
+    const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+    const cookLotDefault = stage?.cook_batch_lot
+      ? `${stage.cook_batch_lot}-${today}`
+      : `COOK-${today}`;
     steps.push({
       id: "cook",
       label: "Cook Parameters",
@@ -156,7 +160,7 @@ function buildMeasurementSteps(stage, product, capKey, casingBuckets = []) {
         { key: "temperature_c", label: "Internal Temp (°C)", type: "number" },
         { key: "duration_minutes", label: "Cook Time (minutes)", type: "number" },
         { key: "racks_count", label: "Rack Count", type: "number" },
-        { key: "output_lot_number", label: "Cooked Lot #", type: "text", placeholder: "e.g. COOK-2024-001" },
+        { key: "output_lot_number", label: "Cooked Lot #", type: "text", placeholder: "e.g. COOK-2024-001", defaultValue: cookLotDefault },
       ],
     });
   }
@@ -974,6 +978,19 @@ function BatchConfirmStep({ batch, batchIdx, totalBatches, progressPct, onUpdate
 function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form, setForm, casingBuckets, capKey, stage, product, cookBatch, setCookBatch, cookPlan, setCookPlan, onBack, onNext, isLast }) {
   const [spiceShortNotes, setSpiceShortNotes] = React.useState("");
   const [caseWeights, setCaseWeights] = React.useState(form.case_weights || []);
+
+  // Auto-populate fields with defaultValue when first entering this step
+  React.useEffect(() => {
+    const defaults = {};
+    for (const field of stepDef.fields) {
+      if (field.defaultValue !== undefined && (form[field.key] === undefined || form[field.key] === "")) {
+        defaults[field.key] = field.defaultValue;
+      }
+    }
+    if (Object.keys(defaults).length > 0) {
+      setForm(f => ({ ...defaults, ...f }));
+    }
+  }, [stepDef.id]);
   const isLinking = capKey === "linking" && stepDef.id === "linking";
   const isTumble = (capKey === "tumble" || capKey === "tumbling") && stepDef.id === "tumble";
   const isRacking = capKey === "racking" && stepDef.id === "racking" && stage?.flow_name === "Tumbling Protein Flow (Large)";
