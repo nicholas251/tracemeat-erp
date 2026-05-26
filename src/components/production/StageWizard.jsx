@@ -172,7 +172,6 @@ function buildMeasurementSteps(stage, product, capKey, casingBuckets = []) {
       fields: [
         { key: "temperature_c", label: "Exit Temp (°C)", type: "number" },
         { key: "duration_minutes", label: "Chill Duration (minutes)", type: "number" },
-        { key: "output_qty_lbs", label: "Output Qty (lbs)", type: "number" },
         { key: "output_lot_number", label: "Chilled Lot #", type: "text", placeholder: "e.g. CHILL-2024-001" },
       ],
     });
