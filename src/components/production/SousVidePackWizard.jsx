@@ -149,13 +149,13 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
     }
   }, [product, blendBuckets.length]);
 
-  // Sync updatedSubs with fresh stage data—merge instead of replace
+  // Sync updatedSubs with fresh stage data when it arrives
   useEffect(() => {
     const subs = stageToUse?.sub_batches ?? [];
-    if (subs.length) {
-      setUpdatedSubs(prev => (subs.length >= prev.length ? subs : prev));
+    if (subs.length > 0) {
+      setUpdatedSubs(subs);
     }
-  }, [open, stageToUse?.id, stageToUse?.sub_batches]);
+  }, [open, freshStage?.id]);
 
   const plan = useMemo(() => {
     if (!stageToUse) return null;
@@ -389,7 +389,7 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
             if (!batchComplete) return null;
             
             const totalBatchLbs = cookBatchSubBatches.reduce((s, sb) => s + (sb.lbs || 0), 0);
-            const cookBatchLot = cookBatchSubBatches[0]?.cook_batch_lot || `SV-CB${cb.cookBatchNumber}-${Date.now()}`;
+            const cookBatchLot = cookBatchSubBatches[0]?.lot_number || `SV-CB${cb.cookBatchNumber}`;
             
             return (
               <div key={`completed-${cb.cookBatchNumber}`} className="rounded-xl border-2 border-chart-2/40 bg-chart-2/5 p-4">
@@ -439,10 +439,12 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
                           value={sel?.raw_inventory_id || ""}
                           onValueChange={val => {
                             const row = rawInventoryAll.find(r => r.id === val);
-                            setSelectedLots(prev => ({
-                              ...prev,
-                              [bucket.bucket_id]: { raw_inventory_id: row.id, lot_number: row.lot_number || "", available_qty: row.available_qty }
-                            }));
+                            if (row) {
+                              setSelectedLots(prev => ({
+                                ...prev,
+                                [bucket.bucket_id]: { raw_inventory_id: row.id, lot_number: row.lot_number || "", available_qty: row.available_qty }
+                              }));
+                            }
                           }}
                         >
                           <SelectTrigger className="h-10">
