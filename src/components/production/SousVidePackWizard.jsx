@@ -66,10 +66,21 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
   const [selectedLots, setSelectedLots] = useState({});
   const [lotsConfirmed, setLotsConfirmed] = useState(false);
 
+  // Fetch the latest stage data to ensure sub_batches are current
+  const { data: freshStage } = useQuery({
+    queryKey: ["svStage", stage?.id],
+    queryFn: () => base44.entities.ProductionStage.filter({ id: stage.id }).then(r => r?.[0]),
+    enabled: open && !!stage?.id,
+    staleTime: 0, // Always fetch fresh when dialog opens
+  });
+
+  // Use fresh stage data if available, otherwise fall back to prop
+  const currentStage = freshStage || stage;
+
   const { data: order } = useQuery({
-    queryKey: ["svOrder", stage?.order_id],
-    queryFn: () => base44.entities.ProductionOrder.filter({ id: stage.order_id }).then(r => r?.[0]),
-    enabled: open && !!stage,
+    queryKey: ["svOrder", currentStage?.order_id],
+    queryFn: () => base44.entities.ProductionOrder.filter({ id: currentStage.order_id }).then(r => r?.[0]),
+    enabled: open && !!currentStage,
   });
 
   const { data: flow } = useQuery({
@@ -85,6 +96,9 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
     enabled: !!order?.product_id,
     staleTime: Infinity,
   });
+
+  // Use currentStage for all logic (for persistedRacks + form initialization)
+  const stageToUse = currentStage || stage;
 
   // Derive the protein buckets this product uses from blend_ingredients
   const blendBuckets = product?.blend_ingredients || [];
@@ -118,10 +132,10 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
 
   // Also restore confirmed state from saved stage data
   useEffect(() => {
-    if (stage?.input_lot_number) {
+    if (stageToUse?.input_lot_number) {
       setLotsConfirmed(true);
     }
-  }, [stage]);
+  }, [stageToUse?.input_lot_number]);
 
   // If product has no blend ingredients configured, auto-confirm the lot step
   useEffect(() => {
@@ -131,27 +145,27 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
   }, [product, blendBuckets.length]);
 
   const plan = useMemo(() => {
-    if (!stage) return null;
-    return buildRackPlan(stage.input_qty_lbs || 0);
-  }, [stage]);
+    if (!stageToUse) return null;
+    return buildRackPlan(stageToUse.input_qty_lbs || 0);
+  }, [stageToUse?.input_qty_lbs]);
 
   // Load persisted sub_batches from the stage to restore state
   const persistedRacks = useMemo(() => {
     const result = {};
-    for (const sb of stage?.sub_batches || []) {
+    for (const sb of stageToUse?.sub_batches || []) {
       if (sb.rack_number) {
         result[sb.rack_number] = { completed: true, lot_number: sb.lot_number || "", notes: sb.notes || "", lbs: sb.lbs || RACK_LBS };
       }
     }
     return result;
-  }, [stage]);
+  }, [stageToUse?.id, stageToUse?.sub_batches]);
 
   const effectiveRackData = { ...persistedRacks, ...rackData };
 
   const handleConfirmLots = async () => {
     setSaving(true);
     const primaryLot = selectedLots[blendBuckets[0]?.bucket_id]?.lot_number || "";
-    await base44.entities.ProductionStage.update(stage.id, { input_lot_number: primaryLot });
+    await base44.entities.ProductionStage.update(stageToUse.id, { input_lot_number: primaryLot });
     // Deduct each bucket's quantity from the selected raw inventory lot
     for (const bucket of blendBuckets) {
       const sel = selectedLots[bucket.bucket_id];
@@ -214,10 +228,10 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
      [rackNum]: { completed: true, lot_number: lot, notes: editForm.notes, lbs },
     }));
 
-    await base44.entities.ProductionStage.update(stage.id, {
-     status: "in_progress",
-     started_at: stage.started_at || new Date().toISOString(),
-     sub_batches: updatedSubs,
+    await base44.entities.ProductionStage.update(stageToUse.id, {
+      status: "in_progress",
+      started_at: stageToUse.started_at || new Date().toISOString(),
+      sub_batches: updatedSubs,
     });
 
     // Build a merged view of all completed racks (persisted + current state + this new one)
@@ -238,23 +252,23 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
 
          // Check if already created (guard against double-tap)
          const existingCookStages = await base44.entities.ProductionStage.filter({
-           order_id: stage.order_id,
+           order_id: stageToUse.order_id,
            capability_key: "cooking",
          });
          const alreadyExists = existingCookStages.some(s => s.notes?.includes(`Cook Batch #${editingRack.cookBatchNumber}`));
 
          if (!alreadyExists) {
            // Look up the cooking step from the flow to get work profile info
-           const order = await base44.entities.ProductionOrder.filter({ id: stage.order_id }).then(r => r?.[0]);
-           const flow = order?.flow_id ? await base44.entities.ProductFlow.filter({ id: order.flow_id }).then(r => r?.[0]) : null;
-           const cookStep = flow?.steps?.find(s => s.capability_key === "cooking");
+           const orderData = await base44.entities.ProductionOrder.filter({ id: stageToUse.order_id }).then(r => r?.[0]);
+           const flowData = orderData?.flow_id ? await base44.entities.ProductFlow.filter({ id: orderData.flow_id }).then(r => r?.[0]) : null;
+           const cookStep = flowData?.steps?.find(s => s.capability_key === "cooking");
 
            // Create cooking stage with all required fields from flow
            await base44.entities.ProductionStage.create({
-             order_id: stage.order_id,
-             order_number: stage.order_number,
-             product_name: stage.product_name,
-             step_number: stage.step_number + 1,
+             order_id: stageToUse.order_id,
+             order_number: stageToUse.order_number,
+             product_name: stageToUse.product_name,
+             step_number: stageToUse.step_number + 1,
              capability_id: cookStep?.capability_id || "",
              capability_key: "cooking",
              capability_name: "Cooking",
@@ -274,7 +288,7 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
     // Check if ALL racks are done → mark the sous vide pack stage as completed
     const allRacksDone = plan.racks.every(r => mergedRackData[r.rackNumber]?.completed);
     if (allRacksDone) {
-      await base44.entities.ProductionStage.update(stage.id, {
+      await base44.entities.ProductionStage.update(stageToUse.id, {
         status: "completed",
         completed_at: new Date().toISOString(),
         output_qty_lbs: plan.racks.reduce((s, r) => s + (mergedRackData[r.rackNumber]?.lbs || r.lbs), 0),
@@ -283,9 +297,10 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
       });
     }
 
-    queryClient.invalidateQueries({ queryKey: ["orderStages", stage.order_id] });
+    queryClient.invalidateQueries({ queryKey: ["orderStages", stageToUse.order_id] });
     queryClient.invalidateQueries({ queryKey: ["allStages"] });
     queryClient.invalidateQueries({ queryKey: ["productionOrders"] });
+    queryClient.invalidateQueries({ queryKey: ["svStage", stageToUse.id] });
 
     setSaving(false);
     setEditingRack(null);
@@ -310,10 +325,10 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
             <Package className="w-5 h-5 text-chart-1" />
           </div>
           <div className="min-w-0">
-            <DialogTitle className="text-base font-bold leading-tight">Sous Vide Pack — {stage?.product_name}</DialogTitle>
+            <DialogTitle className="text-base font-bold leading-tight">Sous Vide Pack — {stageToUse?.product_name}</DialogTitle>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Order <span className="font-semibold text-foreground">#{stage?.order_number}</span>
-              &nbsp;·&nbsp;<span className="font-semibold text-foreground">{stage?.input_qty_lbs} lbs</span>
+              Order <span className="font-semibold text-foreground">#{stageToUse?.order_number}</span>
+              &nbsp;·&nbsp;<span className="font-semibold text-foreground">{stageToUse?.input_qty_lbs} lbs</span>
               &nbsp;·&nbsp;{plan.totalRacks} racks &nbsp;·&nbsp; {plan.cookBatches.length} cook batches
             </p>
           </div>
@@ -336,7 +351,7 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
                   : <AlertCircle className="w-4 h-4 text-amber-500" />
                 }
                 <p className="font-bold text-sm">{blendBuckets.map(b => b.bucket_name).join(", ") || "Raw Material"}</p>
-                <span className="text-xs text-muted-foreground">{stage?.input_qty_lbs} lbs required</span>
+                <span className="text-xs text-muted-foreground">{stageToUse?.input_qty_lbs} lbs required</span>
               </div>
               {lotsConfirmed && <Badge className="bg-chart-2/15 text-chart-2 border-0 text-xs">Confirmed</Badge>}
             </div>
