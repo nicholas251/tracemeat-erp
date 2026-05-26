@@ -194,10 +194,14 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
     const lbs = parseFloat(editForm.lbs) || editingRack.lbs;
     const lot = editForm.lot_number || `SV-R${rackNum}-${Date.now()}`;
 
-    const updatedRackData = {
-      ...effectiveRackData,
-      [rackNum]: { completed: true, lot_number: lot, notes: editForm.notes, lbs },
-    };
+    // Build updatedRackData from persisted sub_batches (source of truth) + new rack.
+    // Do NOT rely on rackData state (which resets to {} when wizard is reopened).
+    const updatedRackData = { ...persistedRacks };
+    for (const sb of updatedSubs) {
+      if (sb.rack_number) {
+        updatedRackData[sb.rack_number] = { completed: true, lot_number: sb.lot_number || "", notes: sb.notes || "", lbs: sb.lbs || RACK_LBS };
+      }
+    }
     setRackData(updatedRackData);
 
     // Build new sub_batches array
