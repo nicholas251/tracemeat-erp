@@ -293,6 +293,7 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
   const completedCount = plan.racks.filter(r => effectiveRackData[r.rackNumber]?.completed).length;
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="w-full max-w-2xl max-h-[95vh] overflow-hidden flex flex-col p-0">
         {/* Header */}
@@ -464,9 +465,11 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
         </div>
       </DialogContent>
 
-      {/* Rack completion dialog */}
+      </Dialog>
+
+      {/* Rack completion dialog — rendered OUTSIDE the outer Dialog to prevent close bubbling */}
       {editingRack && (
-        <Dialog open={!!editingRack} onOpenChange={() => setEditingRack(null)}>
+        <Dialog open={!!editingRack} onOpenChange={(isOpen) => { if (!isOpen) setEditingRack(null); }}>
           <DialogContent className="max-w-sm">
             <DialogHeader>
               <DialogTitle>Complete Rack #{editingRack.rackNumber}</DialogTitle>
@@ -534,6 +537,6 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
           </DialogContent>
         </Dialog>
       )}
-    </Dialog>
-  );
+      </>
+      );
 }
