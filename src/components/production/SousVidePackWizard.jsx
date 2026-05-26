@@ -540,11 +540,11 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
                 <Label className="text-sm font-semibold">Actual Weight (lbs)</Label>
                 <Input
                   type="number"
-                  step="0.1"
+                  step="1"
                   min="0"
                   value={editForm.lbs}
                   onChange={e => {
-                    const val = e.target.value === "" ? "" : Math.max(0, parseFloat(e.target.value) || 0);
+                    const val = e.target.value === "" ? "" : Math.max(0, parseInt(e.target.value, 10) || 0);
                     setEditForm(f => ({ ...f, lbs: val }));
                   }}
                   placeholder={String(editingRack.lbs)}
