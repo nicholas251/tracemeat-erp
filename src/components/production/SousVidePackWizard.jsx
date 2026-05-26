@@ -65,6 +65,8 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
   // Per-bucket selected lot: { [bucket_id]: { raw_inventory_id, lot_number, available_qty } }
   const [selectedLots, setSelectedLots] = useState({});
   const [lotsConfirmed, setLotsConfirmed] = useState(false);
+  // Track most recent sub_batches for UI display (persisted from DB)
+  const [updatedSubs, setUpdatedSubs] = useState([]);
 
   // Fetch the latest stage data to ensure sub_batches are current
   const { data: freshStage } = useQuery({
@@ -151,14 +153,15 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
 
   // Load persisted sub_batches from the stage to restore state
   const persistedRacks = useMemo(() => {
+    const subs = updatedSubs.length > 0 ? updatedSubs : (stageToUse?.sub_batches || []);
     const result = {};
-    for (const sb of stageToUse?.sub_batches || []) {
+    for (const sb of subs) {
       if (sb.rack_number) {
-        result[sb.rack_number] = { completed: true, lot_number: sb.lot_number || "", notes: sb.notes || "", lbs: sb.lbs || RACK_LBS };
+        result[sb.rack_number] = { completed: true, lot_number: sb.lot_number || "", notes: sb.notes || "", lbs: sb.lbs || RACK_LBS, cook_batch_number: sb.cook_batch_number };
       }
     }
     return result;
-  }, [stageToUse?.id, stageToUse?.sub_batches]);
+  }, [updatedSubs, stageToUse?.id, stageToUse?.sub_batches]);
 
   const effectiveRackData = { ...persistedRacks, ...rackData };
 
@@ -219,18 +222,23 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
       cook_batch_number: editingRack.cookBatchNumber,
       status: "completed",
     };
-    const existingSubs = (stageToUse.sub_batches || []).filter(sb => sb.rack_number !== rackNum);
-    const updatedSubs = [...existingSubs, newSubBatch];
-
+    const currentSubs = updatedSubs.length > 0 ? updatedSubs : (stageToUse.sub_batches || []);
+    const existingSubs = currentSubs.filter(sb => sb.rack_number !== rackNum);
+    const newUpdatedSubs = [...existingSubs, newSubBatch];
+    
+    // Save to DB
     await base44.entities.ProductionStage.update(stageToUse.id, {
       status: "in_progress",
       started_at: stageToUse.started_at || new Date().toISOString(),
-      sub_batches: updatedSubs,
+      sub_batches: newUpdatedSubs,
     });
+
+    // Update local state for UI display
+    setUpdatedSubs(newUpdatedSubs);
 
     // Build a merged view of all completed racks from the newly persisted sub_batches
     const mergedRackData = {};
-    for (const sb of updatedSubs) {
+    for (const sb of newUpdatedSubs) {
       if (sb.rack_number) {
         mergedRackData[sb.rack_number] = { completed: true, lot_number: sb.lot_number || "", notes: sb.notes || "", lbs: sb.lbs || RACK_LBS };
       }
@@ -291,7 +299,7 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
         completed_at: new Date().toISOString(),
         output_qty_lbs: plan.racks.reduce((s, r) => s + (mergedRackData[r.rackNumber]?.lbs || r.lbs), 0),
         racks_count: plan.totalRacks,
-        sub_batches: updatedSubs,
+        sub_batches: newUpdatedSubs,
       });
     }
 
@@ -339,6 +347,33 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto px-5 py-5 space-y-6">
+          {/* Completed Cook Batches Section */}
+          {plan.cookBatches.map(cb => {
+            const completedInBatch = cb.racks.filter(r => effectiveRackData[r.rackNumber]?.completed).length;
+            const batchComplete = completedInBatch === cb.racks.length && cb.racks.length > 0;
+            const cookBatchSubBatches = updatedSubs?.filter(sb => sb.cook_batch_number === cb.cookBatchNumber) || [];
+            
+            if (!batchComplete) return null;
+            
+            const totalBatchLbs = cookBatchSubBatches.reduce((s, sb) => s + (sb.lbs || 0), 0);
+            const cookBatchLot = cookBatchSubBatches[0]?.cook_batch_lot || `SV-CB${cb.cookBatchNumber}-${Date.now()}`;
+            
+            return (
+              <div key={`completed-${cb.cookBatchNumber}`} className="rounded-xl border-2 border-chart-2/40 bg-chart-2/5 p-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-chart-2/15 flex items-center justify-center shrink-0">
+                    <CheckCircle2 className="w-5 h-5 text-chart-2" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-sm text-chart-2">Cook Batch #{cb.cookBatchNumber} — Sent to Cooking</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {totalBatchLbs} lbs · {cb.racks.length} racks · Lot <span className="font-mono text-foreground">{cookBatchLot}</span>
+                    </p>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
 
           {/* Raw Material Lot Section */}
           <div className={`rounded-xl border-2 p-4 space-y-3 ${lotsConfirmed ? "border-chart-2/40 bg-chart-2/5" : "border-amber-300 bg-amber-50/30"}`}>
@@ -425,11 +460,14 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
           </div>
 
           {plan.cookBatches.map(cb => {
-            const completedInBatch = cb.racks.filter(r => effectiveRackData[r.rackNumber]?.completed).length;
-            const batchComplete = completedInBatch === cb.racks.length;
+           const completedInBatch = cb.racks.filter(r => effectiveRackData[r.rackNumber]?.completed).length;
+           const batchComplete = completedInBatch === cb.racks.length && cb.racks.length > 0;
 
-            return (
-              <div key={cb.cookBatchNumber} className={`rounded-xl border-2 ${batchComplete ? "border-chart-2/40 bg-chart-2/5" : "border-border bg-card"}`}>
+           // Skip completed batches—they're shown in the completed section above
+           if (batchComplete) return null;
+
+           return (
+             <div key={cb.cookBatchNumber} className={`rounded-xl border-2 border-border bg-card`}>
                 <div className="flex items-center justify-between px-4 pt-3 pb-2">
                   <div className="flex items-center gap-2">
                     {batchComplete
@@ -439,11 +477,8 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
                     <p className="font-bold text-sm">Cook Batch #{cb.cookBatchNumber}</p>
                     <span className="text-xs text-muted-foreground">{cb.totalLbs} lbs · {cb.racks.length} racks</span>
                   </div>
-                  {batchComplete && (
-                    <Badge className="bg-chart-2/15 text-chart-2 text-xs border-0">Sent to Cooking</Badge>
-                  )}
-                  {!batchComplete && completedInBatch > 0 && (
-                    <Badge variant="outline" className="text-xs">{completedInBatch}/{cb.racks.length} complete</Badge>
+                  {completedInBatch > 0 && (
+                    <Badge variant="outline" className="text-xs">{completedInBatch}/{cb.racks.length} racks complete</Badge>
                   )}
                 </div>
 
