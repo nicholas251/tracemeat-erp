@@ -123,6 +123,13 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
     }
   }, [stage]);
 
+  // If product has no blend ingredients configured, auto-confirm the lot step
+  useEffect(() => {
+    if (product && blendBuckets.length === 0 && !lotsConfirmed) {
+      setLotsConfirmed(true);
+    }
+  }, [product, blendBuckets.length]);
+
   const plan = useMemo(() => {
     if (!stage) return null;
     return buildRackPlan(stage.input_qty_lbs || 0);
@@ -165,7 +172,9 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
     setSaving(false);
   };
 
-  const lotsValid = blendBuckets.every(b => selectedLots[b.bucket_id]?.lot_number?.trim());
+  // If no blend buckets configured on the product, skip lot confirmation entirely
+  const hasBlendBuckets = blendBuckets.length > 0;
+  const lotsValid = !hasBlendBuckets || blendBuckets.every(b => selectedLots[b.bucket_id]?.lot_number?.trim());
 
   const openEditRack = (rack) => {
     setEditingRack(rack);
@@ -510,7 +519,7 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
                 <Button
                   className="flex-1 bg-chart-2 hover:bg-chart-2/90 gap-2"
                   onClick={handleCompleteRack}
-                  disabled={saving || !editForm.lbs || !flow}
+                  disabled={saving || !editForm.lbs}
                 >
                   <CheckCircle2 className="w-4 h-4" />
                   {saving ? "Saving…" : "Complete Rack"}
