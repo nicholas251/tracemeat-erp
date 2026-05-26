@@ -8,32 +8,21 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { CheckCircle2, Circle, Package, ChevronRight, AlertCircle, Trash2, Plus } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { CheckCircle2, Circle, Package, AlertCircle } from "lucide-react";
 
 const RACK_LBS = 610;
 const RACKS_PER_COOK_BATCH = 3;
 const COOK_BATCH_LBS = RACK_LBS * RACKS_PER_COOK_BATCH; // 1830
 
-function buildFifoAllocations(inventoryRows, requiredLbs) {
-  const sorted = [...inventoryRows]
-    .filter(r => (r.available_qty || 0) > 0)
+function getFifoLotsForBucket(inventoryRows, bucketId) {
+  return [...inventoryRows]
+    .filter(r => r.bucket_id === bucketId && (r.available_qty || 0) > 0)
     .sort((a, b) => {
       const da = a.received_date || a.created_date || "";
       const db = b.received_date || b.created_date || "";
       return da < db ? -1 : da > db ? 1 : 0;
     });
-  const allocations = [];
-  let remaining = requiredLbs;
-  for (const row of sorted) {
-    if (remaining <= 0) break;
-    const take = Math.min(row.available_qty, remaining);
-    allocations.push({ lot_number: row.lot_number || "", available_qty: row.available_qty, raw_inventory_id: row.id, actual_lbs: parseFloat(take.toFixed(2)) });
-    remaining -= take;
-  }
-  if (allocations.length === 0 || remaining > 0.001) {
-    allocations.push({ lot_number: "", available_qty: 0, raw_inventory_id: null, actual_lbs: parseFloat(remaining.toFixed(2)), insufficient: true });
-  }
-  return allocations;
 }
 
 function buildRackPlan(totalLbs) {
@@ -73,8 +62,8 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
   // Which rack is being edited
   const [editingRack, setEditingRack] = useState(null);
   const [editForm, setEditForm] = useState({ lot_number: "", notes: "", lbs: "" });
-  // Raw material lot allocations for chicken
-  const [lotAllocations, setLotAllocations] = useState(null);
+  // Per-bucket selected lot: { [bucket_id]: { raw_inventory_id, lot_number, available_qty } }
+  const [selectedLots, setSelectedLots] = useState({});
   const [lotsConfirmed, setLotsConfirmed] = useState(false);
 
   const { data: order } = useQuery({
@@ -113,12 +102,19 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
     enabled: open && blendBuckets.length > 0,
   });
 
-  // Auto-init FIFO allocations once inventory + product loads
+  // Auto-select the FIFO (oldest) lot for each bucket when inventory loads
   useEffect(() => {
-    if (rawInventoryAll.length > 0 && !lotAllocations && stage) {
-      setLotAllocations(buildFifoAllocations(rawInventoryAll, stage.input_qty_lbs || 0));
+    if (rawInventoryAll.length > 0 && blendBuckets.length > 0 && Object.keys(selectedLots).length === 0) {
+      const autoSelected = {};
+      for (const bucket of blendBuckets) {
+        const lots = getFifoLotsForBucket(rawInventoryAll, bucket.bucket_id);
+        if (lots.length > 0) {
+          autoSelected[bucket.bucket_id] = { raw_inventory_id: lots[0].id, lot_number: lots[0].lot_number || "", available_qty: lots[0].available_qty };
+        }
+      }
+      if (Object.keys(autoSelected).length > 0) setSelectedLots(autoSelected);
     }
-  }, [rawInventoryAll, lotAllocations, stage]);
+  }, [rawInventoryAll, blendBuckets]);
 
   // Also restore confirmed state from saved stage data
   useEffect(() => {
@@ -145,33 +141,19 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
 
   const effectiveRackData = { ...persistedRacks, ...rackData };
 
-  const updateAllocation = (idx, field, value) => {
-    setLotAllocations(prev => prev.map((a, i) => i === idx ? { ...a, [field]: value } : a));
-  };
-
-  const addLotRow = () => {
-    const total = (lotAllocations || []).reduce((s, a) => s + (Number(a.actual_lbs) || 0), 0);
-    setLotAllocations(prev => [...(prev || []), { lot_number: "", available_qty: 0, raw_inventory_id: null, actual_lbs: parseFloat(Math.max(0, (stage?.input_qty_lbs || 0) - total).toFixed(2)) }]);
-  };
-
-  const removeLotRow = (idx) => {
-    setLotAllocations(prev => prev.filter((_, i) => i !== idx));
-  };
-
   const handleConfirmLots = async () => {
     setSaving(true);
-    // Save lot info onto stage and deduct raw inventory
-    const primaryLot = lotAllocations?.[0]?.lot_number || "";
-    await base44.entities.ProductionStage.update(stage.id, {
-      input_lot_number: primaryLot,
-    });
-    // Deduct from each raw inventory lot
-    for (const alloc of (lotAllocations || [])) {
-      if (alloc.raw_inventory_id && alloc.actual_lbs > 0) {
-        const row = rawInventoryAll.find(r => r.id === alloc.raw_inventory_id);
+    const primaryLot = selectedLots[blendBuckets[0]?.bucket_id]?.lot_number || "";
+    await base44.entities.ProductionStage.update(stage.id, { input_lot_number: primaryLot });
+    // Deduct each bucket's quantity from the selected raw inventory lot
+    for (const bucket of blendBuckets) {
+      const sel = selectedLots[bucket.bucket_id];
+      if (sel?.raw_inventory_id) {
+        const row = rawInventoryAll.find(r => r.id === sel.raw_inventory_id);
         if (row) {
-          const newQty = Math.max(0, (row.available_qty || 0) - alloc.actual_lbs);
-          await base44.entities.RawInventory.update(alloc.raw_inventory_id, {
+          const deduct = bucket.quantity_lbs || 0;
+          const newQty = Math.max(0, (row.available_qty || 0) - deduct);
+          await base44.entities.RawInventory.update(sel.raw_inventory_id, {
             available_qty: parseFloat(newQty.toFixed(2)),
             status: newQty <= 0 ? "depleted" : "in_use",
           });
@@ -183,8 +165,7 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
     setSaving(false);
   };
 
-  const totalAllocated = (lotAllocations || []).reduce((s, a) => s + (Number(a.actual_lbs) || 0), 0);
-  const lotsValid = (lotAllocations || []).every(a => a.lot_number?.trim()) && Math.abs(totalAllocated - (stage?.input_qty_lbs || 0)) < 0.01;
+  const lotsValid = blendBuckets.every(b => selectedLots[b.bucket_id]?.lot_number?.trim());
 
   const openEditRack = (rack) => {
     setEditingRack(rack);
@@ -338,38 +319,53 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
             </div>
 
             {!lotsConfirmed && (
-              <div className="space-y-2">
-                {(lotAllocations || []).map((alloc, idx) => (
-                  <div key={idx} className={`rounded border p-2 space-y-1.5 ${alloc.insufficient ? "border-amber-300 bg-amber-50" : "border-border bg-white"}`}>
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                      <span>Lot {idx + 1}</span>
-                      {alloc.available_qty > 0 && <span>· {alloc.available_qty} lbs available</span>}
-                      {(lotAllocations || []).length > 1 && (
-                        <button onClick={() => removeLotRow(idx)} className="ml-auto hover:text-destructive">
-                          <Trash2 className="w-3 h-3" />
-                        </button>
+              <div className="space-y-3">
+                {blendBuckets.map(bucket => {
+                  const fifoLots = getFifoLotsForBucket(rawInventoryAll, bucket.bucket_id);
+                  const sel = selectedLots[bucket.bucket_id];
+                  return (
+                    <div key={bucket.bucket_id} className="rounded border bg-white p-3 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-bold">{bucket.bucket_name}</p>
+                        <span className="text-xs text-muted-foreground">{bucket.quantity_lbs} lbs required</span>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs font-semibold">Select Lot (FIFO)</Label>
+                        <Select
+                          value={sel?.raw_inventory_id || ""}
+                          onValueChange={val => {
+                            const row = rawInventoryAll.find(r => r.id === val);
+                            setSelectedLots(prev => ({
+                              ...prev,
+                              [bucket.bucket_id]: { raw_inventory_id: row.id, lot_number: row.lot_number || "", available_qty: row.available_qty }
+                            }));
+                          }}
+                        >
+                          <SelectTrigger className="h-10">
+                            <SelectValue placeholder="Select a lot…" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {fifoLots.length === 0 && (
+                              <SelectItem value="__none__" disabled>No inventory available</SelectItem>
+                            )}
+                            {fifoLots.map((lot, i) => (
+                              <SelectItem key={lot.id} value={lot.id}>
+                                {i === 0 ? "⭑ " : ""}{lot.lot_number || lot.id} — {lot.available_qty} lbs avail
+                                {lot.received_date ? ` (rcvd ${lot.received_date})` : ""}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      {sel?.lot_number && (
+                        <div className="rounded bg-chart-1/8 border border-chart-1/20 px-3 py-2 text-xs flex justify-between">
+                          <span className="font-mono font-semibold">{sel.lot_number}</span>
+                          <span className="text-muted-foreground">{sel.available_qty} lbs on hand</span>
+                        </div>
                       )}
                     </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="space-y-1">
-                        <Label className="text-xs font-semibold">Lot Number</Label>
-                        <Input value={alloc.lot_number} onChange={e => updateAllocation(idx, "lot_number", e.target.value)} placeholder="e.g. 050626" className="h-9 text-sm" />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs font-semibold">Qty (lbs)</Label>
-                        <Input type="number" step="0.1" value={alloc.actual_lbs} onChange={e => updateAllocation(idx, "actual_lbs", Number(e.target.value))} className="h-9 text-sm" />
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                <div className="flex items-center justify-between text-xs">
-                  <Button size="sm" variant="ghost" className="h-7 gap-1 border border-dashed text-xs" onClick={addLotRow}>
-                    <Plus className="w-3 h-3" /> Add lot
-                  </Button>
-                  <span className={`font-semibold ${Math.abs(totalAllocated - (stage?.input_qty_lbs || 0)) < 0.01 ? "text-chart-2" : "text-amber-600"}`}>
-                    {parseFloat(totalAllocated.toFixed(2))} / {stage?.input_qty_lbs} lbs
-                  </span>
-                </div>
+                  );
+                })}
                 <Button className="w-full h-9 gap-2" disabled={!lotsValid || saving} onClick={handleConfirmLots}>
                   <CheckCircle2 className="w-4 h-4" />
                   {saving ? "Saving…" : "Confirm Raw Material Lots"}
@@ -379,12 +375,15 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
 
             {lotsConfirmed && (
               <div className="rounded bg-chart-2/5 border border-chart-2/20 divide-y text-xs">
-                {(lotAllocations || []).map((a, i) => (
-                  <div key={i} className="flex justify-between px-2 py-1.5">
-                    <span className="font-mono text-muted-foreground">{a.lot_number}</span>
-                    <span className="font-semibold">{a.actual_lbs} lbs</span>
-                  </div>
-                ))}
+                {blendBuckets.map(bucket => {
+                  const sel = selectedLots[bucket.bucket_id];
+                  return (
+                    <div key={bucket.bucket_id} className="flex justify-between px-2 py-1.5">
+                      <span className="text-muted-foreground">{bucket.bucket_name}</span>
+                      <span className="font-mono font-semibold">{sel?.lot_number}</span>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
