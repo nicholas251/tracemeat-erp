@@ -81,12 +81,6 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
   // Use fresh stage data if available, otherwise fall back to prop
   const currentStage = freshStage || stage;
 
-  useEffect(() => {
-    if (open && freshStage) {
-      console.log("🔍 freshStage refetched. sub_batches:", freshStage.sub_batches);
-    }
-  }, [freshStage, open]);
-
   const { data: order } = useQuery({
     queryKey: ["svOrder", currentStage?.order_id],
     queryFn: () => base44.entities.ProductionOrder.filter({ id: currentStage.order_id }).then(r => r?.[0]),
