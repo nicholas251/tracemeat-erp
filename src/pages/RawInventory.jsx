@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Settings, Search, Beef, FlaskConical, Package, Unlink, Plus, Pencil, Beaker } from "lucide-react";
+import { Settings, Search, Beef, FlaskConical, Package, Unlink, Plus, Pencil, PackagePlus } from "lucide-react";
 import { format } from "date-fns";
 import PageHeader from "@/components/shared/PageHeader";
 import StatusBadge from "@/components/shared/StatusBadge";
@@ -38,8 +38,8 @@ function BucketCard({ bucket, lots, isAdmin, onEdit, onAddTest }) {
           <div className="flex items-start gap-2 ml-2">
             {isAdmin && (
               <>
-                <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={() => onAddTest(bucket)} title="Add test amount">
-                  <Beaker className="w-3.5 h-3.5" />
+                <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={() => onAddTest(bucket)} title="Initial stock entry">
+                  <PackagePlus className="w-3.5 h-3.5" />
                 </Button>
                 <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={() => onEdit(bucket)}>
                   <Pencil className="w-3.5 h-3.5" />

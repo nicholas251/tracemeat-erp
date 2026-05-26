@@ -10,16 +10,19 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
-import { AlertCircle } from "lucide-react";
+import { PackagePlus } from "lucide-react";
 import { format } from "date-fns";
 
 export default function TestAmountDialog({ open, bucket, onClose, onAdd }) {
+  const [lotNumber, setLotNumber] = useState("");
   const [quantity, setQuantity] = useState("");
   const [unit, setUnit] = useState(bucket?.unit || "lbs");
+  const [supplier, setSupplier] = useState("");
+  const [receivedDate, setReceivedDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [expiryDate, setExpiryDate] = useState(
     format(new Date(Date.now() + 30 * 86400000), "yyyy-MM-dd")
   );
-  const [notes, setNotes] = useState("TEST AMOUNT");
+  const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
 
   if (!bucket) return null;
@@ -27,6 +30,10 @@ export default function TestAmountDialog({ open, bucket, onClose, onAdd }) {
   const handleAdd = async () => {
     if (!quantity || parseFloat(quantity) <= 0) {
       alert("Please enter a valid quantity");
+      return;
+    }
+    if (!lotNumber.trim()) {
+      alert("Please enter a lot number");
       return;
     }
 
@@ -39,16 +46,20 @@ export default function TestAmountDialog({ open, bucket, onClose, onAdd }) {
         quantity: parseFloat(quantity),
         available_qty: parseFloat(quantity),
         unit,
+        lot_number: lotNumber.trim(),
+        supplier: supplier.trim() || "Initial Stock",
+        received_date: receivedDate,
         expiry_date: expiryDate,
-        notes,
-        lot_number: `TEST-${Date.now()}`,
-        supplier: "Test Data",
-        description: "Test amount for development",
-        received_date: format(new Date(), "yyyy-MM-dd"),
+        notes: notes.trim() || "Initial stock entry",
         status: "available",
       });
+      // Reset
+      setLotNumber("");
       setQuantity("");
-      setNotes("TEST AMOUNT");
+      setSupplier("");
+      setNotes("");
+      setReceivedDate(format(new Date(), "yyyy-MM-dd"));
+      setExpiryDate(format(new Date(Date.now() + 30 * 86400000), "yyyy-MM-dd"));
       onClose();
     } finally {
       setLoading(false);
@@ -59,20 +70,29 @@ export default function TestAmountDialog({ open, bucket, onClose, onAdd }) {
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Add Test Amount to Bucket</DialogTitle>
+          <div className="flex items-center gap-2">
+            <PackagePlus className="w-5 h-5 text-primary" />
+            <DialogTitle>Initial Stock Entry</DialogTitle>
+          </div>
+          <p className="text-sm text-muted-foreground mt-1">
+            Record existing on-hand inventory for <span className="font-semibold text-foreground">{bucket.name}</span>
+          </p>
         </DialogHeader>
 
         <div className="space-y-4">
-          <div>
-            <Label className="text-sm font-medium">Bucket</Label>
-            <p className="text-sm text-muted-foreground mt-1">{bucket.name}</p>
-          </div>
-
           <div className="grid grid-cols-2 gap-3">
+            <div className="col-span-2">
+              <Label htmlFor="lot" className="text-sm font-semibold">Lot Number <span className="text-destructive">*</span></Label>
+              <Input
+                id="lot"
+                value={lotNumber}
+                onChange={(e) => setLotNumber(e.target.value)}
+                placeholder="e.g. 050626-A"
+                className="mt-1"
+              />
+            </div>
             <div>
-              <Label htmlFor="qty" className="text-sm">
-                Quantity
-              </Label>
+              <Label htmlFor="qty" className="text-sm font-semibold">Quantity <span className="text-destructive">*</span></Label>
               <Input
                 id="qty"
                 type="number"
@@ -85,9 +105,7 @@ export default function TestAmountDialog({ open, bucket, onClose, onAdd }) {
               />
             </div>
             <div>
-              <Label htmlFor="unit" className="text-sm">
-                Unit
-              </Label>
+              <Label htmlFor="unit" className="text-sm font-semibold">Unit</Label>
               <select
                 id="unit"
                 value={unit}
@@ -102,37 +120,54 @@ export default function TestAmountDialog({ open, bucket, onClose, onAdd }) {
           </div>
 
           <div>
-            <Label htmlFor="expiry" className="text-sm">
-              Expiry Date
-            </Label>
+            <Label htmlFor="supplier" className="text-sm font-semibold">Supplier</Label>
             <Input
-              id="expiry"
-              type="date"
-              value={expiryDate}
-              onChange={(e) => setExpiryDate(e.target.value)}
+              id="supplier"
+              value={supplier}
+              onChange={(e) => setSupplier(e.target.value)}
+              placeholder="e.g. Acme Meats"
               className="mt-1"
             />
           </div>
 
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label htmlFor="received" className="text-sm font-semibold">Received Date</Label>
+              <Input
+                id="received"
+                type="date"
+                value={receivedDate}
+                onChange={(e) => setReceivedDate(e.target.value)}
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label htmlFor="expiry" className="text-sm font-semibold">Expiry Date</Label>
+              <Input
+                id="expiry"
+                type="date"
+                value={expiryDate}
+                onChange={(e) => setExpiryDate(e.target.value)}
+                className="mt-1"
+              />
+            </div>
+          </div>
+
           <div>
-            <Label htmlFor="notes" className="text-sm">
-              Notes
-            </Label>
+            <Label htmlFor="notes" className="text-sm font-semibold">Notes</Label>
             <Input
               id="notes"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
+              placeholder="Optional notes..."
               className="mt-1"
             />
           </div>
 
-          <Card className="bg-amber-50 border-amber-200 p-3">
-            <div className="flex gap-2 text-sm">
-              <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-              <p className="text-amber-900">
-                Test amounts are marked for tracking and should be removed before production.
-              </p>
-            </div>
+          <Card className="bg-primary/5 border-primary/20 p-3">
+            <p className="text-xs text-primary font-medium">
+              This records existing stock already on-site. Use this once during system setup — ongoing receipts should go through Purchase Orders.
+            </p>
           </Card>
         </div>
 
@@ -140,8 +175,8 @@ export default function TestAmountDialog({ open, bucket, onClose, onAdd }) {
           <Button variant="outline" onClick={onClose} disabled={loading}>
             Cancel
           </Button>
-          <Button onClick={handleAdd} disabled={loading}>
-            {loading ? "Adding..." : "Add Test Amount"}
+          <Button onClick={handleAdd} disabled={loading || !lotNumber.trim() || !quantity}>
+            {loading ? "Saving..." : "Add to Inventory"}
           </Button>
         </DialogFooter>
       </DialogContent>
