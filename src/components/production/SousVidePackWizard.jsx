@@ -208,6 +208,7 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
       lot_number: existing?.lot_number || `R${rack.rackNumber}-${today}`,
       notes: existing?.notes || "",
       lbs: existing?.lbs ?? rack.lbs,
+      short_weight_reason: existing?.short_weight_reason || "",
     });
   };
 
@@ -544,14 +545,15 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
               </div>
 
               <div className="space-y-1.5">
-                <Label className="text-sm font-semibold">Actual Weight (lbs)</Label>
+                <Label className="text-sm font-semibold">Actual Weight (lbs) — Max 610</Label>
                 <Input
                   type="number"
                   step="1"
                   min="0"
+                  max="610"
                   value={editForm.lbs}
                   onChange={e => {
-                    const val = e.target.value === "" ? "" : Math.max(0, parseInt(e.target.value, 10) || 0);
+                    const val = e.target.value === "" ? "" : Math.min(610, Math.max(0, parseInt(e.target.value, 10) || 0));
                     setEditForm(f => ({ ...f, lbs: val }));
                   }}
                   placeholder={String(editingRack.lbs)}
@@ -559,7 +561,7 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
                 />
               </div>
 
-              {editForm.lbs && parseFloat(editForm.lbs) < 610 && (
+              {editForm.lbs && parseInt(editForm.lbs, 10) < 610 && (
                 <div className="space-y-1.5">
                   <Label className="text-sm font-semibold text-amber-600">Reason for Short Weight (required)</Label>
                   <Textarea
@@ -607,7 +609,7 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
                 <Button
                   className="flex-1 bg-chart-2 hover:bg-chart-2/90 gap-2"
                   onClick={handleCompleteRack}
-                  disabled={saving || !editForm.lbs || (parseFloat(editForm.lbs) < 610 && !editForm.short_weight_reason?.trim())}
+                  disabled={saving || !editForm.lbs || (parseInt(editForm.lbs, 10) < 610 && !editForm.short_weight_reason?.trim())}
                 >
                   <CheckCircle2 className="w-4 h-4" />
                   {saving ? "Saving…" : "Complete Rack"}
