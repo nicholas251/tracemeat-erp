@@ -32,6 +32,7 @@ const STAGE_ICONS = {
   cooking: Thermometer,
   chilling: Thermometer,
   packaging: Package,
+  sous_vide_pack: Layers,
 };
 
 // ─── Build ingredient batches (blending) with multiple batches ────────────────

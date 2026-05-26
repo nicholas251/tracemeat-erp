@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Lock, CheckCircle2, Clock, ChevronRight, AlertCircle } from "lucide-react";
 import StageWizard from "./StageWizard";
+import SousVidePackWizard from "./SousVidePackWizard";
 
 const STATUS_CONFIG = {
   locked:      { icon: Lock,         color: "text-muted-foreground",  bg: "bg-muted/30 border-dashed" },
@@ -60,7 +61,20 @@ export default function OrderStagesPanel({ orderId, allowedCapabilityKeys = null
         })}
       </div>
 
-      {activeStage && (
+      {activeStage && activeStage.capability_key === "sous_vide_pack" && (
+        <SousVidePackWizard
+          stage={activeStage}
+          open={!!activeStage}
+          onClose={() => setActiveStage(null)}
+          onCompleted={() => {
+            queryClient.invalidateQueries({ queryKey: ["orderStages", orderId] });
+            queryClient.invalidateQueries({ queryKey: ["productionStages"] });
+            setActiveStage(null);
+          }}
+        />
+      )}
+
+      {activeStage && activeStage.capability_key !== "sous_vide_pack" && (
         <StageWizard
           stage={activeStage}
           open={!!activeStage}
