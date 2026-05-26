@@ -67,6 +67,8 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
   const [lotsConfirmed, setLotsConfirmed] = useState(false);
   // Track most recent sub_batches for UI display (persisted from DB)
   const [updatedSubs, setUpdatedSubs] = useState([]);
+  // Track which cook batches are expanded
+  const [expandedBatches, setExpandedBatches] = useState({});
 
   // Fetch the latest stage data to ensure sub_batches are current
   const { data: freshStage } = useQuery({
@@ -204,6 +206,13 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
   // If no blend buckets configured on the product, skip lot confirmation entirely
   const hasBlendBuckets = blendBuckets.length > 0;
   const lotsValid = !hasBlendBuckets || blendBuckets.every(b => selectedLots[b.bucket_id]?.lot_number?.trim());
+
+  const toggleBatchExpanded = (batchNumber) => {
+    setExpandedBatches(prev => ({
+      ...prev,
+      [batchNumber]: !prev[batchNumber]
+    }));
+  };
 
   const openEditRack = (rack) => {
     setEditingRack(rack);
@@ -476,13 +485,17 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
           {plan.cookBatches.map(cb => {
            const completedInBatch = cb.racks.filter(r => effectiveRackData[r.rackNumber]?.completed).length;
            const batchComplete = completedInBatch === cb.racks.length && cb.racks.length > 0;
+           const isExpanded = expandedBatches[cb.cookBatchNumber] !== false; // Default expanded
 
            // Skip completed batches—they're shown in the completed section above
            if (batchComplete) return null;
 
            return (
              <div key={cb.cookBatchNumber} className={`rounded-xl border-2 border-border bg-card`}>
-                <div className="flex items-center justify-between px-4 pt-3 pb-2">
+                <button
+                  onClick={() => toggleBatchExpanded(cb.cookBatchNumber)}
+                  className="w-full flex items-center justify-between px-4 pt-3 pb-2 hover:bg-muted/30 transition-colors rounded-t-xl"
+                >
                   <div className="flex items-center gap-2">
                     {batchComplete
                       ? <CheckCircle2 className="w-4 h-4 text-chart-2" />
@@ -491,12 +504,15 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
                     <p className="font-bold text-sm">Cook Batch #{cb.cookBatchNumber}</p>
                     <span className="text-xs text-muted-foreground">{cb.totalLbs} lbs · {cb.racks.length} racks</span>
                   </div>
-                  {completedInBatch > 0 && (
-                    <Badge variant="outline" className="text-xs">{completedInBatch}/{cb.racks.length} racks complete</Badge>
-                  )}
-                </div>
+                  <div className="flex items-center gap-2">
+                    {completedInBatch > 0 && (
+                      <Badge variant="outline" className="text-xs">{completedInBatch}/{cb.racks.length} racks complete</Badge>
+                    )}
+                    <span className="text-xs text-muted-foreground">{isExpanded ? "▼" : "▶"}</span>
+                  </div>
+                </button>
 
-                <div className="px-4 pb-4 grid grid-cols-1 sm:grid-cols-3 gap-2">
+                {isExpanded && <div className="px-4 pb-4 grid grid-cols-1 sm:grid-cols-3 gap-2">
                   {cb.racks.map(rack => {
                     const rd = effectiveRackData[rack.rackNumber];
                     const done = rd?.completed;
@@ -528,10 +544,10 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
                       </button>
                     );
                   })}
-                </div>
-              </div>
-            );
-          })}
+                  </div>}
+                  </div>
+                  );
+                  })}
         </div>
       </DialogContent>
 
