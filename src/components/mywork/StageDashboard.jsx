@@ -49,11 +49,18 @@ export default function StageDashboard({ user, profile, onBack, singleProfile = 
 
       {myStages.length > 0 ? (
         <div className="space-y-2">
-          {myStages.map(stage => (
+          {myStages.map(stage => {
+            const bgClass = stage.capability_key === "cooking" 
+              ? "bg-red-50 hover:bg-red-100 border-red-200" 
+              : stage.capability_key === "chilling" 
+              ? "bg-blue-50 hover:bg-blue-100 border-blue-200" 
+              : "bg-card hover:bg-muted/50";
+
+            return (
             <button
               key={stage.id}
               onClick={() => setActiveStage(stage)}
-              className="w-full text-left p-3 rounded-lg border hover:shadow-sm transition-all bg-card hover:bg-muted/50"
+              className={`w-full text-left p-3 rounded-lg border hover:shadow-sm transition-all ${bgClass}`}
             >
               <div className="flex items-center justify-between">
                 <div>
@@ -62,9 +69,10 @@ export default function StageDashboard({ user, profile, onBack, singleProfile = 
                 </div>
                 {stage.status === "in_progress" && <Badge className="bg-accent/15 text-accent border-accent/30 border text-xs">In Progress</Badge>}
                 {stage.status === "available" && <Badge className="bg-chart-1/15 text-chart-1 border-chart-1/30 border text-xs">Ready</Badge>}
-              </div>
-            </button>
-          ))}
+                </div>
+                </button>
+                );
+                })}
         </div>
       ) : (
         <div className="text-center py-12 text-muted-foreground">
