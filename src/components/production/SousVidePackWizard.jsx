@@ -281,7 +281,11 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
 
     setSaving(false);
     setEditingRack(null);
-    onCompleted?.();
+
+    // Only call onCompleted if ALL racks are now done (stage fully complete)
+    if (allRacksDone) {
+      onCompleted?.();
+    }
   };
 
   if (!plan) return null;
