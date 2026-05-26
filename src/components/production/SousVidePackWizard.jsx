@@ -74,8 +74,20 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
 
   const { data: flow } = useQuery({
     queryKey: ["svFlow", order?.flow_id],
-    queryFn: () => base44.entities.ProductFlow.filter({ id: order.flow_id }).then(r => r?.[0]),
-    enabled: !!order?.flow_id,
+    queryFn: async () => {
+      // Try ProductFlow first (newer), fall back to scanning all flows for the product
+      if (order.flow_id) {
+        const r = await base44.entities.ProductFlow.filter({ id: order.flow_id });
+        if (r?.[0]) return r[0];
+      }
+      // Fallback: find flow by product_id
+      if (order.product_id) {
+        const r = await base44.entities.ProductFlow.filter({ product_id: order.product_id });
+        return r?.[0] || null;
+      }
+      return null;
+    },
+    enabled: open && !!order,
     staleTime: Infinity,
   });
 
@@ -223,44 +235,52 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
     // Check if the cook batch this rack belongs to is now complete
     const cookBatch = plan.cookBatches.find(cb => cb.cookBatchNumber === editingRack.cookBatchNumber);
     if (cookBatch) {
-      const allRacksInBatch = cookBatch.racks.map(r => r.rackNumber);
-      const completedInBatch = allRacksInBatch.filter(rn => updatedRackData[rn]?.completed);
-      const batchComplete = completedInBatch.length === allRacksInBatch.length;
+    const allRacksInBatch = cookBatch.racks.map(r => r.rackNumber);
+    const completedInBatch = allRacksInBatch.filter(rn => updatedRackData[rn]?.completed);
+    const batchComplete = completedInBatch.length === allRacksInBatch.length;
 
-      if (batchComplete) {
-        // Fire off a cooking stage for this cook batch
-        const flowSteps = flow?.steps || [];
-        const cookStep = flowSteps.find(s => s.capability_key === "cooking");
-        if (cookStep) {
-          const cookBatchLbs = cookBatch.racks.reduce((s, r) => s + (updatedRackData[r.rackNumber]?.lbs || r.lbs), 0);
-          const cookBatchLot = `SV-CB${editingRack.cookBatchNumber}-${Date.now()}`;
-          // Check if already created (guard against double-tap)
-          const existingCookStages = await base44.entities.ProductionStage.filter({
+    if (batchComplete) {
+      // Fire off a cooking stage for this cook batch
+      // Find the sous_vide_pack step in the flow, then use the next step after it as the cooking step
+      const flowSteps = [...(flow?.steps || [])].sort((a, b) => a.step_number - b.step_number);
+      const svPackStep = flowSteps.find(s => s.capability_key === "sous_vide_pack");
+      const cookStep = svPackStep
+        ? flowSteps.find(s => s.step_number > svPackStep.step_number)
+        : flowSteps.find(s => s.capability_key === "cooking");
+
+      if (cookStep) {
+        const cookBatchLbs = cookBatch.racks.reduce((s, r) => s + (updatedRackData[r.rackNumber]?.lbs || r.lbs), 0);
+        const cookBatchLot = `SV-CB${editingRack.cookBatchNumber}-${new Date().toISOString().slice(0,10).replace(/-/g,"")}`;
+        // Check if already created (guard against double-tap) — use cook_batch_lot as unique key
+        const existingCookStages = await base44.entities.ProductionStage.filter({
+          order_id: stage.order_id,
+          capability_key: cookStep.capability_key,
+        });
+        const alreadyExists = existingCookStages.some(s =>
+          s.cook_batch_lot === cookBatchLot ||
+          s.notes?.includes(`Cook Batch #${editingRack.cookBatchNumber}`)
+        );
+        if (!alreadyExists) {
+          await base44.entities.ProductionStage.create({
             order_id: stage.order_id,
-            capability_key: "cooking",
+            order_number: stage.order_number,
+            product_name: stage.product_name,
+            step_number: cookStep.step_number,
+            capability_id: cookStep.capability_id || "",
+            capability_key: cookStep.capability_key,
+            capability_name: cookStep.capability_name,
+            work_profile_id: cookStep.work_profile_id || "",
+            work_profile_name: cookStep.work_profile_name || "",
+            status: "available",
+            input_qty_lbs: parseFloat(cookBatchLbs.toFixed(2)),
+            racks_count: allRacksInBatch.length,
+            cook_batch_lot: cookBatchLot,
+            input_lot_number: cookBatchLot,
+            notes: `Cook Batch #${editingRack.cookBatchNumber} — Racks ${allRacksInBatch.join(", ")}`,
           });
-          const alreadyExists = existingCookStages.some(s => s.notes?.includes(`Cook Batch #${editingRack.cookBatchNumber}`));
-          if (!alreadyExists) {
-            await base44.entities.ProductionStage.create({
-              order_id: stage.order_id,
-              order_number: stage.order_number,
-              product_name: stage.product_name,
-              step_number: cookStep.step_number,
-              capability_id: cookStep.capability_id,
-              capability_key: cookStep.capability_key,
-              capability_name: cookStep.capability_name,
-              work_profile_id: cookStep.work_profile_id || "",
-              work_profile_name: cookStep.work_profile_name || "",
-              status: "available",
-              input_qty_lbs: parseFloat(cookBatchLbs.toFixed(2)),
-              racks_count: allRacksInBatch.length,
-              cook_batch_lot: cookBatchLot,
-              input_lot_number: cookBatchLot,
-              notes: `Cook Batch #${editingRack.cookBatchNumber} — Racks ${allRacksInBatch.join(", ")}`,
-            });
-          }
         }
       }
+    }
     }
 
     // Check if ALL racks are done → mark the sous vide pack stage as completed
