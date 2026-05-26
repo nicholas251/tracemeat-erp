@@ -714,9 +714,9 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
           }
         }
 
-        // Unlock next stage and pass lot traceability
+        // Unlock next stage and pass lot traceability (unless chilling — don't auto-unlock packaging)
         const allStages = await base44.entities.ProductionStage.filter({ order_id: stage.order_id });
-        const nextStage = allStages.find(s => s.step_number === stage.step_number + 1 && s.status !== "completed");
+        const nextStage = capKey !== "chilling" ? allStages.find(s => s.step_number === stage.step_number + 1 && s.status !== "completed") : null;
 
         // For dynamically-created stages (e.g. sous vide cooking → chilling), the next stage
         // may not exist yet — look it up from the flow and create it on the fly.
@@ -750,8 +750,8 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
           }
         }
 
-        if (nextStage?.status === "locked") {
-          const rawQty = updates.output_qty_lbs || stage.input_qty_lbs || 0;
+        if (nextStage?.status === "locked" && capKey !== "chilling") {
+           const rawQty = updates.output_qty_lbs || stage.input_qty_lbs || 0;
           const productYield = product?.yield_percent;
           if (!productYield) console.warn(`Product missing yield_percent; using default 85%`);
           const yieldFraction = (productYield ?? 85) / 100;
