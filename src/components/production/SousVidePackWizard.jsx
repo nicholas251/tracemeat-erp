@@ -150,8 +150,13 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
   useEffect(() => {
     if (open && stageToUse?.sub_batches && stageToUse.sub_batches.length > 0) {
       setUpdatedSubs(stageToUse.sub_batches);
+    } else if (!open) {
+      // Reset local state when dialog closes
+      setUpdatedSubs([]);
+      setLotsConfirmed(false);
+      setSelectedLots({});
     }
-  }, [open, stageToUse?.id]);
+  }, [open, stageToUse?.id, stageToUse?.sub_batches]);
 
   const plan = useMemo(() => {
     if (!stageToUse) return null;
