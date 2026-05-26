@@ -179,8 +179,9 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
   const openEditRack = (rack) => {
     setEditingRack(rack);
     const existing = effectiveRackData[rack.rackNumber];
+    const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
     setEditForm({
-      lot_number: existing?.lot_number || "",
+      lot_number: existing?.lot_number || `R${rack.rackNumber}-${today}`,
       notes: existing?.notes || "",
       lbs: existing?.lbs ?? rack.lbs,
     });
