@@ -329,13 +329,38 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
     const lbs = parseFloat(editForm.lbs) || editingRack.lbs;
     const lot = editForm.lot_number.trim() || `SV-R${rackNum}-${Date.now()}`;
 
-    // ── Check if we'll need to split across lots before doing anything ──
+    // ── Refresh active lots from DB to ensure remaining_qty is current ──
     if (!skipSplitCheck) {
-      const splitNeeded = checkSplitLotNeeded(rackNum, lbs);
-      if (splitNeeded) {
-        // Show confirmation dialog and return — do NOT close the rack form yet
-        setSplitLotConfirmation(splitNeeded);
-        return;
+      const freshActiveLots = {};
+      for (const b of effectiveBuckets) {
+        const current = activeLots[b.bucket_id];
+        if (current?.raw_inventory_id) {
+          const freshRow = await base44.entities.RawInventory.filter({ id: current.raw_inventory_id }).then(r => r?.[0]);
+          if (freshRow) {
+            freshActiveLots[b.bucket_id] = {
+              raw_inventory_id: freshRow.id,
+              lot_number: freshRow.lot_number || "",
+              remaining_qty: freshRow.available_qty ?? 0,
+            };
+          }
+        }
+      }
+      // Temporarily use fresh active lots for the split check only
+      const primaryBucketId = effectiveBuckets[0]?.bucket_id;
+      const freshPrimaryActive = freshActiveLots[primaryBucketId];
+      if (freshPrimaryActive?.remaining_qty < lbs) {
+        const nextLots = getFifoLots(rawInventory, primaryBucketId).filter(l => l.id !== freshPrimaryActive?.raw_inventory_id);
+        if (nextLots.length > 0) {
+          const nextLot = nextLots[0];
+          setSplitLotConfirmation({
+            rackNumber: rackNum,
+            currentLotNumber: freshPrimaryActive?.lot_number,
+            currentRemaining: freshPrimaryActive?.remaining_qty,
+            nextLotNumber: nextLot.lot_number || nextLot.id,
+            weightNeeded: lbs,
+          });
+          return;
+        }
       }
     }
 
