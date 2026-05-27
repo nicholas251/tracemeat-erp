@@ -286,33 +286,14 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
   };
 
   // ─── Handle split lot confirmation (when mid-rack lot exhaustion occurs) ──
-  // User is confirming which lot to switch to before opening the rack form
+  // User confirmed the split — just close the dialog and let handleCompleteRack deduct from both lots
   const handleConfirmSplitLot = async () => {
-    if (!editingRack || !splitLotConfirmation || !splitLotNextId) return;
+    if (!editingRack || !splitLotConfirmation) return;
 
-    // Advance the active lot to the next lot BEFORE completing the rack
-    const primaryBucketId = effectiveBuckets[0]?.bucket_id;
-    const nextFreshRow = await base44.entities.RawInventory.filter({ id: splitLotNextId }).then(r => r?.[0]);
-
-    if (nextFreshRow) {
-      const updatedActiveLots = { ...activeLots };
-      updatedActiveLots[primaryBucketId] = {
-        raw_inventory_id: nextFreshRow.id,
-        lot_number: nextFreshRow.lot_number || "",
-        remaining_qty: nextFreshRow.available_qty ?? 0,
-      };
-      setActiveLots(updatedActiveLots);
-
-      // Persist the updated active lots
-      await base44.entities.ProductionStage.update(stageData.id, {
-        pork_lot_number: JSON.stringify(updatedActiveLots),
-      });
-    }
-
-    // Clear split state and proceed with the rack form showing the new lot
+    // Close the split confirmation dialog; the rack form is already showing and ready
+    // handleCompleteRack will detect the split and deduct from both the current and next lot
     setSplitLotConfirmation(null);
     setSplitLotNextId(null);
-    // editingRack is already set, so the rack form will open with the new active lot
   };
 
   // ─── Switch to next lot (manual override — used when lot exhausted exactly on a rack boundary) ──
