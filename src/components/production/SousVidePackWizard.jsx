@@ -69,8 +69,9 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
     staleTime: 0,
   });
 
-  const stageData = freshStage || stage;
-  const lotsConfirmed = !!stageData?.input_lot_number;
+  // Always prefer freshStage; only fall back to prop while initial fetch is pending
+  const stageData = freshStage ?? stage;
+  const lotsConfirmed = !!(freshStage?.input_lot_number ?? stage?.input_lot_number);
 
   // ── Fetch related data ──
   const { data: order } = useQuery({
@@ -202,6 +203,9 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
     const lbs = parseFloat(editForm.lbs) || editingRack.lbs;
     const lot = editForm.lot_number.trim() || `SV-R${rackNum}-${Date.now()}`;
 
+    // Always fetch the freshest stage from DB before merging sub_batches
+    const latestStage = await base44.entities.ProductionStage.filter({ id: stageData.id }).then(r => r?.[0]);
+
     const newSubBatch = {
       sub_batch_id: `rack-${rackNum}`,
       rack_number: rackNum,
@@ -214,8 +218,8 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
       status: "completed",
     };
 
-    // Merge with existing sub_batches (replace same rack_number if re-saving)
-    const existingSubs = stageData.sub_batches || [];
+    // Merge with the freshest sub_batches from DB (replace same rack_number if re-saving)
+    const existingSubs = latestStage?.sub_batches || stageData.sub_batches || [];
     const newSubs = [...existingSubs.filter(sb => sb.rack_number !== rackNum), newSubBatch];
 
     // Build updated completed map for logic checks
