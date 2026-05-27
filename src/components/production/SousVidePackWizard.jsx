@@ -420,6 +420,19 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
           const rawLots = Object.values(newActiveLots).map(al => al.lot_number).filter(Boolean);
           const allLots = [...new Set([...rawLots, ...uniqueRackLots])];
 
+          // Find the cooking step's work profile to assign the stage
+          let cookProfileId = cookStep?.work_profile_id;
+          let cookProfileName = cookStep?.work_profile_name;
+          if (!cookProfileId) {
+            // Fallback: try to find a work profile with "cooking" or "cook" capability
+            const allProfiles = await base44.entities.WorkProfile.filter({ status: "active" });
+            const cookProfile = allProfiles.find(p => (p.capability_keys || []).includes("cooking"));
+            if (cookProfile) {
+              cookProfileId = cookProfile.id;
+              cookProfileName = cookProfile.name;
+            }
+          }
+
           await base44.entities.ProductionStage.create({
             order_id: stageData.order_id,
             order_number: stageData.order_number,
@@ -428,8 +441,8 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
             capability_id: cookStep?.capability_id || "",
             capability_key: "cooking",
             capability_name: "Cooking",
-            work_profile_id: cookStep?.work_profile_id || "",
-            work_profile_name: cookStep?.work_profile_name || "",
+            work_profile_id: cookProfileId || "",
+            work_profile_name: cookProfileName || "",
             status: "available",
             input_qty_lbs: parseFloat(cookBatchLbs.toFixed(2)),
             racks_count: allRackNums.length,
