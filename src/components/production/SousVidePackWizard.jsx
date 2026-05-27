@@ -305,17 +305,20 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
   };
 
   // ─── Handle split lot confirmation (when mid-rack lot exhaustion occurs) ──
-  // User confirmed the split — deduct from old lot first, then switch to new lot
+  // User confirmed the split — deduct from old lot, switch to new lot, close dialog
+  // User then clicks "Complete Rack" to deduct the remainder from the new lot
   const handleConfirmSplitLot = async () => {
     if (!editingRack || !splitLotConfirmation || !splitLotNextId) return;
 
+    setSaving(true);
     const rackNumber = splitLotConfirmation.rackNumber;
     const primaryBucketId = effectiveBuckets[0]?.bucket_id;
     const currentActive = activeLots[primaryBucketId];
 
-    // Immediately deduct the old lot's remaining amount
+    // Deduct the old lot's remaining amount
     if (currentActive?.raw_inventory_id) {
-      const oldLotNewQty = parseFloat((currentActive.remaining_qty - splitLotConfirmation.currentRemaining).toFixed(2));
+      const deductAmount = splitLotConfirmation.currentRemaining;
+      const oldLotNewQty = parseFloat((currentActive.remaining_qty - deductAmount).toFixed(2));
       await base44.entities.RawInventory.update(currentActive.raw_inventory_id, {
         available_qty: Math.max(0, oldLotNewQty),
         status: oldLotNewQty <= 0 ? "depleted" : "in_use",
@@ -339,15 +342,13 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
       });
     }
 
-    // Mark this rack as split-confirmed
+    // Mark this rack as split-confirmed so dialog won't re-appear
     setSplitConfirmedRackNumber(rackNumber);
 
-    // Close split confirmation dialog
+    // Close split confirmation dialog — user will now click "Complete Rack" to finish
     setSplitLotConfirmation(null);
     setSplitLotNextId(null);
-
-    // Resume deduction with the split already confirmed (skip the split check)
-    await handleCompleteRack(true);
+    setSaving(false);
   };
 
   // ─── Switch to next lot (manual override — used when lot exhausted exactly on a rack boundary) ──
