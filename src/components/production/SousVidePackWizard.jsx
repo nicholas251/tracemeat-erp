@@ -294,7 +294,7 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
     const lastRawLot = getLastRawLot(completedRacks[rack.rackNumber - 1]);
     const lotChanged = lastRawLot && currentActiveLotNumber && lastRawLot !== currentActiveLotNumber;
     setLotChangedFrom(lotChanged ? lastRawLot : null);
-    setLotChangeConfirmed(autoConfirmLotChange);
+    setLotChangeConfirmed(false);
     setEditingRack(rack);
   };
 
@@ -359,7 +359,6 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
       await refetchInventory();
 
       // Step 7: Mark split as confirmed for this rack to prevent re-triggering
-      // (Note: already set at line 358, but confirming sequencing)
 
       // Step 8: Open the rack form for final weight/notes entry
       const rackToOpen = plan.racks.find(r => r.rackNumber === rackNumber);
