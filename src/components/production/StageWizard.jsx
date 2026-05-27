@@ -321,13 +321,14 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
   };
 
   // ── Complete ──
-  const handleComplete = async () => {
-    setSaving(true);
-    const currentBatchIdx = step - 1;
-    const currentBatch = resolvedBatches?.[currentBatchIdx];
-    const isLastBatch = step === totalBatches;
+   const handleComplete = async () => {
+     setSaving(true);
+     const currentBatchIdx = step - 1;
+     const currentBatch = resolvedBatches?.[currentBatchIdx];
+     const isLastBatch = step === totalBatches;
+     const today_str = new Date().toISOString().slice(0, 10);
 
-    try {
+     try {
       if (usesIngredientBatches && currentBatch) {
         // For blending: complete one batch at a time
         const batchLbs = currentBatch.batchLbs;
@@ -644,13 +645,12 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
           const order = await base44.entities.ProductionOrder.filter({ id: stage.order_id }).then(r => r?.[0]);
           if (order) {
             const today = new Date();
-            const datePart = today.toISOString().slice(0, 10).replace(/-/g, "");
+            const datePart = today_str.replace(/-/g, "");
             const rand = Math.floor(Math.random() * 900 + 100);
             const fgLot = updates.lot_number || `FG-${datePart}-${(order.order_number || "").replace(/\D/g, "").slice(-4)}-${rand}`;
 
             const outputLbs = updates.output_qty_lbs || stage.input_qty_lbs || 0;
             const packagesProduced = updates.packages_produced || 0;
-            const today_str = today.toISOString().slice(0, 10);
 
             // Find the product to get shelf life and case weight
             const product = await base44.entities.Product.filter({ id: order.product_id }).then(r => r?.[0]);
@@ -734,36 +734,37 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
         let nextStage = allStages.find(s => s.step_number === stage.step_number + 1 && s.status !== "completed");
         
         // For chilling, create packing stages if they don't exist
-        if (!nextStage && capKey === "chilling") {
-          const order = await base44.entities.ProductionOrder.filter({ id: stage.order_id }).then(r => r?.[0]);
-          if (order?.flow_id) {
-            const flow = await base44.entities.ProductFlow.filter({ id: order.flow_id }).then(r => r?.[0]);
-            const nextFlowStep = flow?.steps?.find(s => s.step_number === stage.step_number + 1);
-            if (nextFlowStep) {
-              const rawQty = updates.output_qty_lbs || stage.input_qty_lbs || 0;
-              const nextInputLot = updates.output_lot_number || stage.cook_batch_lot || stage.input_lot_number || "";
-              await base44.entities.ProductionStage.create({
-                order_id: stage.order_id,
-                order_number: stage.order_number,
-                product_name: stage.product_name,
-                step_number: nextFlowStep.step_number,
-                capability_id: nextFlowStep.capability_id,
-                capability_key: nextFlowStep.capability_key,
-                capability_name: nextFlowStep.capability_name,
-                work_profile_id: nextFlowStep.work_profile_id || "",
-                work_profile_name: nextFlowStep.work_profile_name || "",
-                status: "available",
-                input_qty_lbs: rawQty,
-                input_lot_number: nextInputLot,
-                cook_batch_lot: stage.cook_batch_lot || "",
-              });
-              // Refresh nextStage after creation
-              nextStage = await base44.entities.ProductionStage.filter({ order_id: stage.order_id }).then(r =>
-                r.find(s => s.step_number === stage.step_number + 1 && s.status !== "completed")
-              );
-            }
-          }
-        }
+         if (!nextStage && capKey === "chilling") {
+           const order = await base44.entities.ProductionOrder.filter({ id: stage.order_id }).then(r => r?.[0]);
+           if (order?.flow_id) {
+             const flow = await base44.entities.ProductFlow.filter({ id: order.flow_id }).then(r => r?.[0]);
+             const nextFlowStep = flow?.steps?.find(s => s.step_number === stage.step_number + 1);
+             if (nextFlowStep) {
+               // Chilling output becomes packing input (no yield—already applied at cooking)
+               const cooledQty = updates.output_qty_lbs || stage.input_qty_lbs || 0;
+               const cooledLot = updates.output_lot_number || stage.input_lot_number || "";
+               await base44.entities.ProductionStage.create({
+                 order_id: stage.order_id,
+                 order_number: stage.order_number,
+                 product_name: stage.product_name,
+                 step_number: nextFlowStep.step_number,
+                 capability_id: nextFlowStep.capability_id,
+                 capability_key: nextFlowStep.capability_key,
+                 capability_name: nextFlowStep.capability_name,
+                 work_profile_id: nextFlowStep.work_profile_id || "",
+                 work_profile_name: nextFlowStep.work_profile_name || "",
+                 status: "available",
+                 input_qty_lbs: cooledQty,
+                 input_lot_number: cooledLot,
+                 cook_batch_lot: stage.cook_batch_lot || "",
+               });
+               // Refresh nextStage after creation
+               nextStage = await base44.entities.ProductionStage.filter({ order_id: stage.order_id }).then(r =>
+                 r.find(s => s.step_number === stage.step_number + 1 && s.status !== "completed")
+               );
+             }
+           }
+         }
 
         // For cooking stage, create a chilling stage for each cook batch in the cook plan
         if (capKey === "cooking" && cookPlan?.cookBatches?.length > 0) {
@@ -777,7 +778,10 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
 
               // Create a chilling stage for EACH cook batch
               for (const batch of cookPlan.cookBatches) {
-                const batchQty = parseFloat((batch.lbs * yieldFraction).toFixed(2));
+                // batch.lbs is already cooked output (yield applied at cooking completion), don't apply yield again
+                const batchQty = parseFloat(batch.lbs.toFixed(2));
+                // Use the lot from the form submission (output_lot_number)
+                const lotNum = updates.output_lot_number || `CB${batch.cookBatchNumber}-${stage.order_number}-${today_str}`;
                 await base44.entities.ProductionStage.create({
                   order_id: stage.order_id,
                   order_number: stage.order_number,
@@ -790,8 +794,8 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
                   work_profile_name: nextFlowStep.work_profile_name || "",
                   status: "available",
                   input_qty_lbs: batchQty,
-                  input_lot_number: batch.lotNumber || "",
-                  cook_batch_lot: batch.lotNumber || "",
+                  input_lot_number: lotNum,
+                  cook_batch_lot: lotNum,
                 });
               }
             }
