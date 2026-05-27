@@ -153,13 +153,15 @@ function buildMeasurementSteps(stage, product, capKey, casingBuckets = []) {
     const cookLotDefault = stage?.cook_batch_lot
       ? `${stage.cook_batch_lot}-${today}`
       : `COOK-${today}`;
+    // Auto-calculate rack count from stage's racks_count if available
+    const racksCount = stage?.racks_count || 0;
     steps.push({
       id: "cook",
       label: "Cook Parameters",
       fields: [
-        { key: "temperature_c", label: "Internal Temp (°C)", type: "number" },
+        { key: "temperature_f", label: "Internal Temp (°F)", type: "number" },
         { key: "duration_minutes", label: "Cook Time (minutes)", type: "number" },
-        { key: "racks_count", label: "Rack Count", type: "number" },
+        { key: "racks_count", label: "Rack Count", type: "number", defaultValue: racksCount, disabled: true },
         { key: "output_lot_number", label: "Cooked Lot #", type: "text", placeholder: "e.g. COOK-2024-001", defaultValue: cookLotDefault },
       ],
     });
@@ -626,6 +628,14 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
           completed_at: new Date().toISOString(),
           ...form,
         };
+        // Convert temperature from Fahrenheit to Celsius for storage if present
+        if (capKey === "cooking" && updates.temperature_f) {
+          updates.temperature_c = parseFloat(((updates.temperature_f - 32) * 5/9).toFixed(2));
+          delete updates.temperature_f;
+        } else if (capKey === "chilling" && updates.temperature_f) {
+          updates.temperature_c = parseFloat(((updates.temperature_f - 32) * 5/9).toFixed(2));
+          delete updates.temperature_f;
+        }
 
         await base44.entities.ProductionStage.update(stage.id, updates);
 
@@ -1017,11 +1027,16 @@ function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form, setFor
   const [caseWeights, setCaseWeights] = React.useState(form.case_weights || []);
 
   // Auto-populate fields with defaultValue when first entering this step
+  // Also handle temperature conversion from Celsius to Fahrenheit for cooking/chilling
   React.useEffect(() => {
     const defaults = {};
     for (const field of stepDef.fields) {
       if (field.defaultValue !== undefined && (form[field.key] === undefined || form[field.key] === "")) {
         defaults[field.key] = field.defaultValue;
+      }
+      // Convert Celsius to Fahrenheit for display in cooking/chilling stages
+      if (field.key === "temperature_f" && stage?.temperature_c && !form.temperature_f) {
+        defaults[field.key] = parseFloat(((stage.temperature_c * 9/5) + 32).toFixed(2));
       }
     }
     if (Object.keys(defaults).length > 0) {
@@ -1242,6 +1257,7 @@ function FieldInput({ field, value, onChange, casingBuckets = [], onCasingSelect
           onChange={e => onChange(e.target.value)}
           className="h-24 text-base"
           placeholder={field.placeholder || "Any observations..."}
+          disabled={field.disabled}
         />
       </div>
     );
@@ -1253,9 +1269,13 @@ function FieldInput({ field, value, onChange, casingBuckets = [], onCasingSelect
         type={field.type === "number" ? "number" : "text"}
         step={field.type === "number" ? "0.1" : undefined}
         value={value ?? field.defaultValue ?? ""}
-        onChange={e => onChange(field.type === "number" ? Number(e.target.value) : e.target.value)}
+        onChange={e => {
+          let val = field.type === "number" ? Number(e.target.value) : e.target.value;
+          onChange(val);
+        }}
         placeholder={field.placeholder || ""}
         className="h-11 text-base"
+        disabled={field.disabled}
       />
     </div>
   );
