@@ -854,10 +854,9 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
                 </Button>
                 <Button
                   className="flex-1 bg-amber-600 hover:bg-amber-700 gap-2"
-                  onClick={async () => {
-                    setSplitLotConfirmation(null);
-                    // Retry rack completion without split check
-                    await handleCompleteRack(true);
+                  onClick={() => {
+                    // Retry rack completion without split check, then close dialog
+                    handleCompleteRack(true).then(() => setSplitLotConfirmation(null));
                   }}
                   disabled={saving}
                 >
