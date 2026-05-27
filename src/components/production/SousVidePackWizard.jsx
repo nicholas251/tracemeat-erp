@@ -64,7 +64,7 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
   const [editForm, setEditForm] = useState({ lot_number: "", notes: "", lbs: "", short_weight_reason: "" });
   // Per-bucket selected lot: { [bucket_id]: { raw_inventory_id, lot_number, available_qty } }
   const [selectedLots, setSelectedLots] = useState({});
-  const [lotsConfirmed, setLotsConfirmed] = useState(!!stage?.input_lot_number);
+  const [lotsConfirmed, setLotsConfirmed] = useState(false);
   // Seed immediately from prop so racks never flash empty while query loads
   const [updatedSubs, setUpdatedSubs] = useState(stage?.sub_batches || []);
   // Track which cook batches are expanded
@@ -157,12 +157,12 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
     }
   }, [rawInventoryAll, blendBuckets]);
 
-  // Also restore confirmed state from saved stage data
+  // Restore confirmed state only from fresh server data (not from the stale prop)
   useEffect(() => {
-    if (stageToUse?.input_lot_number) {
+    if (freshStage?.input_lot_number) {
       setLotsConfirmed(true);
     }
-  }, [stageToUse?.input_lot_number]);
+  }, [freshStage?.input_lot_number]);
 
   // No longer auto-confirm when blend_ingredients is empty — show config notice instead
 
