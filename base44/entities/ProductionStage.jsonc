@@ -122,12 +122,43 @@
           "sub_batch_id": {
             "type": "string"
           },
+          "rack_number": {
+            "type": "number",
+            "description": "Physical rack number (for sous vide packing)"
+          },
           "label": {
             "type": "string",
-            "description": "e.g. 'Filling Batch #1'"
+            "description": "e.g. 'Filling Batch #1' or 'Rack #1'"
           },
           "qty_lbs": {
             "type": "number"
+          },
+          "lbs": {
+            "type": "number",
+            "description": "Alias for qty_lbs"
+          },
+          "lot_number": {
+            "type": "string",
+            "description": "Lot number for this batch/rack"
+          },
+          "raw_lots": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "List of raw material lot numbers used"
+          },
+          "notes": {
+            "type": "string",
+            "description": "Operator notes"
+          },
+          "short_weight_reason": {
+            "type": "string",
+            "description": "Reason if batch is below standard weight"
+          },
+          "cook_batch_number": {
+            "type": "number",
+            "description": "Cook batch this rack belongs to"
           },
           "merged_from": {
             "type": "array",
