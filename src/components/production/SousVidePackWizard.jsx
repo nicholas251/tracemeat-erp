@@ -315,6 +315,7 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
       return;
     }
 
+    // Set saving early to prevent double-clicks or race conditions
     setSaving(true);
     try {
       const rackNumber = splitLotConfirmation.rackNumber;
@@ -507,7 +508,8 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
       // Second: if first lot ran out mid-rack, deduct from the next FIFO lot
       // BUT do NOT auto-advance the active lot — user must confirm first via needsNewLot dialog
       if (remaining > 0.01) {
-        const nextLots = getFifoLots(rawInventory, b.bucket_id).filter(l => l.id !== freshRow.id);
+        // Get fresh FIFO list to find alternative lots (exclude the primary lot we just deducted from)
+        const nextLots = getFifoLots(rawInventory, b.bucket_id).filter(l => l.id !== active.raw_inventory_id);
         if (nextLots.length > 0) {
           const nextLot = nextLots[0];
           const nextFreshRow = await base44.entities.RawInventory.filter({ id: nextLot.id }).then(r => r?.[0]);
@@ -671,7 +673,7 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
     }
 
     if (allRacksDone) onCompleted?.();
-    };
+  };
 
   const handleClose = () => {
     setEditingRack(null);
@@ -682,11 +684,6 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
   // Primary active lot info for display
   const primaryBucketId = effectiveBuckets[0]?.bucket_id;
   const primaryActiveLot = activeLots[primaryBucketId];
-
-  // Next-lot FIFO candidates (exclude currently active lot)
-  const nextLotCandidates = primaryBucketId
-    ? getFifoLots(rawInventory, primaryBucketId).filter(l => l.id !== primaryActiveLot?.raw_inventory_id)
-    : [];
 
   // ─── Render ───────────────────────────────────────────────────────────────
   return (
