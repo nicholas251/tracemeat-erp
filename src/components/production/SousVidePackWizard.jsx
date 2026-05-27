@@ -71,7 +71,8 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
 
   // Always prefer freshStage; only fall back to prop while initial fetch is pending
   const stageData = freshStage ?? stage;
-  const lotsConfirmed = !!(freshStage?.input_lot_number ?? stage?.input_lot_number);
+  // Treat empty string as unconfirmed — must be a non-empty string
+  const lotsConfirmed = !!((freshStage?.input_lot_number ?? stage?.input_lot_number)?.trim());
 
   // ── Fetch related data ──
   const { data: order } = useQuery({
@@ -161,7 +162,8 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
       if (!sel?.raw_inventory_id) continue;
       const freshRow = await base44.entities.RawInventory.filter({ id: sel.raw_inventory_id }).then(r => r?.[0]);
       if (freshRow) {
-        const deduct = b.quantity_lbs || stageData.input_qty_lbs || 0;
+        // Always deduct the full stage input qty (the whole batch is this bucket)
+        const deduct = stageData.input_qty_lbs || b.quantity_lbs || 0;
         const newQty = Math.max(0, (freshRow.available_qty || 0) - deduct);
         await base44.entities.RawInventory.update(sel.raw_inventory_id, {
           available_qty: parseFloat(newQty.toFixed(2)),
