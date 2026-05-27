@@ -305,16 +305,25 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
   };
 
   // ─── Handle split lot confirmation (when mid-rack lot exhaustion occurs) ──
-  // User confirmed the split — switch to the new lot and resume deduction
+  // User confirmed the split — deduct from old lot first, then switch to new lot
   const handleConfirmSplitLot = async () => {
     if (!editingRack || !splitLotConfirmation || !splitLotNextId) return;
 
     const rackNumber = splitLotConfirmation.rackNumber;
-
-    // Switch active lot to the new lot so handleCompleteRack deducts correctly across both lots
     const primaryBucketId = effectiveBuckets[0]?.bucket_id;
-    const nextFreshRow = await base44.entities.RawInventory.filter({ id: splitLotNextId }).then(r => r?.[0]);
+    const currentActive = activeLots[primaryBucketId];
 
+    // Immediately deduct the old lot's remaining amount
+    if (currentActive?.raw_inventory_id) {
+      const oldLotNewQty = parseFloat((currentActive.remaining_qty - splitLotConfirmation.currentRemaining).toFixed(2));
+      await base44.entities.RawInventory.update(currentActive.raw_inventory_id, {
+        available_qty: Math.max(0, oldLotNewQty),
+        status: oldLotNewQty <= 0 ? "depleted" : "in_use",
+      });
+    }
+
+    // Switch active lot to the new lot
+    const nextFreshRow = await base44.entities.RawInventory.filter({ id: splitLotNextId }).then(r => r?.[0]);
     if (nextFreshRow) {
       const updatedActiveLots = { ...activeLots };
       updatedActiveLots[primaryBucketId] = {
@@ -324,13 +333,13 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
       };
       setActiveLots(updatedActiveLots);
 
-      // Persist the updated active lots so handleCompleteRack uses the new lot
+      // Persist the updated active lots
       await base44.entities.ProductionStage.update(stageData.id, {
         pork_lot_number: JSON.stringify(updatedActiveLots),
       });
     }
 
-    // Mark this rack as split-confirmed so openEditRack won't show split dialog again
+    // Mark this rack as split-confirmed
     setSplitConfirmedRackNumber(rackNumber);
 
     // Close split confirmation dialog
