@@ -626,15 +626,17 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
               });
             }
           }
-          }
+        }
 
-          queryClient.invalidateQueries({ queryKey: ["allStages"] });
-          queryClient.invalidateQueries({ queryKey: ["orderStages", stage.order_id] });
-          queryClient.invalidateQueries({ queryKey: ["productionOrders"] });
-          onCompleted?.();
-          onClose();
-          } else {
-          // For non-blending/non-linking stages: complete the whole stage
+        queryClient.invalidateQueries({ queryKey: ["allStages"] });
+        queryClient.invalidateQueries({ queryKey: ["orderStages", stage.order_id] });
+        queryClient.invalidateQueries({ queryKey: ["productionOrders"] });
+        onCompleted?.();
+        onClose();
+      } else {
+        // For non-blending/non-linking stages: complete the whole stage
+        const today = new Date();
+        const today_str = today.toISOString().slice(0, 10);
         const updates = {
           status: "completed",
           completed_at: new Date().toISOString(),
@@ -652,30 +654,30 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
         await base44.entities.ProductionStage.update(stage.id, updates);
 
         // If this is packaging: push into the FG bucket AND create an InventoryItem lot
-        if (capKey === "packaging") {
-          const order = await base44.entities.ProductionOrder.filter({ id: stage.order_id }).then(r => r?.[0]);
-          if (order) {
-            const today = new Date();
-            const datePart = today_str.replace(/-/g, "");
-            const rand = Math.floor(Math.random() * 900 + 100);
-            const fgLot = updates.lot_number || `FG-${datePart}-${(order.order_number || "").replace(/\D/g, "").slice(-4)}-${rand}`;
+         if (capKey === "packaging") {
+           const order = await base44.entities.ProductionOrder.filter({ id: stage.order_id }).then(r => r?.[0]);
+           if (order) {
+             // today and today_str already defined above
+             const datePart = today_str.replace(/-/g, "");
+             const rand = Math.floor(Math.random() * 900 + 100);
+             const fgLot = updates.lot_number || `FG-${datePart}-${(order.order_number || "").replace(/\D/g, "").slice(-4)}-${rand}`;
 
-            const outputLbs = updates.output_qty_lbs || stage.input_qty_lbs || 0;
-            const packagesProduced = updates.packages_produced || 0;
+             const outputLbs = updates.output_qty_lbs || stage.input_qty_lbs || 0;
+             const packagesProduced = updates.packages_produced || 0;
 
-            // Find the product to get shelf life and case weight
-            const product = await base44.entities.Product.filter({ id: order.product_id }).then(r => r?.[0]);
-            const shelfLifeDays = product?.shelf_life_days || null;
-            const caseWeightLbs = product?.case_weight_lbs || null;
-            const expiryDate = shelfLifeDays
-              ? new Date(today.getTime() + shelfLifeDays * 86400000).toISOString().slice(0, 10)
-              : null;
+             // Find the product to get shelf life and case weight
+             const productData = await base44.entities.Product.filter({ id: order.product_id }).then(r => r?.[0]);
+             const shelfLifeDays = productData?.shelf_life_days || null;
+             const caseWeightLbs = productData?.case_weight_lbs || null;
+             const expiryDate = shelfLifeDays
+               ? new Date(today.getTime() + shelfLifeDays * 86400000).toISOString().slice(0, 10)
+               : null;
 
-            // Calculate cases from packages if case info available
-            const packagesPerCase = product?.packages_per_case || null;
-            const casesProduced = packagesPerCase && packagesProduced
-              ? Math.floor(packagesProduced / packagesPerCase)
-              : (caseWeightLbs && outputLbs ? parseFloat((outputLbs / caseWeightLbs).toFixed(2)) : 0);
+             // Calculate cases from packages if case info available
+             const packagesPerCase = productData?.packages_per_case || null;
+             const casesProduced = packagesPerCase && packagesProduced
+               ? Math.floor(packagesProduced / packagesPerCase)
+               : (caseWeightLbs && outputLbs ? parseFloat((outputLbs / caseWeightLbs).toFixed(2)) : 0);
 
             // 1. Push into FinishedGoodsBucket (find or create)
             const existingBuckets = await base44.entities.FinishedGoodsBucket.filter({ product_id: order.product_id });
@@ -700,9 +702,9 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
               await base44.entities.FinishedGoodsBucket.create({
                 product_id: order.product_id || "",
                 product_name: stage.product_name || order.product_name || "",
-                sku: product?.sku || "",
-                product_number: product?.product_number || "",
-                category: product?.category || "",
+                sku: productData?.sku || "",
+                product_number: productData?.product_number || "",
+                category: productData?.category || "",
                 quantity_lbs: outputLbs,
                 cases_on_hand: casesProduced,
                 case_weight_lbs: caseWeightLbs,
