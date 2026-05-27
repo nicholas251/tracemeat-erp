@@ -356,7 +356,11 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
       }
     }
 
-    // ── Close rack form first, then proceed with deduction ──
+    // ── Save rack number before closing form ──
+    const currentRackNumber = editingRack.rackNumber;
+    const currentCookBatchNumber = editingRack.cookBatchNumber;
+
+    // ── Close rack form, then proceed with deduction ──
     setEditingRack(null);
     setSaving(true);
 
@@ -383,7 +387,7 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
 
       // Second: if first lot ran out mid-rack, pull remainder from next FIFO lot
       if (remaining > 0.01) {
-        const nextLots = getFifoLots(rawInventory, b.bucket_id).filter(l => l.id !== active.raw_inventory_id);
+        const nextLots = getFifoLots(rawInventory, b.bucket_id).filter(l => l.id !== freshRow.id);
         if (nextLots.length > 0) {
           const nextLot = nextLots[0];
           const nextFreshRow = await base44.entities.RawInventory.filter({ id: nextLot.id }).then(r => r?.[0]);
@@ -466,7 +470,7 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
     const refreshedStage = await base44.entities.ProductionStage.filter({ id: stageData.id }).then(r => r?.[0]);
 
     // Check if cook batch is now complete → create cooking stage
-    const cookBatch = plan.cookBatches.find(cb => cb.cookBatchNumber === editingRack.cookBatchNumber);
+    const cookBatch = plan.cookBatches.find(cb => cb.cookBatchNumber === currentCookBatchNumber);
     if (cookBatch && refreshedStage?.sub_batches) {
       const allRackNums = cookBatch.racks.map(r => r.rackNumber);
       const refreshedMap = {};
@@ -478,7 +482,7 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
       if (allDone) {
         // Use a stable cook batch lot identifier so we can reliably deduplicate
         const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
-        const cookBatchLot = `SV-CB${editingRack.cookBatchNumber}-${stageData.order_number}-${today}`;
+        const cookBatchLot = `SV-CB${currentCookBatchNumber}-${stageData.order_number}-${today}`;
 
         const existingCookStages = await base44.entities.ProductionStage.filter({
           order_id: stageData.order_id,
@@ -531,7 +535,7 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
             cook_batch_lot: cookBatchLot,
             // Primary input lot = cook batch lot; all contributing lots in notes for traceability
             input_lot_number: cookBatchLot,
-            notes: `Cook Batch #${editingRack.cookBatchNumber} — Racks ${allRackNums.join(", ")} — Raw lots: ${allLots.join(", ")}`,
+            notes: `Cook Batch #${currentCookBatchNumber} — Racks ${allRackNums.join(", ")} — Raw lots: ${allLots.join(", ")}`,
           });
         }
       }
