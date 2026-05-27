@@ -435,7 +435,7 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
       raw_lots: rawLotsUsed,
       notes: editForm.notes,
       short_weight_reason: lbs < RACK_LBS ? editForm.short_weight_reason : null,
-      cook_batch_number: editingRack.cookBatchNumber,
+      cook_batch_number: currentCookBatchNumber,
       status: "completed",
     };
 
@@ -444,7 +444,7 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
 
     const newCompleted = {};
     for (const sb of newSubs) {
-      if (sb.rack_number) newCompleted[sb.rack_number] = { completed: true, lbs: sb.lbs || RACK_LBS, lot_number: sb.lot_number || "" };
+      if (sb.rack_number) newCompleted[sb.rack_number] = { completed: true, lbs: sb.qty_lbs || sb.lbs || RACK_LBS, lot_number: sb.lot_number || "" };
     }
 
     // Save rack progress + persist updated active lots
@@ -475,7 +475,7 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
       const allRackNums = cookBatch.racks.map(r => r.rackNumber);
       const refreshedMap = {};
       for (const sb of refreshedStage.sub_batches) {
-        if (sb.rack_number) refreshedMap[sb.rack_number] = { completed: true, lbs: sb.lbs || RACK_LBS, lot_number: sb.lot_number || "" };
+        if (sb.rack_number) refreshedMap[sb.rack_number] = { completed: true, lbs: sb.qty_lbs || sb.lbs || RACK_LBS, lot_number: sb.lot_number || "" };
       }
       const allDone = allRackNums.every(rn => refreshedMap[rn]?.completed);
 
@@ -877,8 +877,8 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
                   className="flex-1 bg-amber-600 hover:bg-amber-700 gap-2"
                   onClick={async () => {
                     // Proceed without re-checking split (already confirmed by user)
-                    await handleCompleteRack(true);
                     setSplitLotConfirmation(null);
+                    await handleCompleteRack(true);
                   }}
                   disabled={saving}
                 >
