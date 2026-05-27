@@ -57,6 +57,7 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
   const [editForm, setEditForm] = useState({ lot_number: "", notes: "", lbs: "", short_weight_reason: "" });
   const [lotChangeConfirmed, setLotChangeConfirmed] = useState(false);
   const [lotChangedFrom, setLotChangedFrom] = useState(null); // lot number of previously active lot
+  const [splitLotConfirmation, setSplitLotConfirmation] = useState(null); // { rackNumber, remainingWeight, nextLotNumber } when split deduction needed
 
   // ── Step 1 state: lot selection ──
   const [selectedLots, setSelectedLots] = useState({}); // { [bucket_id]: { raw_inventory_id, lot_number, available_qty } }
@@ -293,11 +294,33 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
   // it deducts what's left from it, then automatically pulls the remainder from the next FIFO lot.
   const handleCompleteRack = async () => {
     if (!editingRack) return;
-    setSaving(true);
 
     const rackNum = editingRack.rackNumber;
     const lbs = parseFloat(editForm.lbs) || editingRack.lbs;
     const lot = editForm.lot_number.trim() || `SV-R${rackNum}-${Date.now()}`;
+
+    // ── Check if we'll need to split across lots before doing anything ──
+    const primaryBucketId = effectiveBuckets[0]?.bucket_id;
+    const primaryActive = activeLots[primaryBucketId];
+    
+    if (primaryActive?.remaining_qty < lbs) {
+      // We'll need to pull from the next lot — require user confirmation first
+      const nextLots = getFifoLots(rawInventory, primaryBucketId).filter(l => l.id !== primaryActive?.raw_inventory_id);
+      if (nextLots.length > 0) {
+        const nextLot = nextLots[0];
+        setSplitLotConfirmation({
+          rackNumber: rackNum,
+          currentLotNumber: primaryActive?.lot_number,
+          currentRemaining: primaryActive?.remaining_qty,
+          nextLotNumber: nextLot.lot_number || nextLot.id,
+          weightNeeded: lbs,
+        });
+        return; // Stop here and wait for user confirmation
+      }
+    }
+
+    // ── Proceed with deduction ──
+    setSaving(true);
 
     // ── Deduct rack weight from active lot(s), splitting across lots if needed ──
     const newActiveLots = { ...activeLots };
@@ -320,7 +343,7 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
       newActiveLots[b.bucket_id] = { ...active, remaining_qty: firstNewQty };
       remaining = parseFloat((remaining - takeFromFirst).toFixed(2));
 
-      // Second: if first lot ran out mid-rack, pull remainder from next FIFO lot automatically
+      // Second: if first lot ran out mid-rack, pull remainder from next FIFO lot
       if (remaining > 0.01) {
         const nextLots = getFifoLots(rawInventory, b.bucket_id).filter(l => l.id !== active.raw_inventory_id);
         if (nextLots.length > 0) {
@@ -348,9 +371,9 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
     setActiveLots(newActiveLots);
 
     // Check if active lot is now exhausted (< 1 lb) and there are still racks to pack
-    const primaryBucketId = effectiveBuckets[0]?.bucket_id;
-    const primaryActive = newActiveLots[primaryBucketId];
-    const lotExhausted = primaryActive && primaryActive.remaining_qty < 1;
+    const checkPrimaryBucketId = effectiveBuckets[0]?.bucket_id;
+    const checkPrimaryActive = newActiveLots[checkPrimaryBucketId];
+    const lotExhausted = checkPrimaryActive && checkPrimaryActive.remaining_qty < 1;
 
     // Always fetch the freshest stage from DB before merging sub_batches
     const latestStage = await base44.entities.ProductionStage.filter({ id: stageData.id }).then(r => r?.[0]);
@@ -476,6 +499,7 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
 
     setSaving(false);
     setEditingRack(null);
+    setSplitLotConfirmation(null); // Close split confirmation dialog after rack is completed
 
     // After closing the rack dialog, check if lot is now exhausted and more racks remain
     if (lotExhausted && !allRacksDone) {
@@ -757,6 +781,63 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Split lot confirmation dialog */}
+      {splitLotConfirmation && (
+        <Dialog open={!!splitLotConfirmation} onOpenChange={open => { if (!open) setSplitLotConfirmation(null); }}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle>Confirm Lot Switch for Rack #{splitLotConfirmation.rackNumber}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 pt-2">
+              <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 space-y-2">
+                <p className="text-sm font-semibold text-amber-900">Lot will be consumed across two batches:</p>
+                <div className="space-y-1.5 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-amber-700">Current lot:</span>
+                    <span className="font-mono font-semibold text-amber-900">{splitLotConfirmation.currentLotNumber}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-amber-700">Remaining:</span>
+                    <span className="font-semibold text-amber-900">{splitLotConfirmation.currentRemaining.toFixed(1)} lbs</span>
+                  </div>
+                  <div className="h-px bg-amber-200 my-1"></div>
+                  <div className="flex justify-between">
+                    <span className="text-amber-700">Next lot:</span>
+                    <span className="font-mono font-semibold text-amber-900">{splitLotConfirmation.nextLotNumber}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-amber-700">Needed from next:</span>
+                    <span className="font-semibold text-amber-900">{(splitLotConfirmation.weightNeeded - splitLotConfirmation.currentRemaining).toFixed(1)} lbs</span>
+                  </div>
+                </div>
+              </div>
+
+              <p className="text-xs text-muted-foreground">
+                Completing this rack will consume the remainder of the current lot and pull from the next FIFO lot. Please confirm this is the correct batch transition.
+              </p>
+
+              <div className="flex gap-2 pt-2">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => setSplitLotConfirmation(null)}
+                  disabled={saving}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  className="flex-1 bg-amber-600 hover:bg-amber-700 gap-2"
+                  onClick={handleCompleteRack}
+                  disabled={saving}
+                >
+                  {saving ? "Completing…" : "Yes, Complete Rack"}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
 
       {/* Rack completion dialog */}
       {editingRack && (
