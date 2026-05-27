@@ -778,40 +778,37 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
          }
 
         // For cooking stage, create a chilling stage for each cook batch in the cook plan
-        if (capKey === "cooking" && cookPlan?.cookBatches?.length > 0) {
-          const order = await base44.entities.ProductionOrder.filter({ id: stage.order_id }).then(r => r?.[0]);
-          if (order?.flow_id) {
-            const flow = await base44.entities.ProductFlow.filter({ id: order.flow_id }).then(r => r?.[0]);
-            const nextFlowStep = flow?.steps?.find(s => s.step_number === stage.step_number + 1);
-            if (nextFlowStep) {
-              const productData = await base44.entities.Product.filter({ id: order.product_id }).then(r => r?.[0]);
-              const yieldFraction = ((productData?.yield_percent ?? 85)) / 100;
-
-              // Create a chilling stage for EACH cook batch
-              for (const batch of cookPlan.cookBatches) {
-                // batch.lbs is already cooked output (yield applied at cooking completion), don't apply yield again
-                const batchQty = parseFloat(batch.lbs.toFixed(2));
-                // Use the lot from the form submission (output_lot_number)
-                const lotNum = updates.output_lot_number || `CB${batch.cookBatchNumber}-${stage.order_number}-${today_str}`;
-                await base44.entities.ProductionStage.create({
-                  order_id: stage.order_id,
-                  order_number: stage.order_number,
-                  product_name: stage.product_name,
-                  step_number: nextFlowStep.step_number,
-                  capability_id: nextFlowStep.capability_id,
-                  capability_key: nextFlowStep.capability_key,
-                  capability_name: nextFlowStep.capability_name,
-                  work_profile_id: nextFlowStep.work_profile_id || "",
-                  work_profile_name: nextFlowStep.work_profile_name || "",
-                  status: "available",
-                  input_qty_lbs: batchQty,
-                  input_lot_number: lotNum,
-                  cook_batch_lot: lotNum,
-                });
-              }
-            }
-          }
-        }
+         if (capKey === "cooking" && cookPlan?.cookBatches?.length > 0) {
+           const order = await base44.entities.ProductionOrder.filter({ id: stage.order_id }).then(r => r?.[0]);
+           if (order?.flow_id) {
+             const flow = await base44.entities.ProductFlow.filter({ id: order.flow_id }).then(r => r?.[0]);
+             const nextFlowStep = flow?.steps?.find(s => s.step_number === stage.step_number + 1);
+             if (nextFlowStep && nextFlowStep.capability_key === "chilling") {
+               // Create a chilling stage for EACH cook batch
+               for (const batch of cookPlan.cookBatches) {
+                 // batch.lbs is already cooked output (yield applied at cooking completion), don't apply yield again
+                 const batchQty = parseFloat(batch.lbs.toFixed(2));
+                 // Use the lot from the form submission (output_lot_number)
+                 const lotNum = updates.output_lot_number || `CB${batch.cookBatchNumber}-${stage.order_number}-${today_str}`;
+                 await base44.entities.ProductionStage.create({
+                   order_id: stage.order_id,
+                   order_number: stage.order_number,
+                   product_name: stage.product_name,
+                   step_number: nextFlowStep.step_number,
+                   capability_id: nextFlowStep.capability_id,
+                   capability_key: nextFlowStep.capability_key,
+                   capability_name: nextFlowStep.capability_name,
+                   work_profile_id: nextFlowStep.work_profile_id || "",
+                   work_profile_name: nextFlowStep.work_profile_name || "",
+                   status: "available",
+                   input_qty_lbs: batchQty,
+                   input_lot_number: lotNum,
+                   cook_batch_lot: lotNum,
+                 });
+               }
+             }
+           }
+         }
 
         if (nextStage?.status === "locked") {
            const rawQty = updates.output_qty_lbs || stage.input_qty_lbs || 0;
