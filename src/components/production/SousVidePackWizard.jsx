@@ -299,9 +299,10 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
   };
 
   // ─── Check for mid-rack split (lot exhaustion during rack completion) ──
-  const checkSplitLotNeeded = (rackNum, lbs) => {
+  // Uses provided activeLots state (should be refreshed before calling)
+  const checkSplitLotNeeded = (rackNum, lbs, lotsToCheck) => {
     const primaryBucketId = effectiveBuckets[0]?.bucket_id;
-    const primaryActive = activeLots[primaryBucketId];
+    const primaryActive = lotsToCheck[primaryBucketId];
 
     if (primaryActive?.remaining_qty < lbs) {
       const nextLots = getFifoLots(rawInventory, primaryBucketId).filter(l => l.id !== primaryActive?.raw_inventory_id);
@@ -330,37 +331,28 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
     const lot = editForm.lot_number.trim() || `SV-R${rackNum}-${Date.now()}`;
 
     // ── Refresh active lots from DB to ensure remaining_qty is current ──
-    if (!skipSplitCheck) {
-      const freshActiveLots = {};
-      for (const b of effectiveBuckets) {
-        const current = activeLots[b.bucket_id];
-        if (current?.raw_inventory_id) {
-          const freshRow = await base44.entities.RawInventory.filter({ id: current.raw_inventory_id }).then(r => r?.[0]);
-          if (freshRow) {
-            freshActiveLots[b.bucket_id] = {
-              raw_inventory_id: freshRow.id,
-              lot_number: freshRow.lot_number || "",
-              remaining_qty: freshRow.available_qty ?? 0,
-            };
-          }
+    const freshActiveLots = { ...activeLots };
+    for (const bucketId of Object.keys(activeLots)) {
+      const current = activeLots[bucketId];
+      if (current?.raw_inventory_id) {
+        const freshRow = await base44.entities.RawInventory.filter({ id: current.raw_inventory_id }).then(r => r?.[0]);
+        if (freshRow) {
+          freshActiveLots[bucketId] = {
+            raw_inventory_id: freshRow.id,
+            lot_number: freshRow.lot_number || "",
+            remaining_qty: freshRow.available_qty ?? 0,
+          };
         }
       }
-      // Temporarily use fresh active lots for the split check only
-      const primaryBucketId = effectiveBuckets[0]?.bucket_id;
-      const freshPrimaryActive = freshActiveLots[primaryBucketId];
-      if (freshPrimaryActive?.remaining_qty < lbs) {
-        const nextLots = getFifoLots(rawInventory, primaryBucketId).filter(l => l.id !== freshPrimaryActive?.raw_inventory_id);
-        if (nextLots.length > 0) {
-          const nextLot = nextLots[0];
-          setSplitLotConfirmation({
-            rackNumber: rackNum,
-            currentLotNumber: freshPrimaryActive?.lot_number,
-            currentRemaining: freshPrimaryActive?.remaining_qty,
-            nextLotNumber: nextLot.lot_number || nextLot.id,
-            weightNeeded: lbs,
-          });
-          return;
-        }
+    }
+
+    // ── Check if we'll need to split across lots before doing anything ──
+    if (!skipSplitCheck) {
+      const splitNeeded = checkSplitLotNeeded(rackNum, lbs, freshActiveLots);
+      if (splitNeeded) {
+        // Show confirmation dialog and return — do NOT close the rack form yet
+        setSplitLotConfirmation(splitNeeded);
+        return;
       }
     }
 
@@ -369,7 +361,7 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
     setSaving(true);
 
     // ── Deduct rack weight from active lot(s), splitting across lots if needed ──
-    const newActiveLots = { ...activeLots };
+    const newActiveLots = { ...freshActiveLots };
     for (const b of effectiveBuckets) {
       let active = newActiveLots[b.bucket_id];
       if (!active?.raw_inventory_id) continue;
