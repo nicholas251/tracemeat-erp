@@ -58,7 +58,7 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
    const [lotChangeConfirmed, setLotChangeConfirmed] = useState(false);
    const [lotChangedFrom, setLotChangedFrom] = useState(null); // lot number of previously active lot
    const [splitLotConfirmation, setSplitLotConfirmation] = useState(null); // { rackNumber, remainingWeight, nextLotNumber } when split deduction needed
-   const [splitLotNextId, setSplitLotNextId] = useState(null); // stores the next lot ID when split is confirmed
+   const [selectedSplitLotId, setSelectedSplitLotId] = useState(null); // user-selected lot ID for the remainder
    const [splitConfirmedRackNumber, setSplitConfirmedRackNumber] = useState(null); // rack number where user already confirmed lot switch
 
   // ── Step 1 state: lot selection ──
@@ -279,11 +279,11 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
           rackNumber: rack.rackNumber,
           currentLotNumber: primaryActive.lot_number,
           currentRemaining: primaryActive.remaining_qty,
-          nextLotNumber: nextLots[0].lot_number || nextLots[0].id,
           weightNeeded: rackLbs,
+          availableLots: nextLots,
         });
-        // Store the next lot ID so we can auto-advance when user confirms
-        setSplitLotNextId(nextLots[0].id);
+        // Pre-select the first FIFO lot
+        setSelectedSplitLotId(nextLots[0].id);
         setEditingRack(rack);
         return;
       }
@@ -305,10 +305,9 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
   };
 
   // ─── Handle split lot confirmation (when mid-rack lot exhaustion occurs) ──
-  // User confirmed the split — deduct from old lot, switch to new lot, close dialog
-  // User then clicks "Complete Rack" to deduct the remainder from the new lot
+  // User confirmed the split and selected the lot — deduct from old lot, switch to selected lot
   const handleConfirmSplitLot = async () => {
-    if (!editingRack || !splitLotConfirmation || !splitLotNextId) return;
+    if (!editingRack || !splitLotConfirmation || !selectedSplitLotId) return;
 
     setSaving(true);
     const rackNumber = splitLotConfirmation.rackNumber;
@@ -325,14 +324,14 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
       });
     }
 
-    // Switch active lot to the new lot
-    const nextFreshRow = await base44.entities.RawInventory.filter({ id: splitLotNextId }).then(r => r?.[0]);
-    if (nextFreshRow) {
+    // Switch active lot to the user-selected lot
+    const selectedLotRow = await base44.entities.RawInventory.filter({ id: selectedSplitLotId }).then(r => r?.[0]);
+    if (selectedLotRow) {
       const updatedActiveLots = { ...activeLots };
       updatedActiveLots[primaryBucketId] = {
-        raw_inventory_id: nextFreshRow.id,
-        lot_number: nextFreshRow.lot_number || "",
-        remaining_qty: nextFreshRow.available_qty ?? 0,
+        raw_inventory_id: selectedLotRow.id,
+        lot_number: selectedLotRow.lot_number || "",
+        remaining_qty: selectedLotRow.available_qty ?? 0,
       };
       setActiveLots(updatedActiveLots);
 
@@ -347,7 +346,7 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
 
     // Close split confirmation dialog — user will now click "Complete Rack" to finish
     setSplitLotConfirmation(null);
-    setSplitLotNextId(null);
+    setSelectedSplitLotId(null);
     setSaving(false);
   };
 
@@ -914,44 +913,48 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
 
       {/* Split lot confirmation dialog */}
       {splitLotConfirmation && (
-        <Dialog open={!!splitLotConfirmation} onOpenChange={open => { if (!open) setSplitLotConfirmation(null); }}>
+        <Dialog open={!!splitLotConfirmation} onOpenChange={open => { if (!open) { setSplitLotConfirmation(null); setSelectedSplitLotId(null); } }}>
           <DialogContent className="max-w-sm">
             <DialogHeader>
               <DialogTitle>Confirm Lot Switch for Rack #{splitLotConfirmation.rackNumber}</DialogTitle>
             </DialogHeader>
             <div className="space-y-4 pt-2">
               <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 space-y-2">
-                <p className="text-sm font-semibold text-amber-900">Lot will be consumed across two batches:</p>
+                <p className="text-sm font-semibold text-amber-900">Current lot will be exhausted:</p>
                 <div className="space-y-1.5 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-amber-700">Current lot:</span>
+                    <span className="text-amber-700">Lot:</span>
                     <span className="font-mono font-semibold text-amber-900">{splitLotConfirmation.currentLotNumber}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-amber-700">Remaining:</span>
+                    <span className="text-amber-700">Will deduct:</span>
                     <span className="font-semibold text-amber-900">{splitLotConfirmation.currentRemaining.toFixed(1)} lbs</span>
-                  </div>
-                  <div className="h-px bg-amber-200 my-1"></div>
-                  <div className="flex justify-between">
-                    <span className="text-amber-700">Next lot:</span>
-                    <span className="font-mono font-semibold text-amber-900">{splitLotConfirmation.nextLotNumber}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-amber-700">Needed from next:</span>
-                    <span className="font-semibold text-amber-900">{(splitLotConfirmation.weightNeeded - splitLotConfirmation.currentRemaining).toFixed(1)} lbs</span>
                   </div>
                 </div>
               </div>
 
-              <p className="text-xs text-muted-foreground">
-                Completing this rack will consume the remainder of the current lot and pull from the next FIFO lot. Please confirm this is the correct batch transition.
-              </p>
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold">Select lot for remaining {(splitLotConfirmation.weightNeeded - splitLotConfirmation.currentRemaining).toFixed(1)} lbs</Label>
+                <Select value={selectedSplitLotId || ""} onValueChange={setSelectedSplitLotId}>
+                  <SelectTrigger className="h-10">
+                    <SelectValue placeholder="Choose a lot…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {splitLotConfirmation.availableLots?.map((lot, i) => (
+                      <SelectItem key={lot.id} value={lot.id}>
+                        {i === 0 ? "⭑ " : ""}{lot.lot_number || lot.id} — {lot.available_qty} lbs
+                        {lot.received_date ? ` (rcvd ${lot.received_date})` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
               <div className="flex gap-2 pt-2">
                 <Button
                   variant="outline"
                   className="flex-1"
-                  onClick={() => setSplitLotConfirmation(null)}
+                  onClick={() => { setSplitLotConfirmation(null); setSelectedSplitLotId(null); }}
                   disabled={saving}
                 >
                   Cancel
@@ -959,9 +962,9 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
                 <Button
                   className="flex-1 bg-amber-600 hover:bg-amber-700 gap-2"
                   onClick={handleConfirmSplitLot}
-                  disabled={saving}
+                  disabled={saving || !selectedSplitLotId}
                 >
-                  {saving ? "Switching…" : "Yes, Switch Lots & Continue"}
+                  {saving ? "Switching…" : "Confirm & Continue"}
                 </Button>
               </div>
             </div>
