@@ -303,9 +303,6 @@ export default function InventoryShortageCheck({ product: productProp, rawInputL
   const hasShortage = allChecks.some(c => !c.linked || c.shortfall > 0);
   const hasUnlinked = allChecks.some(c => !c.linked);
 
-  // Collapse entirely when no issues
-  if (!hasShortage && !missingCasingConfig) return null;
-
   const handleCureCasingConfigSaved = () => {
     queryClient.invalidateQueries({ queryKey: ["freshProductForOrder", product.id] });
     onProductUpdated?.();
