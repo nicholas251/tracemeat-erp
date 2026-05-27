@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CheckCircle2, Circle, Package, AlertCircle, AlertTriangle } from "lucide-react";
+import { CheckCircle2, Circle, Package, AlertCircle, AlertTriangle, ShieldCheck } from "lucide-react";
 
 const RACK_LBS = 610;
 const RACKS_PER_COOK_BATCH = 3;
@@ -55,6 +55,8 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
   const [saving, setSaving] = useState(false);
   const [editingRack, setEditingRack] = useState(null);
   const [editForm, setEditForm] = useState({ lot_number: "", notes: "", lbs: "", short_weight_reason: "" });
+  const [lotChangeConfirmed, setLotChangeConfirmed] = useState(false);
+  const [lotChangedFrom, setLotChangedFrom] = useState(null); // lot number of previously active lot
 
   // ── Step 1 state: lot selection ──
   const [selectedLots, setSelectedLots] = useState({}); // { [bucket_id]: { raw_inventory_id, lot_number, available_qty } }
@@ -239,6 +241,19 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
       lbs: existing?.lbs ?? rack.lbs,
       short_weight_reason: existing?.short_weight_reason || "",
     });
+
+    // Detect lot change: find the last completed rack's active lot and compare to current
+    const primaryBucketId = effectiveBuckets[0]?.bucket_id;
+    const currentActiveLotNumber = activeLots[primaryBucketId]?.lot_number;
+    const lastCompletedRackNum = rack.rackNumber - 1;
+    const lastRackData = completedRacks[lastCompletedRackNum];
+    const lastRawLot = lastRackData?.raw_lots?.[lastRackData.raw_lots.length - 1] || lastRackData?.lot_number;
+
+    // A lot change happened if the current active lot differs from the last rack's raw lot
+    const lotChanged = lastRawLot && currentActiveLotNumber && lastRawLot !== currentActiveLotNumber;
+    setLotChangedFrom(lotChanged ? lastRawLot : null);
+    setLotChangeConfirmed(false);
+
     setEditingRack(rack);
   };
 
@@ -792,6 +807,31 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
                 />
               </div>
 
+              {/* Lot change confirmation — shown when the active lot switched since the previous rack */}
+              {lotChangedFrom && (
+                <div className={`rounded-lg border-2 p-3 space-y-2 ${lotChangeConfirmed ? "border-chart-2/40 bg-chart-2/5" : "border-amber-400 bg-amber-50"}`}>
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className={`w-4 h-4 shrink-0 mt-0.5 ${lotChangeConfirmed ? "text-chart-2" : "text-amber-500"}`} />
+                    <div>
+                      <p className="text-xs font-bold text-amber-700">Lot Change Detected</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Previous rack used lot <span className="font-mono font-semibold">{lotChangedFrom}</span>.
+                        This rack will use lot <span className="font-mono font-semibold">{activeLots[effectiveBuckets[0]?.bucket_id]?.lot_number}</span>.
+                      </p>
+                    </div>
+                  </div>
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={lotChangeConfirmed}
+                      onChange={e => setLotChangeConfirmed(e.target.checked)}
+                      className="w-4 h-4 accent-green-600"
+                    />
+                    <span className="text-xs font-semibold">I confirm the correct lot is loaded for this rack</span>
+                  </label>
+                </div>
+              )}
+
               {editingRack.rackNumber === plan.cookBatches.find(cb => cb.cookBatchNumber === editingRack.cookBatchNumber)?.racks.slice(-1)[0]?.rackNumber && (
                 <div className="flex items-start gap-2 rounded-lg bg-chart-1/10 border border-chart-1/20 px-3 py-2.5">
                   <AlertCircle className="w-4 h-4 text-chart-1 shrink-0 mt-0.5" />
@@ -809,7 +849,8 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
                   disabled={
                     saving ||
                     !parseFloat(editForm.lbs) ||
-                    (parseFloat(editForm.lbs) < RACK_LBS && !editForm.short_weight_reason?.trim())
+                    (parseFloat(editForm.lbs) < RACK_LBS && !editForm.short_weight_reason?.trim()) ||
+                    (!!lotChangedFrom && !lotChangeConfirmed)
                   }
                 >
                   <CheckCircle2 className="w-4 h-4" />
