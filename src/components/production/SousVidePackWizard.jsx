@@ -305,13 +305,13 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
   };
 
   // ─── Handle split lot confirmation (when mid-rack lot exhaustion occurs) ──
-  // User confirmed the split — switch to the new lot BEFORE rack completion
+  // User confirmed the split — switch to the new lot and resume deduction
   const handleConfirmSplitLot = async () => {
     if (!editingRack || !splitLotConfirmation || !splitLotNextId) return;
 
     const rackNumber = splitLotConfirmation.rackNumber;
 
-    // Switch active lot to the new lot so handleCompleteRack deducts the full weight from it
+    // Switch active lot to the new lot so handleCompleteRack deducts correctly across both lots
     const primaryBucketId = effectiveBuckets[0]?.bucket_id;
     const nextFreshRow = await base44.entities.RawInventory.filter({ id: splitLotNextId }).then(r => r?.[0]);
 
@@ -333,9 +333,12 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
     // Mark this rack as split-confirmed so openEditRack won't show split dialog again
     setSplitConfirmedRackNumber(rackNumber);
 
-    // Close split confirmation — rack form is ready with the new active lot
+    // Close split confirmation dialog
     setSplitLotConfirmation(null);
     setSplitLotNextId(null);
+
+    // Resume deduction with the split already confirmed (skip the split check)
+    await handleCompleteRack(true);
   };
 
   // ─── Switch to next lot (manual override — used when lot exhausted exactly on a rack boundary) ──
