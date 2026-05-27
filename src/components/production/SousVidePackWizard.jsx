@@ -250,8 +250,8 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
     const lbs = parseFloat(editForm.lbs) || editingRack.lbs;
     const lot = editForm.lot_number || `SV-R${rackNum}-${Date.now()}`;
 
-    // Use freshest available sub_batches as the base
-    const currentSubs = stageToUse.sub_batches?.length ? stageToUse.sub_batches : updatedSubs;
+    // Always use updatedSubs as the local source of truth (kept in sync via useEffect on freshStage)
+    const currentSubs = updatedSubs;
     
     // Build the new sub-batch entry
     const newSubBatch = {
@@ -587,12 +587,14 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
                     return (
                       <button
                         key={rack.rackNumber}
-                        onClick={() => !done && openEditRack(rack)}
-                        disabled={done}
+                        onClick={() => !done && lotsConfirmed && openEditRack(rack)}
+                        disabled={done || !lotsConfirmed}
                         className={`text-left rounded-lg border-2 p-3 transition-all ${
                           done
                             ? "border-chart-2/40 bg-chart-2/8 cursor-default"
-                            : "border-border hover:border-chart-1/50 hover:bg-chart-1/5 cursor-pointer active:scale-95"
+                            : lotsConfirmed
+                              ? "border-border hover:border-chart-1/50 hover:bg-chart-1/5 cursor-pointer active:scale-95"
+                              : "border-border opacity-50 cursor-not-allowed"
                         }`}
                       >
                         <div className="flex items-center gap-1.5 mb-1">
@@ -650,7 +652,7 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
                 />
               </div>
 
-              {editForm.lbs && parseInt(editForm.lbs, 10) < 610 && (
+              {editForm.lbs && parseFloat(editForm.lbs) < 610 && (
                 <div className="space-y-1.5">
                   <Label className="text-sm font-semibold text-amber-600">Reason for Short Weight (required)</Label>
                   <Textarea
@@ -698,7 +700,7 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
                 <Button
                   className="flex-1 bg-chart-2 hover:bg-chart-2/90 gap-2"
                   onClick={handleCompleteRack}
-                  disabled={saving || !editForm.lbs || (parseInt(editForm.lbs, 10) < 610 && !editForm.short_weight_reason?.trim())}
+                  disabled={saving || !editForm.lbs || (parseFloat(editForm.lbs) < 610 && !editForm.short_weight_reason?.trim())}
                 >
                   <CheckCircle2 className="w-4 h-4" />
                   {saving ? "Saving…" : "Complete Rack"}
