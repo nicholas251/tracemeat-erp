@@ -284,7 +284,7 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
         });
         // Pre-select the first FIFO lot
         setSelectedSplitLotId(nextLots[0].id);
-        setEditingRack(rack);
+        // Don't open rack form yet — wait for split confirmation
         return;
       }
     }
@@ -344,9 +344,16 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
     // Mark this rack as split-confirmed so dialog won't re-appear
     setSplitConfirmedRackNumber(rackNumber);
 
-    // Close split confirmation dialog — user will now click "Complete Rack" to finish
+    // Close split confirmation dialog and open the rack form for final completion
     setSplitLotConfirmation(null);
     setSelectedSplitLotId(null);
+    
+    // Now open the rack form so user can enter weight and notes
+    const rackToOpen = plan.racks.find(r => r.rackNumber === rackNumber);
+    if (rackToOpen) {
+      openEditRack(rackToOpen, true); // autoConfirmLotChange = true since we already handled it
+    }
+    
     setSaving(false);
   };
 
