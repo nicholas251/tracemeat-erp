@@ -322,7 +322,7 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
   // ─── Step 2: Save completed rack — deduct actual weight from active lot(s) ──
   // Handles split deduction: if the active lot doesn't cover the full rack weight,
   // it deducts what's left from it, then automatically pulls the remainder from the next FIFO lot.
-  const handleCompleteRack = async () => {
+  const handleCompleteRack = async (skipSplitCheck = false) => {
     if (!editingRack) return;
 
     const rackNum = editingRack.rackNumber;
@@ -330,11 +330,13 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
     const lot = editForm.lot_number.trim() || `SV-R${rackNum}-${Date.now()}`;
 
     // ── Check if we'll need to split across lots before doing anything ──
-    const splitNeeded = checkSplitLotNeeded(rackNum, lbs);
-    if (splitNeeded) {
-      // Show confirmation dialog and return — handleConfirmSplitLot will call handleCompleteRack again
-      setSplitLotConfirmation(splitNeeded);
-      return;
+    if (!skipSplitCheck) {
+      const splitNeeded = checkSplitLotNeeded(rackNum, lbs);
+      if (splitNeeded) {
+        // Show confirmation dialog and return
+        setSplitLotConfirmation(splitNeeded);
+        return;
+      }
     }
 
     // ── Proceed with deduction ──
@@ -852,7 +854,11 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
                 </Button>
                 <Button
                   className="flex-1 bg-amber-600 hover:bg-amber-700 gap-2"
-                  onClick={handleConfirmSplitLot}
+                  onClick={async () => {
+                    setSplitLotConfirmation(null);
+                    // Retry rack completion without split check
+                    await handleCompleteRack(true);
+                  }}
                   disabled={saving}
                 >
                   {saving ? "Completing…" : "Yes, Complete Rack"}
