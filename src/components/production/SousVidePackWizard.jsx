@@ -242,7 +242,7 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
   };
 
   // ─── Step 2: Open rack edit form ──────────────────────────────────────────
-  const openEditRack = (rack, autoConfirmLotChange = false) => {
+  const openEditRack = (rack, skipLotChangeWarning = false) => {
     const existing = completedRacks[rack.rackNumber];
     const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
     setEditForm({
@@ -254,20 +254,6 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
 
     const primaryBucketId = effectiveBuckets[0]?.bucket_id;
     const rackLbs = existing?.lbs ?? rack.lbs;
-
-    // Check if user already confirmed a lot switch for this rack (don't show split dialog again)
-    if (splitConfirmedRackNumber === rack.rackNumber) {
-      // Skip lot change warning if auto-confirmed from split
-      if (!autoConfirmLotChange) {
-        const currentActiveLotNumber = activeLots[primaryBucketId]?.lot_number;
-        const lastRawLot = getLastRawLot(completedRacks[rack.rackNumber - 1]);
-        const lotChanged = lastRawLot && currentActiveLotNumber && lastRawLot !== currentActiveLotNumber;
-        setLotChangedFrom(lotChanged ? lastRawLot : null);
-      }
-      setLotChangeConfirmed(autoConfirmLotChange);
-      setEditingRack(rack);
-      return;
-    }
 
     // Check if current lot has enough inventory to complete this rack
     const primaryActive = activeLots[primaryBucketId];
@@ -289,11 +275,13 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
       }
     }
 
-    // Detect lot change from previous rack
-    const currentActiveLotNumber = activeLots[primaryBucketId]?.lot_number;
-    const lastRawLot = getLastRawLot(completedRacks[rack.rackNumber - 1]);
-    const lotChanged = lastRawLot && currentActiveLotNumber && lastRawLot !== currentActiveLotNumber;
-    setLotChangedFrom(lotChanged ? lastRawLot : null);
+    // Detect lot change from previous rack (skip if coming from auto-confirmed split)
+    if (!skipLotChangeWarning) {
+      const currentActiveLotNumber = activeLots[primaryBucketId]?.lot_number;
+      const lastRawLot = getLastRawLot(completedRacks[rack.rackNumber - 1]);
+      const lotChanged = lastRawLot && currentActiveLotNumber && lastRawLot !== currentActiveLotNumber;
+      setLotChangedFrom(lotChanged ? lastRawLot : null);
+    }
     setLotChangeConfirmed(false);
     setEditingRack(rack);
   };
@@ -363,8 +351,6 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
       // Step 8: Open the rack form for final weight/notes entry
       const rackToOpen = plan.racks.find(r => r.rackNumber === rackNumber);
       if (rackToOpen) {
-        setSplitConfirmedRackNumber(rackNumber);
-        await new Promise(r => setTimeout(r, 50));
         openEditRack(rackToOpen, true);
       }
     } catch (error) {
