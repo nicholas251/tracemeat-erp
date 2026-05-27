@@ -595,6 +595,70 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
         pork_lot_number: JSON.stringify(newActiveLots),
       });
 
+      // Check if current cook batch is done and send it immediately
+      const cookBatch = plan.cookBatches.find(cb => cb.cookBatchNumber === currentCookBatchNumber);
+      if (cookBatch) {
+        const allRackNums = cookBatch.racks.map(r => r.rackNumber);
+        const batchDone = allRackNums.every(rn => newCompleted[rn]?.completed);
+
+        if (batchDone) {
+          const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+          const cookBatchLot = `SV-CB${currentCookBatchNumber}-${stageData.order_number}-${today}`;
+
+          // Look for existing cooking stage for this batch
+          const existingCookStages = await base44.entities.ProductionStage.filter({
+            order_id: stageData.order_id,
+            capability_key: "cooking",
+          });
+          let cookStage = existingCookStages.find(s => s.cook_batch_lot === cookBatchLot);
+
+          // If it exists and is locked, unlock it
+          if (cookStage && cookStage.status === "locked") {
+            await base44.entities.ProductionStage.update(cookStage.id, {
+              status: "available",
+            });
+          } 
+          // If it doesn't exist, create it
+          else if (!cookStage) {
+            const allLots = [...new Set(Object.values(newActiveLots).map(al => al.lot_number).filter(Boolean))];
+            const orderData = await base44.entities.ProductionOrder.filter({ id: stageData.order_id }).then(r => r?.[0]);
+            const flowData = orderData?.flow_id ? await base44.entities.ProductFlow.filter({ id: orderData.flow_id }).then(r => r?.[0]) : null;
+            const cookStep = flowData?.steps?.find(s => s.capability_key === "cooking");
+            const cookBatchLbs = allRackNums.reduce((s, rn) => s + (newCompleted[rn]?.lbs || RACK_LBS), 0);
+
+            let cookProfileId = cookStep?.work_profile_id;
+            let cookProfileName = cookStep?.work_profile_name;
+            if (!cookProfileId) {
+              const allProfiles = await base44.entities.WorkProfile.filter({ status: "active" });
+              const cookProfile = allProfiles.find(p => (p.capability_keys || []).includes("cooking"));
+              if (cookProfile) {
+                cookProfileId = cookProfile.id;
+                cookProfileName = cookProfile.name;
+              }
+            }
+
+            await base44.entities.ProductionStage.create({
+              order_id: stageData.order_id,
+              order_number: stageData.order_number,
+              product_name: stageData.product_name,
+              step_number: latestStage.step_number + 1,
+              capability_id: cookStep?.capability_id || "",
+              capability_key: "cooking",
+              capability_name: "Cooking",
+              work_profile_id: cookProfileId || "",
+              work_profile_name: cookProfileName || "",
+              status: "available",
+              input_qty_lbs: parseFloat(cookBatchLbs.toFixed(2)),
+              racks_count: allRackNums.length,
+              cook_batch_lot: cookBatchLot,
+              input_lot_number: allLots.join(", "),
+              notes: `Cook Batch #${currentCookBatchNumber} — Racks ${allRackNums.join(", ")}`,
+            });
+          }
+        }
+      }
+
+      // Now check if ALL racks are done to mark packing stage complete
       const allRacksDone = plan.racks.every(r => newCompleted[r.rackNumber]?.completed);
       if (allRacksDone) {
         await base44.entities.ProductionStage.update(stageData.id, {
@@ -604,69 +668,6 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
           racks_count: plan.totalRacks,
           sub_batches: newSubs,
         });
-      } else {
-        // Check if current cook batch is done and create/unlock its cooking stage
-        const cookBatch = plan.cookBatches.find(cb => cb.cookBatchNumber === currentCookBatchNumber);
-        if (cookBatch) {
-          const allRackNums = cookBatch.racks.map(r => r.rackNumber);
-          const batchDone = allRackNums.every(rn => newCompleted[rn]?.completed);
-
-          if (batchDone) {
-            const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
-            const cookBatchLot = `SV-CB${currentCookBatchNumber}-${stageData.order_number}-${today}`;
-
-            // Look for existing cooking stage for this batch
-            const existingCookStages = await base44.entities.ProductionStage.filter({
-              order_id: stageData.order_id,
-              capability_key: "cooking",
-            });
-            let cookStage = existingCookStages.find(s => s.cook_batch_lot === cookBatchLot);
-
-            // If it exists and is locked, unlock it
-            if (cookStage && cookStage.status === "locked") {
-              await base44.entities.ProductionStage.update(cookStage.id, {
-                status: "available",
-              });
-            } 
-            // If it doesn't exist, create it
-            else if (!cookStage) {
-              const allLots = [...new Set(Object.values(newActiveLots).map(al => al.lot_number).filter(Boolean))];
-              const orderData = await base44.entities.ProductionOrder.filter({ id: stageData.order_id }).then(r => r?.[0]);
-              const flowData = orderData?.flow_id ? await base44.entities.ProductFlow.filter({ id: orderData.flow_id }).then(r => r?.[0]) : null;
-              const cookStep = flowData?.steps?.find(s => s.capability_key === "cooking");
-              const cookBatchLbs = allRackNums.reduce((s, rn) => s + (newCompleted[rn]?.lbs || RACK_LBS), 0);
-
-              let cookProfileId = cookStep?.work_profile_id;
-              let cookProfileName = cookStep?.work_profile_name;
-              if (!cookProfileId) {
-                const allProfiles = await base44.entities.WorkProfile.filter({ status: "active" });
-                const cookProfile = allProfiles.find(p => (p.capability_keys || []).includes("cooking"));
-                if (cookProfile) {
-                  cookProfileId = cookProfile.id;
-                  cookProfileName = cookProfile.name;
-                }
-              }
-
-              await base44.entities.ProductionStage.create({
-                order_id: stageData.order_id,
-                order_number: stageData.order_number,
-                product_name: stageData.product_name,
-                step_number: latestStage.step_number + 1,
-                capability_id: cookStep?.capability_id || "",
-                capability_key: "cooking",
-                capability_name: "Cooking",
-                work_profile_id: cookProfileId || "",
-                work_profile_name: cookProfileName || "",
-                status: "available",
-                input_qty_lbs: parseFloat(cookBatchLbs.toFixed(2)),
-                racks_count: allRackNums.length,
-                cook_batch_lot: cookBatchLot,
-                input_lot_number: allLots.join(", "),
-                notes: `Cook Batch #${currentCookBatchNumber} — Racks ${allRackNums.join(", ")}`,
-              });
-            }
-          }
-        }
       }
 
       await refetchStage();
