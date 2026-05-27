@@ -729,9 +729,41 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
           }
         }
 
-        // Unlock next stage and pass lot traceability
+        // Unlock next stage and pass lot traceability (or create it if it doesn't exist)
         const allStages = await base44.entities.ProductionStage.filter({ order_id: stage.order_id });
-        const nextStage = allStages.find(s => s.step_number === stage.step_number + 1 && s.status !== "completed");
+        let nextStage = allStages.find(s => s.step_number === stage.step_number + 1 && s.status !== "completed");
+        
+        // For chilling, create packing stages if they don't exist
+        if (!nextStage && capKey === "chilling") {
+          const order = await base44.entities.ProductionOrder.filter({ id: stage.order_id }).then(r => r?.[0]);
+          if (order?.flow_id) {
+            const flow = await base44.entities.ProductFlow.filter({ id: order.flow_id }).then(r => r?.[0]);
+            const nextFlowStep = flow?.steps?.find(s => s.step_number === stage.step_number + 1);
+            if (nextFlowStep) {
+              const rawQty = updates.output_qty_lbs || stage.input_qty_lbs || 0;
+              const nextInputLot = updates.output_lot_number || stage.cook_batch_lot || stage.input_lot_number || "";
+              await base44.entities.ProductionStage.create({
+                order_id: stage.order_id,
+                order_number: stage.order_number,
+                product_name: stage.product_name,
+                step_number: nextFlowStep.step_number,
+                capability_id: nextFlowStep.capability_id,
+                capability_key: nextFlowStep.capability_key,
+                capability_name: nextFlowStep.capability_name,
+                work_profile_id: nextFlowStep.work_profile_id || "",
+                work_profile_name: nextFlowStep.work_profile_name || "",
+                status: "available",
+                input_qty_lbs: rawQty,
+                input_lot_number: nextInputLot,
+                cook_batch_lot: stage.cook_batch_lot || "",
+              });
+              // Refresh nextStage after creation
+              nextStage = await base44.entities.ProductionStage.filter({ order_id: stage.order_id }).then(r =>
+                r.find(s => s.step_number === stage.step_number + 1 && s.status !== "completed")
+              );
+            }
+          }
+        }
 
         // For cooking stage, create a chilling stage for each cook batch in the cook plan
         if (capKey === "cooking" && cookPlan?.cookBatches?.length > 0) {
