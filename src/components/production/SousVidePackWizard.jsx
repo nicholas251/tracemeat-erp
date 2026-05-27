@@ -248,9 +248,12 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
     const currentActiveLotNumber = activeLots[primaryBucketId]?.lot_number;
     const lastCompletedRackNum = rack.rackNumber - 1;
     const lastRackData = completedRacks[lastCompletedRackNum];
-    const lastRawLot = lastRackData?.raw_lots?.[lastRackData.raw_lots.length - 1] || lastRackData?.lot_number;
+    // raw_lots is the array of raw inventory lots used; pick the last (most recent)
+    const lastRawLot = lastRackData?.raw_lots?.length > 0 
+      ? lastRackData.raw_lots[lastRackData.raw_lots.length - 1]
+      : null;
 
-    // A lot change happened if the current active lot differs from the last rack's raw lot
+    // A lot change happened if the current active lot differs from the last rack's actual raw lot consumed
     const lotChanged = lastRawLot && currentActiveLotNumber && lastRawLot !== currentActiveLotNumber;
     setLotChangedFrom(lotChanged ? lastRawLot : null);
     setLotChangeConfirmed(autoConfirmLotChange);
