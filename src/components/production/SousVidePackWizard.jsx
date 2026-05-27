@@ -157,10 +157,21 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
     }
   }, [rawInventoryAll, blendBuckets]);
 
-  // Restore confirmed state only from fresh server data (not from the stale prop)
+  // Restore confirmed state + selected lots from fresh server data
   useEffect(() => {
     if (freshStage?.input_lot_number) {
       setLotsConfirmed(true);
+      // Restore selectedLots from the saved notes payload so deduction logic still works
+      const notes = freshStage.notes || "";
+      const match = notes.match(/__lots__(.+)$/s);
+      if (match && Object.keys(selectedLots).length === 0) {
+        const confirmedLots = JSON.parse(match[1]);
+        const restored = {};
+        for (const l of confirmedLots) {
+          restored[l.bucket_id] = { raw_inventory_id: l.raw_inventory_id, lot_number: l.lot_number, available_qty: null };
+        }
+        setSelectedLots(restored);
+      }
     }
   }, [freshStage?.input_lot_number]);
 
@@ -194,24 +205,19 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
   const handleConfirmLots = async () => {
     setSaving(true);
     const primaryLot = selectedLots[effectiveBlendBuckets[0]?.bucket_id]?.lot_number || "";
-    await base44.entities.ProductionStage.update(stageToUse.id, { input_lot_number: primaryLot });
-    // Deduct each bucket's quantity from the selected raw inventory lot
-    for (const bucket of effectiveBlendBuckets) {
-      const sel = selectedLots[bucket.bucket_id];
-      if (sel?.raw_inventory_id) {
-        const row = rawInventoryAll.find(r => r.id === sel.raw_inventory_id);
-        if (row) {
-          const deduct = bucket.quantity_lbs || 0;
-          const newQty = Math.max(0, (row.available_qty || 0) - deduct);
-          await base44.entities.RawInventory.update(sel.raw_inventory_id, {
-            available_qty: parseFloat(newQty.toFixed(2)),
-            status: newQty <= 0 ? "depleted" : "in_use",
-          });
-        }
-      }
-    }
+    // Save the confirmed lot selections as JSON on the stage so we can deduct per-rack later
+    const confirmedLotsPayload = effectiveBlendBuckets.map(b => ({
+      bucket_id: b.bucket_id,
+      bucket_name: b.bucket_name,
+      raw_inventory_id: selectedLots[b.bucket_id]?.raw_inventory_id || "",
+      lot_number: selectedLots[b.bucket_id]?.lot_number || "",
+      total_qty_lbs: stageToUse.input_qty_lbs || 0,
+    }));
+    await base44.entities.ProductionStage.update(stageToUse.id, {
+      input_lot_number: primaryLot,
+      notes: (stageToUse.notes ? stageToUse.notes + "\n" : "") + `__lots__${JSON.stringify(confirmedLotsPayload)}`,
+    });
     setLotsConfirmed(true);
-    queryClient.invalidateQueries({ queryKey: ["rawInventory"] });
     setSaving(false);
   };
 
@@ -266,6 +272,27 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
       newSubBatch
     ];
     
+    // Deduct raw inventory proportionally for this rack's actual weight
+    const stageNotes = freshStage?.notes || stageToUse?.notes || "";
+    const lotsMatch = stageNotes.match(/__lots__(\[.*?\])(?:\n|$|__)/s) || stageNotes.match(/__lots__(.+)$/s);
+    if (lotsMatch) {
+      const confirmedLots = JSON.parse(lotsMatch[1]);
+      const totalStageLbs = stageToUse.input_qty_lbs || 1;
+      for (const lotInfo of confirmedLots) {
+        if (!lotInfo.raw_inventory_id) continue;
+        const deductLbs = parseFloat(((lbs / totalStageLbs) * lotInfo.total_qty_lbs).toFixed(2));
+        const freshRow = await base44.entities.RawInventory.filter({ id: lotInfo.raw_inventory_id }).then(r => r?.[0]);
+        if (freshRow) {
+          const newQty = Math.max(0, (freshRow.available_qty || 0) - deductLbs);
+          await base44.entities.RawInventory.update(lotInfo.raw_inventory_id, {
+            available_qty: parseFloat(newQty.toFixed(2)),
+            status: newQty <= 0 ? "depleted" : "in_use",
+          });
+        }
+      }
+      queryClient.invalidateQueries({ queryKey: ["rawInventory"] });
+    }
+
     // Save to DB
     await base44.entities.ProductionStage.update(stageToUse.id, {
       status: "in_progress",
