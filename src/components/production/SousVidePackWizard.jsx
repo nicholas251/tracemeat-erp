@@ -253,7 +253,8 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
     // A lot change happened if the current active lot differs from the last rack's raw lot
     const lotChanged = lastRawLot && currentActiveLotNumber && lastRawLot !== currentActiveLotNumber;
     setLotChangedFrom(lotChanged ? lastRawLot : null);
-    setLotChangeConfirmed(false);
+    // Auto-confirm lot change when reopening from split confirmation
+    setLotChangeConfirmed(!!splitLotConfirmation);
 
     setEditingRack(rack);
   };
