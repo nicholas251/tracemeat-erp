@@ -445,8 +445,8 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
                     }
                   </div>
 
-                  {/* Rack grid */}
-                  <div className="px-4 py-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  {/* Rack grid — hidden when batch is complete */}
+                  {!batchComplete && <div className="px-4 py-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
                     {cb.racks.map(rack => {
                       const rd = completedRacks[rack.rackNumber];
                       const done = !!rd?.completed;
@@ -474,7 +474,7 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
                         </button>
                       );
                     })}
-                  </div>
+                  </div>}
                 </div>
               );
             })}
