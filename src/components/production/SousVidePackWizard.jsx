@@ -142,12 +142,7 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
     }
   }, [stageToUse?.input_lot_number]);
 
-  // If product has no blend ingredients configured, auto-confirm the lot step
-  useEffect(() => {
-    if (product && blendBuckets.length === 0 && !lotsConfirmed) {
-      setLotsConfirmed(true);
-    }
-  }, [product, blendBuckets.length]);
+  // No longer auto-confirm when blend_ingredients is empty — show config notice instead
 
   // Sync updatedSubs only when freshStage arrives from the server (never use stale stage prop after mount)
   useEffect(() => {
@@ -419,7 +414,14 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
               {lotsConfirmed && <Badge className="bg-chart-2/15 text-chart-2 border-0 text-xs">Confirmed</Badge>}
             </div>
 
-            {!lotsConfirmed && (
+            {!lotsConfirmed && blendBuckets.length === 0 && (
+              <div className="rounded border bg-amber-50 border-amber-200 px-3 py-2.5 text-xs text-amber-700">
+                No blend ingredients are configured on this product. Add <strong>blend_ingredients</strong> on the product to enable lot selection, or click confirm to skip.
+                <Button size="sm" className="mt-2 w-full h-8" onClick={() => setLotsConfirmed(true)}>Skip / Confirm</Button>
+              </div>
+          )}
+
+          {!lotsConfirmed && blendBuckets.length > 0 && (
               <div className="space-y-3">
                 {blendBuckets.map(bucket => {
                   const fifoLots = getFifoLotsForBucket(rawInventoryAll, bucket.bucket_id);
@@ -474,7 +476,7 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
                   {saving ? "Saving…" : "Confirm Raw Material Lots"}
                 </Button>
               </div>
-            )}
+          )}
 
             {lotsConfirmed && (
               <div className="rounded bg-chart-2/5 border border-chart-2/20 divide-y text-xs">
