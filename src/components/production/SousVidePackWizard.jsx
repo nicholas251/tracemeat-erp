@@ -411,11 +411,31 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
       pork_lot_number: JSON.stringify(newActiveLots),
     });
 
+    // Check if ALL racks done → complete the stage
+    const allRacksDone = plan.racks.every(r => newCompleted[r.rackNumber]?.completed);
+    if (allRacksDone) {
+      await base44.entities.ProductionStage.update(stageData.id, {
+        status: "completed",
+        completed_at: new Date().toISOString(),
+        output_qty_lbs: parseFloat(plan.racks.reduce((s, r) => s + (newCompleted[r.rackNumber]?.lbs || r.lbs), 0).toFixed(2)),
+        racks_count: plan.totalRacks,
+        sub_batches: newSubs,
+      });
+    }
+
+    // Refetch the latest stage state before checking for cook batch completion
+    await refetchStage();
+    const refreshedStage = await base44.entities.ProductionStage.filter({ id: stageData.id }).then(r => r?.[0]);
+
     // Check if cook batch is now complete → create cooking stage
     const cookBatch = plan.cookBatches.find(cb => cb.cookBatchNumber === editingRack.cookBatchNumber);
-    if (cookBatch) {
+    if (cookBatch && refreshedStage?.sub_batches) {
       const allRackNums = cookBatch.racks.map(r => r.rackNumber);
-      const allDone = allRackNums.every(rn => newCompleted[rn]?.completed);
+      const refreshedMap = {};
+      for (const sb of refreshedStage.sub_batches) {
+        if (sb.rack_number) refreshedMap[sb.rack_number] = { completed: true, lbs: sb.lbs || RACK_LBS, lot_number: sb.lot_number || "" };
+      }
+      const allDone = allRackNums.every(rn => refreshedMap[rn]?.completed);
 
       if (allDone) {
         // Use a stable cook batch lot identifier so we can reliably deduplicate
@@ -432,11 +452,11 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
           const orderData = await base44.entities.ProductionOrder.filter({ id: stageData.order_id }).then(r => r?.[0]);
           const flowData = orderData?.flow_id ? await base44.entities.ProductFlow.filter({ id: orderData.flow_id }).then(r => r?.[0]) : null;
           const cookStep = flowData?.steps?.find(s => s.capability_key === "cooking");
-          const cookBatchLbs = allRackNums.reduce((s, rn) => s + (newCompleted[rn]?.lbs || RACK_LBS), 0);
+          const cookBatchLbs = allRackNums.reduce((s, rn) => s + (refreshedMap[rn]?.lbs || RACK_LBS), 0);
 
           // Collect all unique lot numbers from the racks in this cook batch
           const rackLots = allRackNums
-            .map(rn => newCompleted[rn]?.lot_number)
+            .map(rn => refreshedMap[rn]?.lot_number)
             .filter(Boolean);
           const uniqueRackLots = [...new Set(rackLots)];
           // Also include the raw material lot(s) that were active during packing
@@ -460,7 +480,7 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
             order_id: stageData.order_id,
             order_number: stageData.order_number,
             product_name: stageData.product_name,
-            step_number: stageData.step_number + 1,
+            step_number: refreshedStage.step_number + 1,
             capability_id: cookStep?.capability_id || "",
             capability_key: "cooking",
             capability_name: "Cooking",
@@ -478,20 +498,6 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
         }
       }
     }
-
-    // Check if ALL racks done → complete the stage
-    const allRacksDone = plan.racks.every(r => newCompleted[r.rackNumber]?.completed);
-    if (allRacksDone) {
-      await base44.entities.ProductionStage.update(stageData.id, {
-        status: "completed",
-        completed_at: new Date().toISOString(),
-        output_qty_lbs: parseFloat(plan.racks.reduce((s, r) => s + (newCompleted[r.rackNumber]?.lbs || r.lbs), 0).toFixed(2)),
-        racks_count: plan.totalRacks,
-        sub_batches: newSubs,
-      });
-    }
-
-    await refetchStage();
     await refetchInventory();
     queryClient.invalidateQueries({ queryKey: ["orderStages", stageData.order_id] });
     queryClient.invalidateQueries({ queryKey: ["allStages"] });
