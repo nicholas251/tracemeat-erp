@@ -307,7 +307,7 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
   // ─── Handle split lot confirmation (when mid-rack lot exhaustion occurs) ──
   // User confirmed the split and selected the lot — deduct from old lot, switch to selected lot
   const handleConfirmSplitLot = async () => {
-    if (!editingRack || !splitLotConfirmation || !selectedSplitLotId) return;
+    if (!splitLotConfirmation || !selectedSplitLotId) return;
 
     setSaving(true);
     const rackNumber = splitLotConfirmation.rackNumber;
