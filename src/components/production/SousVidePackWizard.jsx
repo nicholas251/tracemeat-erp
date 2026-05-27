@@ -53,11 +53,12 @@ function buildPlan(totalLbs) {
 export default function SousVidePackWizard({ stage, open, onClose, onCompleted }) {
   const queryClient = useQueryClient();
   const [saving, setSaving] = useState(false);
-  const [editingRack, setEditingRack] = useState(null);
-  const [editForm, setEditForm] = useState({ lot_number: "", notes: "", lbs: "", short_weight_reason: "" });
-  const [lotChangeConfirmed, setLotChangeConfirmed] = useState(false);
-  const [lotChangedFrom, setLotChangedFrom] = useState(null); // lot number of previously active lot
-  const [splitLotConfirmation, setSplitLotConfirmation] = useState(null); // { rackNumber, remainingWeight, nextLotNumber } when split deduction needed
+   const [editingRack, setEditingRack] = useState(null);
+   const [editForm, setEditForm] = useState({ lot_number: "", notes: "", lbs: "", short_weight_reason: "" });
+   const [lotChangeConfirmed, setLotChangeConfirmed] = useState(false);
+   const [lotChangedFrom, setLotChangedFrom] = useState(null); // lot number of previously active lot
+   const [splitLotConfirmation, setSplitLotConfirmation] = useState(null); // { rackNumber, remainingWeight, nextLotNumber } when split deduction needed
+   const [splitLotNextId, setSplitLotNextId] = useState(null); // stores the next lot ID when split is confirmed
 
   // ── Step 1 state: lot selection ──
   const [selectedLots, setSelectedLots] = useState({}); // { [bucket_id]: { raw_inventory_id, lot_number, available_qty } }
@@ -243,17 +244,40 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
       short_weight_reason: existing?.short_weight_reason || "",
     });
 
-    // Detect lot change: find the last completed rack's active lot and compare to current
     const primaryBucketId = effectiveBuckets[0]?.bucket_id;
+    const rackLbs = existing?.lbs ?? rack.lbs;
+
+    // Check if current lot has enough inventory to complete this rack
+    const primaryActive = activeLots[primaryBucketId];
+    const hasEnoughInCurrentLot = primaryActive?.remaining_qty >= rackLbs;
+
+    // If not enough, show split confirmation to let user pick which lot to pull the remainder from
+    if (!hasEnoughInCurrentLot && primaryActive?.remaining_qty > 0) {
+      const remainingNeeded = parseFloat((rackLbs - primaryActive.remaining_qty).toFixed(2));
+      const nextLots = getFifoLots(rawInventory, primaryBucketId).filter(l => l.id !== primaryActive.raw_inventory_id);
+      if (nextLots.length > 0) {
+        setSplitLotConfirmation({
+          rackNumber: rack.rackNumber,
+          currentLotNumber: primaryActive.lot_number,
+          currentRemaining: primaryActive.remaining_qty,
+          nextLotNumber: nextLots[0].lot_number || nextLots[0].id,
+          weightNeeded: rackLbs,
+        });
+        // Store the next lot ID so we can auto-advance when user confirms
+        setSplitLotNextId(nextLots[0].id);
+        setEditingRack(rack);
+        return;
+      }
+    }
+
+    // Detect lot change from previous rack
     const currentActiveLotNumber = activeLots[primaryBucketId]?.lot_number;
     const lastCompletedRackNum = rack.rackNumber - 1;
     const lastRackData = completedRacks[lastCompletedRackNum];
-    // raw_lots is the array of raw inventory lots used; pick the last (most recent)
     const lastRawLot = lastRackData?.raw_lots?.length > 0 
       ? lastRackData.raw_lots[lastRackData.raw_lots.length - 1]
       : null;
 
-    // A lot change happened if the current active lot differs from the last rack's actual raw lot consumed
     const lotChanged = lastRawLot && currentActiveLotNumber && lastRawLot !== currentActiveLotNumber;
     setLotChangedFrom(lotChanged ? lastRawLot : null);
     setLotChangeConfirmed(autoConfirmLotChange);
@@ -262,12 +286,33 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
   };
 
   // ─── Handle split lot confirmation (when mid-rack lot exhaustion occurs) ──
+  // User is confirming which lot to switch to before opening the rack form
   const handleConfirmSplitLot = async () => {
-    if (!editingRack || !splitLotConfirmation) return;
+    if (!editingRack || !splitLotConfirmation || !splitLotNextId) return;
 
-    // User confirmed the lot switch — proceed with rack completion
+    // Advance the active lot to the next lot BEFORE completing the rack
+    const primaryBucketId = effectiveBuckets[0]?.bucket_id;
+    const nextFreshRow = await base44.entities.RawInventory.filter({ id: splitLotNextId }).then(r => r?.[0]);
+
+    if (nextFreshRow) {
+      const updatedActiveLots = { ...activeLots };
+      updatedActiveLots[primaryBucketId] = {
+        raw_inventory_id: nextFreshRow.id,
+        lot_number: nextFreshRow.lot_number || "",
+        remaining_qty: nextFreshRow.available_qty ?? 0,
+      };
+      setActiveLots(updatedActiveLots);
+
+      // Persist the updated active lots
+      await base44.entities.ProductionStage.update(stageData.id, {
+        pork_lot_number: JSON.stringify(updatedActiveLots),
+      });
+    }
+
+    // Clear split state and proceed with the rack form showing the new lot
     setSplitLotConfirmation(null);
-    await handleCompleteRack();
+    setSplitLotNextId(null);
+    // editingRack is already set, so the rack form will open with the new active lot
   };
 
   // ─── Switch to next lot (manual override — used when lot exhausted exactly on a rack boundary) ──
@@ -875,14 +920,10 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
                 </Button>
                 <Button
                   className="flex-1 bg-amber-600 hover:bg-amber-700 gap-2"
-                  onClick={async () => {
-                    // Proceed without re-checking split (already confirmed by user)
-                    setSplitLotConfirmation(null);
-                    await handleCompleteRack(true);
-                  }}
+                  onClick={handleConfirmSplitLot}
                   disabled={saving}
                 >
-                  {saving ? "Completing…" : "Yes, Complete Rack"}
+                  {saving ? "Switching…" : "Yes, Switch Lots & Continue"}
                 </Button>
               </div>
             </div>
