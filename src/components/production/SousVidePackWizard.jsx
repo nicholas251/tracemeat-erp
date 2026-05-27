@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CheckCircle2, Circle, Package, AlertCircle, AlertTriangle } from "lucide-react";
+import { useToast } from "@/components/ui/use-toast";
 
 const RACK_LBS = 610;
 const RACKS_PER_COOK_BATCH = 3;
@@ -65,7 +66,8 @@ function buildPlan(totalLbs) {
 // ─── main component ──────────────────────────────────────────────────────────
 
 export default function SousVidePackWizard({ stage, open, onClose, onCompleted }) {
-  const queryClient = useQueryClient();
+   const { toast } = useToast();
+   const queryClient = useQueryClient();
   const [saving, setSaving] = useState(false);
   const [editingRack, setEditingRack] = useState(null);
   const [editForm, setEditForm] = useState({ lot_number: "", notes: "", lbs: "", short_weight_reason: "" });
@@ -605,11 +607,17 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
       } else {
         // Check if current cook batch is done and create/unlock its cooking stage
         const cookBatch = plan.cookBatches.find(cb => cb.cookBatchNumber === currentCookBatchNumber);
-        console.log("[handleCompleteRack] Checking cook batch completion:", { currentCookBatchNumber, foundBatch: !!cookBatch, completedMap: Object.keys(newCompleted) });
+        toast({
+          title: "Batch Check",
+          description: `Batch #${currentCookBatchNumber}: Found=${!!cookBatch}, Completed Racks=${Object.keys(newCompleted).join(",")}`,
+        });
         if (cookBatch) {
           const allRackNums = cookBatch.racks.map(r => r.rackNumber);
           const batchDone = allRackNums.every(rn => newCompleted[rn]?.completed);
-          console.log("[handleCompleteRack] Batch completion check:", { allRackNums, batchDone, newCompletedKeys: Object.keys(newCompleted) });
+          toast({
+            title: `Cook Batch #${currentCookBatchNumber}`,
+            description: `Racks needed: ${allRackNums.join(",")}. Done=${batchDone}`,
+          });
 
           if (batchDone) {
             const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
