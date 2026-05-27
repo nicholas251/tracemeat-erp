@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
@@ -25,6 +25,13 @@ export default function StageDashboard({ user, profile, onBack, singleProfile = 
     queryClient.invalidateQueries({ queryKey: ["productionOrders"] });
     setActiveStage(null);
   };
+
+  // When activeStage is open, lock the stage prop so allStages refetches don't replace it
+  const lockedActiveStage = React.useRef(null);
+  if (activeStage && lockedActiveStage.current?.id !== activeStage.id) {
+    lockedActiveStage.current = activeStage;
+  }
+  if (!activeStage) lockedActiveStage.current = null;
 
   // Only show stages assigned to this work profile that are available or in-progress
   // Completed stages are locked and not editable
@@ -89,8 +96,8 @@ export default function StageDashboard({ user, profile, onBack, singleProfile = 
 
       {activeStage && activeStage.capability_key === "sous_vide_pack" && (
         <SousVidePackWizard
-          key={activeStage.id}
-          stage={activeStage}
+          key={lockedActiveStage.current?.id}
+          stage={lockedActiveStage.current}
           open={!!activeStage}
           onClose={() => setActiveStage(null)}
           onCompleted={handleUpdated}
@@ -99,7 +106,7 @@ export default function StageDashboard({ user, profile, onBack, singleProfile = 
 
       {activeStage && activeStage.capability_key !== "sous_vide_pack" && (
         <StageWizard
-          stage={activeStage}
+          stage={lockedActiveStage.current}
           open={!!activeStage}
           onClose={() => setActiveStage(null)}
           onCompleted={handleUpdated}
