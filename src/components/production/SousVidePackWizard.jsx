@@ -332,12 +332,12 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
 
     // ── Refresh active lots from DB to ensure remaining_qty is current ──
     const freshActiveLots = { ...activeLots };
-    for (const bucketId of Object.keys(activeLots)) {
-      const current = activeLots[bucketId];
+    for (const b of effectiveBuckets) {
+      const current = activeLots[b.bucket_id];
       if (current?.raw_inventory_id) {
         const freshRow = await base44.entities.RawInventory.filter({ id: current.raw_inventory_id }).then(r => r?.[0]);
         if (freshRow) {
-          freshActiveLots[bucketId] = {
+          freshActiveLots[b.bucket_id] = {
             raw_inventory_id: freshRow.id,
             lot_number: freshRow.lot_number || "",
             remaining_qty: freshRow.available_qty ?? 0,
