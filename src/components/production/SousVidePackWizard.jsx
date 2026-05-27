@@ -139,8 +139,10 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
   const completedRacks = useMemo(() => {
     const map = {};
     for (const sb of stageData?.sub_batches || []) {
-      if (sb.rack_number) {
-        map[sb.rack_number] = { completed: true, lbs: sb.lbs || RACK_LBS, lot_number: sb.lot_number || "", notes: sb.notes || "", short_weight_reason: sb.short_weight_reason || "", cook_batch_number: sb.cook_batch_number };
+      // rack_number stored in sub_batch_id as "rack-N"
+      const rackNum = sb.rack_number ?? (sb.sub_batch_id?.startsWith("rack-") ? parseInt(sb.sub_batch_id.split("-")[1]) : null);
+      if (rackNum) {
+        map[rackNum] = { completed: true, lbs: sb.lbs ?? sb.qty_lbs ?? RACK_LBS, lot_number: sb.lot_number || "", notes: sb.notes || "", short_weight_reason: sb.short_weight_reason || "", cook_batch_number: sb.cook_batch_number };
       }
     }
     return map;
@@ -213,6 +215,7 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
       rack_number: rackNum,
       label: `Rack #${rackNum}`,
       lbs,
+      qty_lbs: lbs,
       lot_number: lot,
       notes: editForm.notes,
       short_weight_reason: lbs < RACK_LBS ? editForm.short_weight_reason : null,
