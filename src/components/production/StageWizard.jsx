@@ -803,7 +803,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
           const productYield = product?.yield_percent;
           if (!productYield) console.warn(`Product missing yield_percent; using default 85%`);
           const yieldFraction = (productYield ?? 85) / 100;
-          const nextInputQty = capKey === "cooking" ? parseFloat((rawQty * yieldFraction).toFixed(2)) : rawQty;
+          const nextInputQty = capKey === "cooking" ? parseFloat((rawQty * yieldFraction).toFixed(2)) : rawQty; // No yield applied to chilling
           
           // Determine lot number to pass forward
           let nextInputLot = "";
