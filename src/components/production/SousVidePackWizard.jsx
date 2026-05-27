@@ -74,6 +74,7 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
   const [splitLotConfirmation, setSplitLotConfirmation] = useState(null);
   const [selectedSplitLotId, setSelectedSplitLotId] = useState(null);
   const [splitConfirmedRackNumber, setSplitConfirmedRackNumber] = useState(null);
+  const [expandedBatches, setExpandedBatches] = useState({});
 
   // ── Step 1 state: lot selection ──
   const [selectedLots, setSelectedLots] = useState({}); // { [bucket_id]: { raw_inventory_id, lot_number, available_qty } }
@@ -876,13 +877,14 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
             )}
 
             {/* ── Step 2: Cook batches / racks ── */}
-            {lotsConfirmed && plan.cookBatches.map(cb => {
-              const completedInBatch = cb.racks.filter(r => completedRacks[r.rackNumber]?.completed).length;
-              const batchComplete = completedInBatch === cb.racks.length;
+             {lotsConfirmed && plan.cookBatches.map(cb => {
+               const completedInBatch = cb.racks.filter(r => completedRacks[r.rackNumber]?.completed).length;
+               const batchComplete = completedInBatch === cb.racks.length;
+               const isExpanded = expandedBatches[cb.cookBatchNumber];
 
-              return (
-                <div key={cb.cookBatchNumber} className={`rounded-xl border-2 ${batchComplete ? "border-chart-2/40 bg-chart-2/5" : "border-border bg-card"}`}>
-                  <div className="flex items-center justify-between px-4 py-3 border-b border-border/50">
+               return (
+                 <div key={cb.cookBatchNumber} className={`rounded-xl border-2 ${batchComplete ? "border-chart-2/40 bg-chart-2/5" : "border-border bg-card"}`}>
+                   <div className="flex items-center justify-between px-4 py-3 border-b border-border/50 cursor-pointer hover:bg-white/50 transition-colors" onClick={() => batchComplete && setExpandedBatches(p => ({ ...p, [cb.cookBatchNumber]: !p[cb.cookBatchNumber] }))}>
                     <div className="flex items-center gap-2">
                       {batchComplete
                         ? <CheckCircle2 className="w-4 h-4 text-chart-2" />
@@ -897,8 +899,8 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
                     }
                   </div>
 
-                  {/* Rack grid — hidden when batch is complete */}
-                  {!batchComplete && (
+                  {/* Rack grid — hidden when batch is complete unless expanded */}
+                  {(!batchComplete || isExpanded) && (
                     <div className="px-4 py-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
                       {cb.racks.map(rack => {
                         const rd = completedRacks[rack.rackNumber];
