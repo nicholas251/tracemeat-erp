@@ -388,7 +388,8 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
       newActiveLots[b.bucket_id] = { ...active, remaining_qty: firstNewQty };
       remaining = parseFloat((remaining - takeFromFirst).toFixed(2));
 
-      // Second: if first lot ran out mid-rack, pull remainder from next FIFO lot
+      // Second: if first lot ran out mid-rack, deduct from the next FIFO lot
+      // BUT do NOT auto-advance the active lot — user must confirm first via needsNewLot dialog
       if (remaining > 0.01) {
         const nextLots = getFifoLots(rawInventory, b.bucket_id).filter(l => l.id !== freshRow.id);
         if (nextLots.length > 0) {
@@ -403,12 +404,8 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
             status: nextNewQty <= 0 ? "depleted" : "in_use",
           });
 
-          // Automatically advance the active lot to this next lot
-          newActiveLots[b.bucket_id] = {
-            raw_inventory_id: nextLot.id,
-            lot_number: nextLot.lot_number || "",
-            remaining_qty: nextNewQty,
-          };
+          // Do NOT auto-advance activeLots — keep it as the original lot so user is prompted
+          // to manually select the next lot via handleConfirmNextLot
           remaining = parseFloat((remaining - takeFromNext).toFixed(2));
         }
       }
