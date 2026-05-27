@@ -179,7 +179,7 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
     for (const sb of stageData?.sub_batches || []) {
       const rackNum = sb.rack_number ?? (sb.sub_batch_id?.startsWith("rack-") ? parseInt(sb.sub_batch_id.split("-")[1]) : null);
       if (rackNum) {
-        map[rackNum] = { completed: true, lbs: sb.lbs ?? sb.qty_lbs ?? RACK_LBS, lot_number: sb.lot_number || "", notes: sb.notes || "", short_weight_reason: sb.short_weight_reason || "", cook_batch_number: sb.cook_batch_number };
+        map[rackNum] = { completed: true, lbs: sb.lbs ?? sb.qty_lbs ?? RACK_LBS, lot_number: sb.lot_number || "", raw_lots: sb.raw_lots || [], notes: sb.notes || "", short_weight_reason: sb.short_weight_reason || "", cook_batch_number: sb.cook_batch_number };
       }
     }
     return map;
@@ -340,6 +340,11 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
     // Always fetch the freshest stage from DB before merging sub_batches
     const latestStage = await base44.entities.ProductionStage.filter({ id: stageData.id }).then(r => r?.[0]);
 
+    // Collect the raw material lots that were consumed for this rack
+    const rawLotsUsed = [...new Set(
+      Object.values(newActiveLots).map(al => al.lot_number).filter(Boolean)
+    )];
+
     const newSubBatch = {
       sub_batch_id: `rack-${rackNum}`,
       rack_number: rackNum,
@@ -347,6 +352,7 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
       lbs,
       qty_lbs: lbs,
       lot_number: lot,
+      raw_lots: rawLotsUsed,
       notes: editForm.notes,
       short_weight_reason: lbs < RACK_LBS ? editForm.short_weight_reason : null,
       cook_batch_number: editingRack.cookBatchNumber,
@@ -702,7 +708,14 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
                               <span className="text-xs font-bold">Rack #{rack.rackNumber}</span>
                             </div>
                             <p className="text-xs text-muted-foreground">{done ? `${rd.lbs} lbs` : `~${rack.lbs} lbs`}</p>
-                            {done && rd.lot_number && <p className="text-xs font-mono text-chart-2 truncate">{rd.lot_number}</p>}
+                            {done && rd.raw_lots?.length > 0 && (
+                              <div className="mt-1 space-y-0.5">
+                                {rd.raw_lots.map((rl, i) => (
+                                  <p key={i} className="text-xs font-mono text-chart-2 truncate">{rl}</p>
+                                ))}
+                              </div>
+                            )}
+                            {done && !rd.raw_lots?.length && rd.lot_number && <p className="text-xs font-mono text-chart-2 truncate">{rd.lot_number}</p>}
                             {!done && !blocked && <p className="text-xs text-chart-1 font-semibold mt-0.5">Tap to complete</p>}
                             {blocked && <p className="text-xs text-destructive font-semibold mt-0.5">Select new lot first</p>}
                           </button>
