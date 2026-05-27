@@ -404,6 +404,7 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
           currentRemaining: primaryActive?.remaining_qty,
           nextLotNumber: nextLot.lot_number || nextLot.id,
           weightNeeded: lbs,
+          availableLots: nextLots,
         };
       }
     }
