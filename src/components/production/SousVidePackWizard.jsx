@@ -257,10 +257,13 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
 
     // Check if user already confirmed a lot switch for this rack (don't show split dialog again)
     if (splitConfirmedRackNumber === rack.rackNumber) {
-      const currentActiveLotNumber = activeLots[primaryBucketId]?.lot_number;
-      const lastRawLot = getLastRawLot(completedRacks[rack.rackNumber - 1]);
-      const lotChanged = lastRawLot && currentActiveLotNumber && lastRawLot !== currentActiveLotNumber;
-      setLotChangedFrom(lotChanged ? lastRawLot : null);
+      // Skip lot change warning if auto-confirmed from split
+      if (!autoConfirmLotChange) {
+        const currentActiveLotNumber = activeLots[primaryBucketId]?.lot_number;
+        const lastRawLot = getLastRawLot(completedRacks[rack.rackNumber - 1]);
+        const lotChanged = lastRawLot && currentActiveLotNumber && lastRawLot !== currentActiveLotNumber;
+        setLotChangedFrom(lotChanged ? lastRawLot : null);
+      }
       setLotChangeConfirmed(autoConfirmLotChange);
       setEditingRack(rack);
       return;
