@@ -729,9 +729,9 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
           }
         }
 
-        // Unlock next stage and pass lot traceability (unless chilling — don't auto-unlock packaging)
+        // Unlock next stage and pass lot traceability
         const allStages = await base44.entities.ProductionStage.filter({ order_id: stage.order_id });
-        const nextStage = capKey !== "chilling" ? allStages.find(s => s.step_number === stage.step_number + 1 && s.status !== "completed") : null;
+        const nextStage = allStages.find(s => s.step_number === stage.step_number + 1 && s.status !== "completed");
 
         // For dynamically-created stages (e.g. sous vide cooking → chilling), the next stage
         // may not exist yet — look it up from the flow and create it on the fly.
