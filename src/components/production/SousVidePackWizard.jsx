@@ -59,6 +59,7 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
    const [lotChangedFrom, setLotChangedFrom] = useState(null); // lot number of previously active lot
    const [splitLotConfirmation, setSplitLotConfirmation] = useState(null); // { rackNumber, remainingWeight, nextLotNumber } when split deduction needed
    const [splitLotNextId, setSplitLotNextId] = useState(null); // stores the next lot ID when split is confirmed
+   const [splitConfirmedRackNumber, setSplitConfirmedRackNumber] = useState(null); // rack number where user already confirmed lot switch
 
   // ── Step 1 state: lot selection ──
   const [selectedLots, setSelectedLots] = useState({}); // { [bucket_id]: { raw_inventory_id, lot_number, available_qty } }
@@ -247,6 +248,24 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
     const primaryBucketId = effectiveBuckets[0]?.bucket_id;
     const rackLbs = existing?.lbs ?? rack.lbs;
 
+    // Check if user already confirmed a lot switch for this rack (don't show split dialog again)
+    if (splitConfirmedRackNumber === rack.rackNumber) {
+      // Skip split check — proceed directly to rack form
+      const currentActiveLotNumber = activeLots[primaryBucketId]?.lot_number;
+      const lastCompletedRackNum = rack.rackNumber - 1;
+      const lastRackData = completedRacks[lastCompletedRackNum];
+      const lastRawLot = lastRackData?.raw_lots?.length > 0 
+        ? lastRackData.raw_lots[lastRackData.raw_lots.length - 1]
+        : null;
+
+      const lotChanged = lastRawLot && currentActiveLotNumber && lastRawLot !== currentActiveLotNumber;
+      setLotChangedFrom(lotChanged ? lastRawLot : null);
+      setLotChangeConfirmed(autoConfirmLotChange);
+
+      setEditingRack(rack);
+      return;
+    }
+
     // Check if current lot has enough inventory to complete this rack
     const primaryActive = activeLots[primaryBucketId];
     const hasEnoughInCurrentLot = primaryActive?.remaining_qty >= rackLbs;
@@ -290,6 +309,8 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
   const handleConfirmSplitLot = async () => {
     if (!editingRack || !splitLotConfirmation || !splitLotNextId) return;
 
+    const rackNumber = splitLotConfirmation.rackNumber;
+
     // Switch active lot to the new lot so handleCompleteRack deducts the full weight from it
     const primaryBucketId = effectiveBuckets[0]?.bucket_id;
     const nextFreshRow = await base44.entities.RawInventory.filter({ id: splitLotNextId }).then(r => r?.[0]);
@@ -308,6 +329,9 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
         pork_lot_number: JSON.stringify(updatedActiveLots),
       });
     }
+
+    // Mark this rack as split-confirmed so openEditRack won't show split dialog again
+    setSplitConfirmedRackNumber(rackNumber);
 
     // Close split confirmation — rack form is ready with the new active lot
     setSplitLotConfirmation(null);
@@ -591,6 +615,7 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
 
     setSaving(false);
     setSplitLotConfirmation(null); // Close split confirmation dialog after rack is completed
+    setSplitConfirmedRackNumber(null); // Clear the rack split confirmation flag
 
     // After closing the rack dialog, check if lot is now exhausted and more racks remain
     if (lotExhausted && !allRacksDone) {
@@ -598,10 +623,11 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
     }
 
     if (allRacksDone) onCompleted?.();
-  };
+    };
 
   const handleClose = () => {
     setEditingRack(null);
+    setSplitConfirmedRackNumber(null);
     onClose();
   };
 
