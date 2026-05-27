@@ -353,8 +353,7 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
         });
       }
 
-      // Step 4: Mark this rack as split-confirmed
-      setSplitConfirmedRackNumber(rackNumber);
+
 
       // Step 5: Close split confirmation dialog
       setSplitLotConfirmation(null);
@@ -369,8 +368,8 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
       // Step 8: Open the rack form for final weight/notes entry
       const rackToOpen = plan.racks.find(r => r.rackNumber === rackNumber);
       if (rackToOpen) {
-        // Delay slightly to allow state to settle before opening form
-        await new Promise(r => setTimeout(r, 100));
+        setSplitConfirmedRackNumber(rackNumber);
+        await new Promise(r => setTimeout(r, 50));
         openEditRack(rackToOpen, true);
       }
     } catch (error) {
