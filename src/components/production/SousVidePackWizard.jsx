@@ -275,8 +275,7 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
         // Pre-select the first FIFO lot BEFORE showing dialog
         const firstLotId = nextLots[0].id;
         setSelectedSplitLotId(firstLotId);
-        
-        // Then show the dialog with available lots
+
         setSplitLotConfirmation({
           rackNumber: rack.rackNumber,
           currentLotNumber: primaryActive.lot_number,
@@ -284,7 +283,6 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
           weightNeeded: rackLbs,
           availableLots: nextLots,
         });
-        // Don't open rack form yet — wait for split confirmation
         return;
       }
     }
@@ -452,21 +450,22 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
     const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
     const lot = editForm.lot_number.trim() || `SV-R${rackNum}-${today}`;
 
-    // ── Refresh active lots from DB to ensure remaining_qty is current ──
-    const freshActiveLots = { ...activeLots };
-    for (const b of effectiveBuckets) {
-      const current = activeLots[b.bucket_id];
-      if (current?.raw_inventory_id) {
-        const freshRow = await base44.entities.RawInventory.filter({ id: current.raw_inventory_id }).then(r => r?.[0]);
-        if (freshRow) {
-          freshActiveLots[b.bucket_id] = {
-            raw_inventory_id: freshRow.id,
-            lot_number: freshRow.lot_number || "",
-            remaining_qty: freshRow.available_qty ?? 0,
-          };
+    try {
+      // ── Refresh active lots from DB to ensure remaining_qty is current ──
+      const freshActiveLots = { ...activeLots };
+      for (const b of effectiveBuckets) {
+        const current = activeLots[b.bucket_id];
+        if (current?.raw_inventory_id) {
+          const freshRow = await base44.entities.RawInventory.filter({ id: current.raw_inventory_id }).then(r => r?.[0]);
+          if (freshRow) {
+            freshActiveLots[b.bucket_id] = {
+              raw_inventory_id: freshRow.id,
+              lot_number: freshRow.lot_number || "",
+              remaining_qty: freshRow.available_qty ?? 0,
+            };
+          }
         }
       }
-    }
 
     // ── Check if we'll need to split across lots before doing anything ──
     // Skip if user already confirmed the split via the split dialog
@@ -533,9 +532,7 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
     setActiveLots(newActiveLots);
 
     // Check if active lot is now exhausted (< 1 lb) and there are still racks to pack
-    const checkPrimaryBucketId = effectiveBuckets[0]?.bucket_id;
-    const checkPrimaryActive = newActiveLots[checkPrimaryBucketId];
-    const lotExhausted = checkPrimaryActive && checkPrimaryActive.remaining_qty < 1;
+    const lotExhausted = primaryBucketId && newActiveLots[primaryBucketId] && newActiveLots[primaryBucketId].remaining_qty < 1;
 
     // Always fetch the freshest stage from DB before merging sub_batches
     const latestStage = await base44.entities.ProductionStage.filter({ id: stageData.id }).then(r => r?.[0]);
@@ -675,7 +672,12 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
     }
 
     if (allRacksDone) onCompleted?.();
-  };
+    } catch (error) {
+     console.error("Error in handleCompleteRack:", error);
+     setEditingRack(null);
+     setSaving(false);
+    }
+    };
 
   const handleClose = () => {
     setEditingRack(null);
