@@ -286,44 +286,156 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
     setEditingRack(rack);
   };
 
-  // ─── Handle split lot confirmation (when mid-rack lot exhaustion occurs) ──
-  // User confirmed split and selected new lot — just switch active lot, deduction happens in handleCompleteRack
+  // ─── Handle split lot confirmation — completes the rack with split deduction ──
+  // Deducts from both lots, saves rack, and completes it all in one step
   const handleConfirmSplitLot = async () => {
     if (!splitLotConfirmation || !selectedSplitLotId) {
       console.warn("Split confirmation missing data", { splitLotConfirmation, selectedSplitLotId });
       return;
     }
 
+    const rackNum = splitLotConfirmation.rackNumber;
+    const lbs = parseFloat(editForm.lbs) || splitLotConfirmation.weightNeeded;
+    const primaryBucketId = effectiveBuckets[0]?.bucket_id;
+    const currentActive = activeLots[primaryBucketId];
+
     setSaving(true);
     try {
-      const rackNumber = splitLotConfirmation.rackNumber;
-      const primaryBucketId = effectiveBuckets[0]?.bucket_id;
+      // ── Calculate split: how much from lot1 vs lot2 ──
+      const fromLot1 = splitLotConfirmation.currentRemaining;
+      const fromLot2 = parseFloat((lbs - fromLot1).toFixed(2));
 
-      // Switch active lot to the new lot (deduction happens in handleCompleteRack)
-      const selectedLotRow = await base44.entities.RawInventory.filter({ id: selectedSplitLotId }).then(r => r?.[0]);
-      if (selectedLotRow) {
-        const updatedActiveLots = { ...activeLots };
-        updatedActiveLots[primaryBucketId] = {
-          raw_inventory_id: selectedLotRow.id,
-          lot_number: selectedLotRow.lot_number || "",
-          remaining_qty: selectedLotRow.available_qty ?? 0,
-        };
-        setActiveLots(updatedActiveLots);
-
-        // Persist updated active lots
-        await base44.entities.ProductionStage.update(stageData.id, {
-          pork_lot_number: JSON.stringify(updatedActiveLots),
+      // ── Deduct from lot 1 (fully consumed) ──
+      if (currentActive?.raw_inventory_id) {
+        const lot1NewQty = 0;
+        await base44.entities.RawInventory.update(currentActive.raw_inventory_id, {
+          available_qty: lot1NewQty,
+          status: "depleted",
         });
       }
 
-      // Close split dialog and open rack form
+      // ── Deduct from lot 2 ──
+      const lot2Row = await base44.entities.RawInventory.filter({ id: selectedSplitLotId }).then(r => r?.[0]);
+      const lot2NewQty = parseFloat((Math.max(0, (lot2Row?.available_qty ?? 0) - fromLot2)).toFixed(2));
+      await base44.entities.RawInventory.update(selectedSplitLotId, {
+        available_qty: lot2NewQty,
+        status: lot2NewQty <= 0 ? "depleted" : "in_use",
+      });
+
+      // ── Update active lot to lot2 ──
+      const newActiveLots = { ...activeLots };
+      newActiveLots[primaryBucketId] = {
+        raw_inventory_id: lot2Row.id,
+        lot_number: lot2Row?.lot_number || "",
+        remaining_qty: lot2NewQty,
+      };
+      setActiveLots(newActiveLots);
+
+      // ── Save rack with both lots ──
+      const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+      const rackLotNumber = editForm.lot_number.trim() || `SV-R${rackNum}-${today}`;
+      const currentCookBatchNumber = editingRack?.cookBatchNumber || plan.racks.find(r => r.rackNumber === rackNum)?.cookBatchNumber;
+
+      const latestStage = await base44.entities.ProductionStage.filter({ id: stageData.id }).then(r => r?.[0]);
+      const existingSubs = latestStage?.sub_batches || stageData.sub_batches || [];
+
+      const rawLotsUsed = [currentActive?.lot_number, lot2Row?.lot_number].filter(Boolean);
+
+      const newSubBatch = {
+        sub_batch_id: `rack-${rackNum}`,
+        rack_number: rackNum,
+        label: `Rack #${rackNum}`,
+        lbs,
+        qty_lbs: lbs,
+        lot_number: rackLotNumber,
+        raw_lots: rawLotsUsed,
+        notes: editForm.notes,
+        short_weight_reason: lbs < RACK_LBS ? editForm.short_weight_reason : null,
+        cook_batch_number: currentCookBatchNumber,
+        status: "completed",
+      };
+
+      const newSubs = [...existingSubs.filter(sb => sb.rack_number !== rackNum), newSubBatch];
+      const newCompleted = {};
+      for (const sb of newSubs) {
+        if (sb.rack_number) newCompleted[sb.rack_number] = { completed: true, lbs: sb.qty_lbs || sb.lbs || RACK_LBS };
+      }
+
+      await base44.entities.ProductionStage.update(stageData.id, {
+        sub_batches: newSubs,
+        pork_lot_number: JSON.stringify(newActiveLots),
+      });
+
+      // ── Check if all racks done & trigger cook stage creation if needed ──
+      const allRacksDone = plan.racks.every(r => newCompleted[r.rackNumber]?.completed);
+      if (allRacksDone) {
+        await base44.entities.ProductionStage.update(stageData.id, {
+          status: "completed",
+          completed_at: new Date().toISOString(),
+          output_qty_lbs: parseFloat(plan.racks.reduce((s, r) => s + (newCompleted[r.rackNumber]?.lbs || r.lbs), 0).toFixed(2)),
+          racks_count: plan.totalRacks,
+          sub_batches: newSubs,
+        });
+      } else if (currentCookBatchNumber) {
+        const cookBatch = plan.cookBatches.find(cb => cb.cookBatchNumber === currentCookBatchNumber);
+        if (cookBatch) {
+          const allRackNums = cookBatch.racks.map(r => r.rackNumber);
+          const allDone = allRackNums.every(rn => newCompleted[rn]?.completed);
+          if (allDone) {
+            const cookBatchLot = `SV-CB${currentCookBatchNumber}-${stageData.order_number}-${today}`;
+            const existingCookStages = await base44.entities.ProductionStage.filter({
+              order_id: stageData.order_id,
+              capability_key: "cooking",
+            });
+            const alreadyExists = existingCookStages.some(s => s.cook_batch_lot === cookBatchLot);
+            if (!alreadyExists) {
+              const orderData = await base44.entities.ProductionOrder.filter({ id: stageData.order_id }).then(r => r?.[0]);
+              const flowData = orderData?.flow_id ? await base44.entities.ProductFlow.filter({ id: orderData.flow_id }).then(r => r?.[0]) : null;
+              const cookStep = flowData?.steps?.find(s => s.capability_key === "cooking");
+              const cookBatchLbs = allRackNums.reduce((s, rn) => s + (newCompleted[rn]?.lbs || RACK_LBS), 0);
+              const allLots = [...new Set([...rawLotsUsed])];
+              let cookProfileId = cookStep?.work_profile_id;
+              let cookProfileName = cookStep?.work_profile_name;
+              if (!cookProfileId) {
+                const allProfiles = await base44.entities.WorkProfile.filter({ status: "active" });
+                const cookProfile = allProfiles.find(p => (p.capability_keys || []).includes("cooking"));
+                if (cookProfile) {
+                  cookProfileId = cookProfile.id;
+                  cookProfileName = cookProfile.name;
+                }
+              }
+              await base44.entities.ProductionStage.create({
+                order_id: stageData.order_id,
+                order_number: stageData.order_number,
+                product_name: stageData.product_name,
+                step_number: latestStage.step_number + 1,
+                capability_id: cookStep?.capability_id || "",
+                capability_key: "cooking",
+                capability_name: "Cooking",
+                work_profile_id: cookProfileId || "",
+                work_profile_name: cookProfileName || "",
+                status: "available",
+                input_qty_lbs: parseFloat(cookBatchLbs.toFixed(2)),
+                racks_count: allRackNums.length,
+                cook_batch_lot: cookBatchLot,
+                input_lot_number: cookBatchLot,
+                notes: `Cook Batch #${currentCookBatchNumber} — Racks ${allRackNums.join(", ")} — Raw lots: ${allLots.join(", ")}`,
+              });
+            }
+          }
+        }
+      }
+
+      await refetchStage();
+      await refetchInventory();
+      queryClient.invalidateQueries({ queryKey: ["orderStages", stageData.order_id] });
+      queryClient.invalidateQueries({ queryKey: ["allStages"] });
+
       setSplitLotConfirmation(null);
       setSelectedSplitLotId(null);
+      setEditingRack(null);
 
-      const rackToOpen = plan.racks.find(r => r.rackNumber === rackNumber);
-      if (rackToOpen) {
-        openEditRack(rackToOpen, true);
-      }
+      if (allRacksDone) onCompleted?.();
     } catch (error) {
       console.error("Error in handleConfirmSplitLot:", error);
     } finally {
@@ -383,10 +495,9 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
     return null;
   };
 
-  // ─── Step 2: Save completed rack — deduct actual weight from active lot(s) ──
-  // Handles split deduction: if the active lot doesn't cover the full rack weight,
-  // it deducts what's left from it, then automatically pulls the remainder from the next FIFO lot.
-  const handleCompleteRack = async (skipSplitCheck = false) => {
+  // ─── Step 2: Save completed rack (non-split case) ──
+  // For normal racks, deduct and complete. Split racks are handled in handleConfirmSplitLot
+  const handleCompleteRack = async () => {
     if (!editingRack) return;
 
     const rackNum = editingRack.rackNumber;
@@ -395,7 +506,7 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
     const lot = editForm.lot_number.trim() || `SV-R${rackNum}-${today}`;
 
     try {
-      // ── Refresh active lots from DB to ensure remaining_qty is current ──
+      // ── Refresh active lots to ensure current remaining_qty ──
       const freshActiveLots = { ...activeLots };
       for (const b of effectiveBuckets) {
         const current = activeLots[b.bucket_id];
@@ -411,69 +522,38 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
         }
       }
 
-        // ── Check if we'll need to split across lots before doing anything ──
-      // Skip if user already confirmed the split via the split dialog
-      if (!skipSplitCheck && splitConfirmedRackNumber !== rackNum) {
-        const splitNeeded = checkSplitLotNeeded(rackNum, lbs, freshActiveLots);
-        if (splitNeeded) {
-          setSplitLotConfirmation(splitNeeded);
-          return;
-        }
+      // ── Check for split needed ──
+      const splitNeeded = checkSplitLotNeeded(rackNum, lbs, freshActiveLots);
+      if (splitNeeded) {
+        setSplitLotConfirmation(splitNeeded);
+        return;
       }
 
-      // ── Save cook batch number before closing form ──
+      // ── Deduct from single lot ──
       const currentCookBatchNumber = editingRack.cookBatchNumber;
-
-      // ── Close rack form, then proceed with deduction ──
       setEditingRack(null);
       setSaving(true);
 
-      // ── Deduct rack weight from active lot(s), splitting across lots if needed ──
       const newActiveLots = { ...freshActiveLots };
-      for (const b of effectiveBuckets) {
-        let active = newActiveLots[b.bucket_id];
-        if (!active?.raw_inventory_id) continue;
+      const primaryBucketId = effectiveBuckets[0]?.bucket_id;
+      const active = newActiveLots[primaryBucketId];
 
-        let remaining = lbs;
-
+      if (active?.raw_inventory_id) {
         const freshRow = await base44.entities.RawInventory.filter({ id: active.raw_inventory_id }).then(r => r?.[0]);
         const currentQty = freshRow?.available_qty ?? 0;
-        const takeFromFirst = Math.min(currentQty, remaining);
-        const firstNewQty = parseFloat((currentQty - takeFromFirst).toFixed(2));
+        const newQty = parseFloat((Math.max(0, currentQty - lbs)).toFixed(2));
 
         await base44.entities.RawInventory.update(active.raw_inventory_id, {
-          available_qty: firstNewQty,
-          status: firstNewQty <= 0 ? "depleted" : "in_use",
+          available_qty: newQty,
+          status: newQty <= 0 ? "depleted" : "in_use",
         });
-        newActiveLots[b.bucket_id] = { ...active, remaining_qty: firstNewQty };
-        remaining = parseFloat((remaining - takeFromFirst).toFixed(2));
-
-        if (remaining > 0.01) {
-          const nextLots = getFifoLots(rawInventory, b.bucket_id).filter(l => l.id !== active.raw_inventory_id);
-          if (nextLots.length > 0) {
-            const nextLot = nextLots[0];
-            const nextFreshRow = await base44.entities.RawInventory.filter({ id: nextLot.id }).then(r => r?.[0]);
-            const nextCurrentQty = nextFreshRow?.available_qty ?? 0;
-            const takeFromNext = Math.min(nextCurrentQty, remaining);
-            const nextNewQty = parseFloat((nextCurrentQty - takeFromNext).toFixed(2));
-
-            await base44.entities.RawInventory.update(nextLot.id, {
-              available_qty: nextNewQty,
-              status: nextNewQty <= 0 ? "depleted" : "in_use",
-            });
-            remaining = parseFloat((remaining - takeFromNext).toFixed(2));
-          }
-        }
+        newActiveLots[primaryBucketId] = { ...active, remaining_qty: newQty };
+        setActiveLots(newActiveLots);
       }
-      setActiveLots(newActiveLots);
 
-      const lotExhausted = primaryBucketId && newActiveLots[primaryBucketId] && newActiveLots[primaryBucketId].remaining_qty < 1;
-
+      // ── Save rack ──
       const latestStage = await base44.entities.ProductionStage.filter({ id: stageData.id }).then(r => r?.[0]);
-
-      const rawLotsUsed = [...new Set(
-        Object.values(newActiveLots).map(al => al.lot_number).filter(Boolean)
-      )];
+      const existingSubs = latestStage?.sub_batches || stageData.sub_batches || [];
 
       const newSubBatch = {
         sub_batch_id: `rack-${rackNum}`,
@@ -482,19 +562,17 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
         lbs,
         qty_lbs: lbs,
         lot_number: lot,
-        raw_lots: rawLotsUsed,
+        raw_lots: [active?.lot_number].filter(Boolean),
         notes: editForm.notes,
         short_weight_reason: lbs < RACK_LBS ? editForm.short_weight_reason : null,
         cook_batch_number: currentCookBatchNumber,
         status: "completed",
       };
 
-      const existingSubs = latestStage?.sub_batches || stageData.sub_batches || [];
       const newSubs = [...existingSubs.filter(sb => sb.rack_number !== rackNum), newSubBatch];
-
       const newCompleted = {};
       for (const sb of newSubs) {
-        if (sb.rack_number) newCompleted[sb.rack_number] = { completed: true, lbs: sb.qty_lbs || sb.lbs || RACK_LBS, lot_number: sb.lot_number || "" };
+        if (sb.rack_number) newCompleted[sb.rack_number] = { completed: true, lbs: sb.qty_lbs || sb.lbs || RACK_LBS };
       }
 
       await base44.entities.ProductionStage.update(stageData.id, {
@@ -514,82 +592,11 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
       }
 
       await refetchStage();
-      const refreshedStage = await base44.entities.ProductionStage.filter({ id: stageData.id }).then(r => r?.[0]);
-
-      const cookBatch = plan.cookBatches.find(cb => cb.cookBatchNumber === currentCookBatchNumber);
-      if (cookBatch && refreshedStage?.sub_batches) {
-        const allRackNums = cookBatch.racks.map(r => r.rackNumber);
-        const refreshedMap = {};
-        for (const sb of refreshedStage.sub_batches) {
-          if (sb.rack_number) refreshedMap[sb.rack_number] = { completed: true, lbs: sb.qty_lbs || sb.lbs || RACK_LBS, lot_number: sb.lot_number || "" };
-        }
-        const allDone = allRackNums.every(rn => refreshedMap[rn]?.completed);
-
-        if (allDone) {
-          const cookBatchLot = `SV-CB${currentCookBatchNumber}-${stageData.order_number}-${today}`;
-
-          const existingCookStages = await base44.entities.ProductionStage.filter({
-            order_id: stageData.order_id,
-            capability_key: "cooking",
-          });
-          const alreadyExists = existingCookStages.some(s => s.cook_batch_lot === cookBatchLot);
-
-          if (!alreadyExists) {
-            const orderData = await base44.entities.ProductionOrder.filter({ id: stageData.order_id }).then(r => r?.[0]);
-            const flowData = orderData?.flow_id ? await base44.entities.ProductFlow.filter({ id: orderData.flow_id }).then(r => r?.[0]) : null;
-            const cookStep = flowData?.steps?.find(s => s.capability_key === "cooking");
-            const cookBatchLbs = allRackNums.reduce((s, rn) => s + (refreshedMap[rn]?.lbs || RACK_LBS), 0);
-
-            const rackLots = allRackNums.map(rn => refreshedMap[rn]?.lot_number).filter(Boolean);
-            const uniqueRackLots = [...new Set(rackLots)];
-            const rawLots = Object.values(newActiveLots).map(al => al.lot_number).filter(Boolean);
-            const allLots = [...new Set([...rawLots, ...uniqueRackLots])];
-
-            let cookProfileId = cookStep?.work_profile_id;
-            let cookProfileName = cookStep?.work_profile_name;
-            if (!cookProfileId) {
-              const allProfiles = await base44.entities.WorkProfile.filter({ status: "active" });
-              const cookProfile = allProfiles.find(p => (p.capability_keys || []).includes("cooking"));
-              if (cookProfile) {
-                cookProfileId = cookProfile.id;
-                cookProfileName = cookProfile.name;
-              }
-            }
-
-            await base44.entities.ProductionStage.create({
-              order_id: stageData.order_id,
-              order_number: stageData.order_number,
-              product_name: stageData.product_name,
-              step_number: refreshedStage.step_number + 1,
-              capability_id: cookStep?.capability_id || "",
-              capability_key: "cooking",
-              capability_name: "Cooking",
-              work_profile_id: cookProfileId || "",
-              work_profile_name: cookProfileName || "",
-              status: "available",
-              input_qty_lbs: parseFloat(cookBatchLbs.toFixed(2)),
-              racks_count: allRackNums.length,
-              cook_batch_lot: cookBatchLot,
-              input_lot_number: cookBatchLot,
-              notes: `Cook Batch #${currentCookBatchNumber} — Racks ${allRackNums.join(", ")} — Raw lots: ${allLots.join(", ")}`,
-            });
-          }
-        }
-      }
-
       await refetchInventory();
       queryClient.invalidateQueries({ queryKey: ["orderStages", stageData.order_id] });
       queryClient.invalidateQueries({ queryKey: ["allStages"] });
-      queryClient.invalidateQueries({ queryKey: ["productionOrders"] });
 
       setSaving(false);
-      setSplitLotConfirmation(null);
-      setSplitConfirmedRackNumber(null);
-
-      if (lotExhausted && !allRacksDone) {
-        setNeedsNewLot(true);
-      }
-
       if (allRacksDone) onCompleted?.();
     } catch (error) {
       console.error("Error in handleCompleteRack:", error);
@@ -867,33 +874,33 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
         </DialogContent>
       </Dialog>
 
-      {/* Split lot confirmation dialog */}
+      {/* Split lot confirmation dialog — completes the rack */}
       {splitLotConfirmation && (
         <Dialog open={!!splitLotConfirmation} onOpenChange={open => { if (!open) { setSplitLotConfirmation(null); setSelectedSplitLotId(null); } }}>
           <DialogContent className="max-w-sm">
             <DialogHeader>
-              <DialogTitle>Confirm Lot Switch for Rack #{splitLotConfirmation.rackNumber}</DialogTitle>
+              <DialogTitle>Complete Rack #{splitLotConfirmation.rackNumber} — Split Lot</DialogTitle>
             </DialogHeader>
             <div className="space-y-4 pt-2">
               <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 space-y-2">
-                <p className="text-sm font-semibold text-amber-900">Current lot will be exhausted:</p>
-                <div className="space-y-1.5 text-sm">
+                <p className="text-sm font-semibold text-amber-900">Lot 1 (will be exhausted):</p>
+                <div className="space-y-1 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-amber-700">Lot:</span>
-                    <span className="font-mono font-semibold text-amber-900">{splitLotConfirmation.currentLotNumber}</span>
+                    <span className="text-amber-700">Lot Number:</span>
+                    <span className="font-mono font-semibold">{splitLotConfirmation.currentLotNumber}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-amber-700">Will deduct:</span>
-                    <span className="font-semibold text-amber-900">{splitLotConfirmation.currentRemaining.toFixed(1)} lbs</span>
+                    <span className="text-amber-700">Quantity used:</span>
+                    <span className="font-semibold">{splitLotConfirmation.currentRemaining.toFixed(1)} lbs</span>
                   </div>
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label className="text-sm font-semibold">Select lot for remaining {(splitLotConfirmation.weightNeeded - splitLotConfirmation.currentRemaining).toFixed(1)} lbs</Label>
+                <Label className="text-sm font-semibold">Lot 2 (select below):</Label>
                 <Select value={selectedSplitLotId || ""} onValueChange={setSelectedSplitLotId}>
                   <SelectTrigger className="h-10">
-                    <SelectValue placeholder="Choose a lot…" />
+                    <SelectValue placeholder="Choose next lot…" />
                   </SelectTrigger>
                   <SelectContent>
                     {splitLotConfirmation.availableLots?.map((lot, i) => (
@@ -904,23 +911,56 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
                     ))}
                   </SelectContent>
                 </Select>
+                {selectedSplitLotId && (
+                  <div className="rounded bg-muted/40 border px-3 py-2 text-xs">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Quantity from Lot 2:</span>
+                      <span className="font-semibold">{(splitLotConfirmation.weightNeeded - splitLotConfirmation.currentRemaining).toFixed(1)} lbs</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-sm font-semibold">Rack Weight (lbs)</Label>
+                <Input
+                  type="number"
+                  step="1"
+                  value={editForm.lbs || ""}
+                  onChange={e => {
+                    const val = e.target.value.trim();
+                    const num = val ? parseFloat(val) : splitLotConfirmation.weightNeeded;
+                    setEditForm(f => ({ ...f, lbs: isNaN(num) ? 0 : Math.min(610, Math.max(0, num)) }));
+                  }}
+                  className="h-10"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-sm font-semibold">Notes (optional)</Label>
+                <Textarea
+                  value={editForm.notes}
+                  onChange={e => setEditForm(f => ({ ...f, notes: e.target.value }))}
+                  placeholder="Any observations…"
+                  className="h-12"
+                />
               </div>
 
               <div className="flex gap-2 pt-2">
                 <Button
                   variant="outline"
                   className="flex-1"
-                  onClick={() => { setSplitLotConfirmation(null); setSelectedSplitLotId(null); }}
+                  onClick={() => { setSplitLotConfirmation(null); setSelectedSplitLotId(null); setEditingRack(null); }}
                   disabled={saving}
                 >
                   Cancel
                 </Button>
                 <Button
-                  className="flex-1 bg-amber-600 hover:bg-amber-700 gap-2"
+                  className="flex-1 bg-chart-2 hover:bg-chart-2/90 gap-2"
                   onClick={handleConfirmSplitLot}
-                  disabled={saving || !selectedSplitLotId}
+                  disabled={saving || !selectedSplitLotId || !editForm.lbs}
                 >
-                  {saving ? "Switching…" : "Confirm & Continue"}
+                  {saving ? "Completing…" : "Complete Rack"}
                 </Button>
               </div>
             </div>
