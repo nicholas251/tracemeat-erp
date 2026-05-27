@@ -64,9 +64,9 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
   const [editForm, setEditForm] = useState({ lot_number: "", notes: "", lbs: "", short_weight_reason: "" });
   // Per-bucket selected lot: { [bucket_id]: { raw_inventory_id, lot_number, available_qty } }
   const [selectedLots, setSelectedLots] = useState({});
-  const [lotsConfirmed, setLotsConfirmed] = useState(false);
-  // Track most recent sub_batches for UI display (persisted from DB)
-  const [updatedSubs, setUpdatedSubs] = useState([]);
+  const [lotsConfirmed, setLotsConfirmed] = useState(!!stage?.input_lot_number);
+  // Seed immediately from prop so racks never flash empty while query loads
+  const [updatedSubs, setUpdatedSubs] = useState(stage?.sub_batches || []);
   // Track which cook batches are expanded
   const [expandedBatches, setExpandedBatches] = useState({});
 
