@@ -184,9 +184,10 @@ export default function InventoryShortageCheck({ product: productProp, rawInputL
   }
 
   // Helper: sum available_qty for a bucket across usable lots
+  // Exclude only explicitly unusable statuses; count anything with qty > 0
   const availableForBucket = (bucketId) =>
     rawInventory
-      .filter(lot => lot.bucket_id === bucketId && ["available", "in_use"].includes(lot.status))
+      .filter(lot => lot.bucket_id === bucketId && !["depleted", "quarantined", "expired"].includes(lot.status) && (lot.available_qty || 0) > 0)
       .reduce((s, l) => s + (l.available_qty || 0), 0);
 
   // ── 1. Blending ingredients (from product.blend_ingredients) ──
