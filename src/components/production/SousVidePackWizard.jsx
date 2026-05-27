@@ -54,12 +54,12 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
   const queryClient = useQueryClient();
   const [saving, setSaving] = useState(false);
   const [editingRack, setEditingRack] = useState(null);
-   const [editForm, setEditForm] = useState({ lot_number: "", notes: "", lbs: "", short_weight_reason: "" });
-   const [lotChangeConfirmed, setLotChangeConfirmed] = useState(false);
-   const [lotChangedFrom, setLotChangedFrom] = useState(null); // lot number of previously active lot
-   const [splitLotConfirmation, setSplitLotConfirmation] = useState(null); // { rackNumber, remainingWeight, nextLotNumber } when split deduction needed
-   const [selectedSplitLotId, setSelectedSplitLotId] = useState(null); // user-selected lot ID for the remainder
-   const [splitConfirmedRackNumber, setSplitConfirmedRackNumber] = useState(null); // rack number where user already confirmed lot switch
+  const [editForm, setEditForm] = useState({ lot_number: "", notes: "", lbs: "", short_weight_reason: "" });
+  const [lotChangeConfirmed, setLotChangeConfirmed] = useState(false);
+  const [lotChangedFrom, setLotChangedFrom] = useState(null);
+  const [splitLotConfirmation, setSplitLotConfirmation] = useState(null);
+  const [selectedSplitLotId, setSelectedSplitLotId] = useState(null);
+  const [splitConfirmedRackNumber, setSplitConfirmedRackNumber] = useState(null);
 
   // ── Step 1 state: lot selection ──
   const [selectedLots, setSelectedLots] = useState({}); // { [bucket_id]: { raw_inventory_id, lot_number, available_qty } }
@@ -198,34 +198,38 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
   // ─── Step 1: Confirm lots — just record the lot, deduct first rack's worth only when rack completes ──
   const handleConfirmLots = async () => {
     setSaving(true);
-    const primaryLot = selectedLots[effectiveBuckets[0]?.bucket_id]?.lot_number || "";
+    try {
+      const primaryLot = selectedLots[effectiveBuckets[0]?.bucket_id]?.lot_number || "";
 
-    // Initialize activeLots from selected lots
-    const initial = {};
-    for (const b of effectiveBuckets) {
-      const sel = selectedLots[b.bucket_id];
-      if (sel?.raw_inventory_id) {
-        const freshRow = await base44.entities.RawInventory.filter({ id: sel.raw_inventory_id }).then(r => r?.[0]);
-        initial[b.bucket_id] = {
-          raw_inventory_id: sel.raw_inventory_id,
-          lot_number: sel.lot_number,
-          remaining_qty: freshRow?.available_qty ?? sel.available_qty ?? 0,
-        };
+      // Initialize activeLots from selected lots
+      const initial = {};
+      for (const b of effectiveBuckets) {
+        const sel = selectedLots[b.bucket_id];
+        if (sel?.raw_inventory_id) {
+          const freshRow = await base44.entities.RawInventory.filter({ id: sel.raw_inventory_id }).then(r => r?.[0]);
+          initial[b.bucket_id] = {
+            raw_inventory_id: sel.raw_inventory_id,
+            lot_number: sel.lot_number,
+            remaining_qty: freshRow?.available_qty ?? sel.available_qty ?? 0,
+          };
+        }
       }
+      setActiveLots(initial);
+
+      await base44.entities.ProductionStage.update(stageData.id, {
+        input_lot_number: primaryLot,
+        status: "in_progress",
+        started_at: stageData.started_at || new Date().toISOString(),
+        pork_lot_number: JSON.stringify(initial),
+      });
+
+      queryClient.invalidateQueries({ queryKey: ["rawInventory"] });
+      await refetchStage();
+    } catch (error) {
+      console.error("Error in handleConfirmLots:", error);
+    } finally {
+      setSaving(false);
     }
-    setActiveLots(initial);
-
-    await base44.entities.ProductionStage.update(stageData.id, {
-      input_lot_number: primaryLot,
-      status: "in_progress",
-      started_at: stageData.started_at || new Date().toISOString(),
-      // Persist active lots as JSON so we can restore on remount
-      pork_lot_number: JSON.stringify(initial),
-    });
-
-    queryClient.invalidateQueries({ queryKey: ["rawInventory"] });
-    await refetchStage();
-    setSaving(false);
   };
 
   // ─── Step 2: Open rack edit form ──────────────────────────────────────────
@@ -475,8 +479,7 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
       }
     }
 
-    // ── Save rack number before closing form ──
-    const currentRackNumber = editingRack.rackNumber;
+    // ── Save cook batch number before closing form ──
     const currentCookBatchNumber = editingRack.cookBatchNumber;
 
     // ── Close rack form, then proceed with deduction ──
@@ -1079,7 +1082,7 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
                       <p className="text-xs font-bold text-amber-700">Lot Change Detected</p>
                       <p className="text-xs text-muted-foreground mt-0.5">
                         Previous rack used lot <span className="font-mono font-semibold">{lotChangedFrom}</span>.
-                        This rack will use lot <span className="font-mono font-semibold">{activeLots[effectiveBuckets[0]?.bucket_id]?.lot_number}</span>.
+                        This rack will use lot <span className="font-mono font-semibold">{primaryActiveLot?.lot_number}</span>.
                       </p>
                     </div>
                   </div>
