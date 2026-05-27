@@ -777,8 +777,21 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
            }
          }
 
-        // For cooking stage, create a chilling stage for each cook batch in the cook plan
+        // For cooking stage, save cooked batches to sub_batches, then create chilling stages
          if (capKey === "cooking" && cookPlan?.cookBatches?.length > 0) {
+           // First: record all cooked batches to the cooking stage's sub_batches
+           const cookedSubBatches = cookPlan.cookBatches.map((batch, i) => ({
+             sub_batch_id: `cooked-batch-${batch.cookBatchNumber}-${Date.now()}`,
+             label: `Cook Batch #${batch.cookBatchNumber}`,
+             qty_lbs: parseFloat(batch.lbs.toFixed(2)),
+             status: "completed",
+             cook_batch_number: batch.cookBatchNumber,
+           }));
+           await base44.entities.ProductionStage.update(stage.id, {
+             sub_batches: cookedSubBatches,
+           });
+
+           // Second: create chilling stages for each cook batch
            const order = await base44.entities.ProductionOrder.filter({ id: stage.order_id }).then(r => r?.[0]);
            if (order?.flow_id) {
              const flow = await base44.entities.ProductFlow.filter({ id: order.flow_id }).then(r => r?.[0]);
@@ -786,9 +799,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
              if (nextFlowStep && nextFlowStep.capability_key === "chilling") {
                // Create a chilling stage for EACH cook batch
                for (const batch of cookPlan.cookBatches) {
-                 // batch.lbs is already cooked output (yield applied at cooking completion), don't apply yield again
                  const batchQty = parseFloat(batch.lbs.toFixed(2));
-                 // Use the lot from the form submission (output_lot_number)
                  const lotNum = updates.output_lot_number || `CB${batch.cookBatchNumber}-${stage.order_number}-${today_str}`;
                  await base44.entities.ProductionStage.create({
                    order_id: stage.order_id,
