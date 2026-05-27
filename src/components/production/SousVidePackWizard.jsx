@@ -149,30 +149,28 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
     }
   }, [product, blendBuckets.length]);
 
-  // Sync updatedSubs whenever fresh data arrives from the server
+  // Sync updatedSubs only when freshStage arrives from the server (never use stale stage prop after mount)
   useEffect(() => {
-    const subs = freshStage?.sub_batches ?? stage?.sub_batches ?? [];
-    if (subs.length > 0) {
-      setUpdatedSubs(subs);
+    if (freshStage?.sub_batches) {
+      setUpdatedSubs(freshStage.sub_batches);
     }
-  }, [freshStage, open]);
+  }, [freshStage]);
 
   const plan = useMemo(() => {
     if (!stageToUse) return null;
     return buildRackPlan(stageToUse.input_qty_lbs || 0);
   }, [stageToUse?.input_qty_lbs]);
 
-  // Load persisted sub_batches from the stage to restore state
+  // Load persisted sub_batches from updatedSubs (seeded from prop, updated by server)
   const persistedRacks = useMemo(() => {
-    const subs = updatedSubs.length > 0 ? updatedSubs : (stageToUse?.sub_batches || []);
     const result = {};
-    for (const sb of subs) {
+    for (const sb of updatedSubs) {
       if (sb.rack_number) {
         result[sb.rack_number] = { completed: true, lot_number: sb.lot_number || "", notes: sb.notes || "", lbs: sb.lbs || RACK_LBS, cook_batch_number: sb.cook_batch_number };
       }
     }
     return result;
-  }, [updatedSubs, stageToUse?.id, stageToUse?.sub_batches]);
+  }, [updatedSubs]);
 
   const effectiveRackData = { ...persistedRacks, ...rackData };
 
