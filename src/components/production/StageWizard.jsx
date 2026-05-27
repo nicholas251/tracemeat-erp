@@ -149,23 +149,23 @@ function buildMeasurementSteps(stage, product, capKey, casingBuckets = []) {
   }
 
   if (capKey === "cooking") {
-    const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
-    const cookLotDefault = stage?.cook_batch_lot
-      ? `${stage.cook_batch_lot}-${today}`
-      : `COOK-${today}`;
-    // Auto-calculate rack count from stage's racks_count if available
-    const racksCount = stage?.racks_count || 0;
-    steps.push({
-      id: "cook",
-      label: "Cook Parameters",
-      fields: [
-        { key: "temperature_f", label: "Internal Temp (°F)", type: "number" },
-        { key: "duration_minutes", label: "Cook Time (minutes)", type: "number" },
-        { key: "racks_count", label: "Rack Count", type: "number", defaultValue: racksCount, disabled: true },
-        { key: "output_lot_number", label: "Cooked Lot #", type: "text", placeholder: "e.g. COOK-2024-001", defaultValue: cookLotDefault },
-      ],
-    });
-  }
+     const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+     const cookLotDefault = stage?.cook_batch_lot
+       ? `${stage.cook_batch_lot}-${today}`
+       : `COOK-${today}`;
+     // Auto-calculate rack count from stage's racks_count if available
+     const racksCount = stage?.racks_count || 0;
+     steps.push({
+       id: "cook",
+       label: "Cook Parameters",
+       fields: [
+         { key: "temperature_f", label: "Cook End Temperature (°F)", type: "number" },
+         { key: "duration_minutes", label: "Cook Time (minutes)", type: "number" },
+         { key: "racks_count", label: "Rack Count", type: "number", defaultValue: racksCount, disabled: true },
+         { key: "output_lot_number", label: "Cooked Lot #", type: "text", placeholder: "e.g. COOK-2024-001", defaultValue: cookLotDefault },
+       ],
+     });
+   }
 
   if (capKey === "chilling") {
     const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
@@ -211,15 +211,26 @@ function buildMeasurementSteps(stage, product, capKey, casingBuckets = []) {
     });
   }
 
-  // Quality + notes always last
-  steps.push({
-    id: "quality",
-    label: "Quality & Notes",
-    fields: [
-      { key: "quality_check_passed", label: "Quality Check Passed", type: "boolean" },
-      { key: "notes", label: "Notes / Observations", type: "textarea" },
-    ],
-  });
+  // Quality + notes always last (skip quality check for cooking)
+   if (capKey !== "cooking") {
+     steps.push({
+       id: "quality",
+       label: "Quality & Notes",
+       fields: [
+         { key: "quality_check_passed", label: "Quality Check Passed", type: "boolean" },
+         { key: "notes", label: "Notes / Observations", type: "textarea" },
+       ],
+     });
+   } else {
+     // Cooking: notes only, no quality check
+     steps.push({
+       id: "quality",
+       label: "Notes",
+       fields: [
+         { key: "notes", label: "Notes / Observations", type: "textarea" },
+       ],
+     });
+   }
 
   return steps;
 }
