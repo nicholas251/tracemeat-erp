@@ -605,9 +605,11 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
       } else {
         // Check if current cook batch is done and create/unlock its cooking stage
         const cookBatch = plan.cookBatches.find(cb => cb.cookBatchNumber === currentCookBatchNumber);
+        console.log("[handleCompleteRack] Checking cook batch completion:", { currentCookBatchNumber, foundBatch: !!cookBatch, completedMap: Object.keys(newCompleted) });
         if (cookBatch) {
           const allRackNums = cookBatch.racks.map(r => r.rackNumber);
           const batchDone = allRackNums.every(rn => newCompleted[rn]?.completed);
+          console.log("[handleCompleteRack] Batch completion check:", { allRackNums, batchDone, newCompletedKeys: Object.keys(newCompleted) });
 
           if (batchDone) {
             const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
