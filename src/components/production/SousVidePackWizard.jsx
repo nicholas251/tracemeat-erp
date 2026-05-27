@@ -233,7 +233,7 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
   };
 
   // ─── Step 2: Open rack edit form ──────────────────────────────────────────
-  const openEditRack = (rack) => {
+  const openEditRack = (rack, autoConfirmLotChange = false) => {
     const existing = completedRacks[rack.rackNumber];
     const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
     setEditForm({
@@ -253,10 +253,18 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
     // A lot change happened if the current active lot differs from the last rack's raw lot
     const lotChanged = lastRawLot && currentActiveLotNumber && lastRawLot !== currentActiveLotNumber;
     setLotChangedFrom(lotChanged ? lastRawLot : null);
-    // Auto-confirm lot change when reopening from split confirmation
-    setLotChangeConfirmed(!!splitLotConfirmation);
+    setLotChangeConfirmed(autoConfirmLotChange);
 
     setEditingRack(rack);
+  };
+
+  // ─── Handle split lot confirmation (when mid-rack lot exhaustion occurs) ──
+  const handleConfirmSplitLot = async () => {
+    if (!editingRack || !splitLotConfirmation) return;
+
+    // User confirmed the lot switch — proceed with rack completion
+    setSplitLotConfirmation(null);
+    await handleCompleteRack();
   };
 
   // ─── Switch to next lot (manual override — used when lot exhausted exactly on a rack boundary) ──
@@ -290,6 +298,27 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
     setSaving(false);
   };
 
+  // ─── Check for mid-rack split (lot exhaustion during rack completion) ──
+  const checkSplitLotNeeded = (rackNum, lbs) => {
+    const primaryBucketId = effectiveBuckets[0]?.bucket_id;
+    const primaryActive = activeLots[primaryBucketId];
+
+    if (primaryActive?.remaining_qty < lbs) {
+      const nextLots = getFifoLots(rawInventory, primaryBucketId).filter(l => l.id !== primaryActive?.raw_inventory_id);
+      if (nextLots.length > 0) {
+        const nextLot = nextLots[0];
+        return {
+          rackNumber: rackNum,
+          currentLotNumber: primaryActive?.lot_number,
+          currentRemaining: primaryActive?.remaining_qty,
+          nextLotNumber: nextLot.lot_number || nextLot.id,
+          weightNeeded: lbs,
+        };
+      }
+    }
+    return null;
+  };
+
   // ─── Step 2: Save completed rack — deduct actual weight from active lot(s) ──
   // Handles split deduction: if the active lot doesn't cover the full rack weight,
   // it deducts what's left from it, then automatically pulls the remainder from the next FIFO lot.
@@ -301,23 +330,11 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
     const lot = editForm.lot_number.trim() || `SV-R${rackNum}-${Date.now()}`;
 
     // ── Check if we'll need to split across lots before doing anything ──
-    const primaryBucketId = effectiveBuckets[0]?.bucket_id;
-    const primaryActive = activeLots[primaryBucketId];
-    
-    if (primaryActive?.remaining_qty < lbs) {
-      // We'll need to pull from the next lot — require user confirmation first
-      const nextLots = getFifoLots(rawInventory, primaryBucketId).filter(l => l.id !== primaryActive?.raw_inventory_id);
-      if (nextLots.length > 0) {
-        const nextLot = nextLots[0];
-        setSplitLotConfirmation({
-          rackNumber: rackNum,
-          currentLotNumber: primaryActive?.lot_number,
-          currentRemaining: primaryActive?.remaining_qty,
-          nextLotNumber: nextLot.lot_number || nextLot.id,
-          weightNeeded: lbs,
-        });
-        return; // Stop here and wait for user confirmation
-      }
+    const splitNeeded = checkSplitLotNeeded(rackNum, lbs);
+    if (splitNeeded) {
+      // Show confirmation dialog and return — handleConfirmSplitLot will call handleCompleteRack again
+      setSplitLotConfirmation(splitNeeded);
+      return;
     }
 
     // ── Proceed with deduction ──
@@ -835,7 +852,7 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
                 </Button>
                 <Button
                   className="flex-1 bg-amber-600 hover:bg-amber-700 gap-2"
-                  onClick={handleCompleteRack}
+                  onClick={handleConfirmSplitLot}
                   disabled={saving}
                 >
                   {saving ? "Completing…" : "Yes, Complete Rack"}
