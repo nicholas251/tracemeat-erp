@@ -24,7 +24,8 @@ const CATEGORY_LABELS = {
 };
 
 function BucketCard({ bucket, lots, isAdmin, onEdit, onAddTest }) {
-  const totalQty = lots.filter(l => l.status === "available").reduce((s, l) => s + (l.available_qty || 0), 0);
+  const usableLot = (l) => !["depleted", "quarantined", "expired"].includes(l.status) && (l.available_qty || 0) > 0;
+  const totalQty = lots.filter(usableLot).reduce((s, l) => s + (l.available_qty || 0), 0);
   const isLow = totalQty < 50;
 
   return (
@@ -58,16 +59,16 @@ function BucketCard({ bucket, lots, isAdmin, onEdit, onAddTest }) {
           <p className="text-xs text-muted-foreground mb-2">{bucket.description}</p>
         )}
         <div className="space-y-1">
-          {lots.filter(l => l.status === "available").slice(0, 3).map(lot => (
+          {lots.filter(usableLot).slice(0, 3).map(lot => (
             <div key={lot.id} className="flex justify-between items-center text-xs bg-muted/40 rounded px-2 py-1">
               <span className="font-mono text-muted-foreground truncate max-w-[60%]">{lot.lot_number || lot.description}</span>
               <span className="font-semibold ml-2">{(lot.available_qty || 0).toLocaleString()} {lot.unit}</span>
             </div>
           ))}
-          {lots.filter(l => l.status === "available").length > 3 && (
-            <p className="text-xs text-muted-foreground text-center">+{lots.filter(l => l.status === "available").length - 3} more lots</p>
+          {lots.filter(usableLot).length > 3 && (
+            <p className="text-xs text-muted-foreground text-center">+{lots.filter(usableLot).length - 3} more lots</p>
           )}
-          {lots.filter(l => l.status === "available").length === 0 && (
+          {lots.filter(usableLot).length === 0 && (
             <p className="text-xs text-muted-foreground italic">No stock on hand</p>
           )}
         </div>
@@ -232,10 +233,11 @@ export default function RawInventoryPage() {
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["raw_inventory"] }); setTestBucket(null); },
   });
 
-  const totalProtein = lots.filter(l => l.bucket_category === "protein" && l.status === "available").reduce((s, l) => s + (l.available_qty || 0), 0);
-  const totalSpice = lots.filter(l => l.bucket_category === "spice" && l.status === "available").reduce((s, l) => s + (l.available_qty || 0), 0);
-  const totalPackaging = lots.filter(l => l.bucket_category === "packaging" && l.status === "available").reduce((s, l) => s + (l.available_qty || 0), 0);
-  const totalCasing = lots.filter(l => l.bucket_category === "casing" && l.status === "available").reduce((s, l) => s + (l.available_qty || 0), 0);
+  const usableLot = (l) => !["depleted", "quarantined", "expired"].includes(l.status) && (l.available_qty || 0) > 0;
+  const totalProtein = lots.filter(l => l.bucket_category === "protein" && usableLot(l)).reduce((s, l) => s + (l.available_qty || 0), 0);
+  const totalSpice = lots.filter(l => l.bucket_category === "spice" && usableLot(l)).reduce((s, l) => s + (l.available_qty || 0), 0);
+  const totalPackaging = lots.filter(l => l.bucket_category === "packaging" && usableLot(l)).reduce((s, l) => s + (l.available_qty || 0), 0);
+  const totalCasing = lots.filter(l => l.bucket_category === "casing" && usableLot(l)).reduce((s, l) => s + (l.available_qty || 0), 0);
 
   return (
     <div>
