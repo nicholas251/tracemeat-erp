@@ -510,6 +510,7 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
   // ─── Step 2: Save completed rack (non-split case) ──
   // For normal racks, deduct and complete. Split racks are handled in handleConfirmSplitLot
   const handleCompleteRack = async () => {
+    console.log("[handleCompleteRack] STARTED", { rackNumber: editingRack?.rackNumber });
     if (!editingRack) return;
 
     const rackNum = editingRack.rackNumber;
