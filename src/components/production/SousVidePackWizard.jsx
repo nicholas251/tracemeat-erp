@@ -149,13 +149,13 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
     }
   }, [product, blendBuckets.length]);
 
-  // Sync updatedSubs with fresh stage data when it arrives
+  // Sync updatedSubs whenever fresh data arrives from the server
   useEffect(() => {
-    const subs = stageToUse?.sub_batches ?? [];
+    const subs = freshStage?.sub_batches ?? stage?.sub_batches ?? [];
     if (subs.length > 0) {
       setUpdatedSubs(subs);
     }
-  }, [open, freshStage?.id]);
+  }, [freshStage, open]);
 
   const plan = useMemo(() => {
     if (!stageToUse) return null;
@@ -349,7 +349,6 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
 
   const handleDialogClose = () => {
     setRackData({});
-    setLotsConfirmed(false);
     setEditingRack(null);
     onClose();
   };

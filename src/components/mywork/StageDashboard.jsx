@@ -89,6 +89,7 @@ export default function StageDashboard({ user, profile, onBack, singleProfile = 
 
       {activeStage && activeStage.capability_key === "sous_vide_pack" && (
         <SousVidePackWizard
+          key={activeStage.id}
           stage={activeStage}
           open={!!activeStage}
           onClose={() => setActiveStage(null)}
