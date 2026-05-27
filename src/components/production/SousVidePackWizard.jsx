@@ -108,24 +108,46 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
   // Derive the protein buckets this product uses from blend_ingredients
   const blendBuckets = product?.blend_ingredients || [];
 
-  // Fetch raw inventory for all relevant buckets
+  // If no blend_ingredients configured, allow manual bucket selection
+  const [manualBucketId, setManualBucketId] = useState(null);
+
+  // Fetch all protein inventory buckets for manual selection fallback
+  const { data: allProteinBuckets = [] } = useQuery({
+    queryKey: ["proteinBuckets"],
+    queryFn: () => base44.entities.InventoryBucket.filter({ category: "protein" }),
+    enabled: open && blendBuckets.length === 0,
+    staleTime: Infinity,
+  });
+
+  // Fetch raw inventory — for configured buckets OR for manually selected bucket
+  const bucketIdsToFetch = blendBuckets.length > 0
+    ? blendBuckets.map(b => b.bucket_id)
+    : manualBucketId ? [manualBucketId] : [];
+
   const { data: rawInventoryAll = [] } = useQuery({
-    queryKey: ["rawInventory", blendBuckets.map(b => b.bucket_id).join(",")],
+    queryKey: ["rawInventory", bucketIdsToFetch.join(",")],
     queryFn: async () => {
-      if (!blendBuckets.length) return [];
+      if (!bucketIdsToFetch.length) return [];
       const results = await Promise.all(
-        blendBuckets.map(b => base44.entities.RawInventory.filter({ bucket_id: b.bucket_id }))
+        bucketIdsToFetch.map(id => base44.entities.RawInventory.filter({ bucket_id: id }))
       );
       return results.flat();
     },
-    enabled: open && blendBuckets.length > 0,
+    enabled: open && bucketIdsToFetch.length > 0,
   });
+
+  // Effective buckets to show in the lot picker — either from product config or manual selection
+  const effectiveBlendBuckets = blendBuckets.length > 0
+    ? blendBuckets
+    : manualBucketId
+      ? [{ bucket_id: manualBucketId, bucket_name: allProteinBuckets.find(b => b.id === manualBucketId)?.name || manualBucketId, quantity_lbs: stageToUse?.input_qty_lbs }]
+      : [];
 
   // Auto-select the FIFO (oldest) lot for each bucket when inventory loads
   useEffect(() => {
-    if (rawInventoryAll.length > 0 && blendBuckets.length > 0 && Object.keys(selectedLots).length === 0) {
+    if (rawInventoryAll.length > 0 && effectiveBlendBuckets.length > 0 && Object.keys(selectedLots).length === 0) {
       const autoSelected = {};
-      for (const bucket of blendBuckets) {
+      for (const bucket of effectiveBlendBuckets) {
         const lots = getFifoLotsForBucket(rawInventoryAll, bucket.bucket_id);
         if (lots.length > 0) {
           autoSelected[bucket.bucket_id] = { raw_inventory_id: lots[0].id, lot_number: lots[0].lot_number || "", available_qty: lots[0].available_qty };
@@ -171,10 +193,10 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
 
   const handleConfirmLots = async () => {
     setSaving(true);
-    const primaryLot = selectedLots[blendBuckets[0]?.bucket_id]?.lot_number || "";
+    const primaryLot = selectedLots[effectiveBlendBuckets[0]?.bucket_id]?.lot_number || "";
     await base44.entities.ProductionStage.update(stageToUse.id, { input_lot_number: primaryLot });
     // Deduct each bucket's quantity from the selected raw inventory lot
-    for (const bucket of blendBuckets) {
+    for (const bucket of effectiveBlendBuckets) {
       const sel = selectedLots[bucket.bucket_id];
       if (sel?.raw_inventory_id) {
         const row = rawInventoryAll.find(r => r.id === sel.raw_inventory_id);
@@ -193,9 +215,8 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
     setSaving(false);
   };
 
-  // If no blend buckets configured on the product, skip lot confirmation entirely
-  const hasBlendBuckets = blendBuckets.length > 0;
-  const lotsValid = !hasBlendBuckets || blendBuckets.every(b => selectedLots[b.bucket_id]?.lot_number?.trim());
+  const hasBlendBuckets = effectiveBlendBuckets.length > 0;
+  const lotsValid = hasBlendBuckets && effectiveBlendBuckets.every(b => selectedLots[b.bucket_id]?.lot_number?.trim());
 
   const toggleBatchExpanded = (batchNumber) => {
     setExpandedBatches(prev => ({
@@ -408,22 +429,31 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
                   ? <CheckCircle2 className="w-4 h-4 text-chart-2" />
                   : <AlertCircle className="w-4 h-4 text-amber-500" />
                 }
-                <p className="font-bold text-sm">{blendBuckets.map(b => b.bucket_name).join(", ") || "Raw Material"}</p>
+                <p className="font-bold text-sm">{effectiveBlendBuckets.map(b => b.bucket_name).join(", ") || "Raw Material"}</p>
                 <span className="text-xs text-muted-foreground">{stageToUse?.input_qty_lbs} lbs required</span>
               </div>
               {lotsConfirmed && <Badge className="bg-chart-2/15 text-chart-2 border-0 text-xs">Confirmed</Badge>}
             </div>
 
             {!lotsConfirmed && blendBuckets.length === 0 && (
-              <div className="rounded border bg-amber-50 border-amber-200 px-3 py-2.5 text-xs text-amber-700">
-                No blend ingredients are configured on this product. Add <strong>blend_ingredients</strong> on the product to enable lot selection, or click confirm to skip.
-                <Button size="sm" className="mt-2 w-full h-8" onClick={() => setLotsConfirmed(true)}>Skip / Confirm</Button>
+              <div className="space-y-2">
+                <Label className="text-xs font-semibold">Select Protein Bucket</Label>
+                <Select value={manualBucketId || ""} onValueChange={v => { setManualBucketId(v); setSelectedLots({}); }}>
+                  <SelectTrigger className="h-10">
+                    <SelectValue placeholder="Choose a bucket…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {allProteinBuckets.filter(b => b.status === "active").map(b => (
+                      <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
           )}
 
-          {!lotsConfirmed && blendBuckets.length > 0 && (
+          {!lotsConfirmed && effectiveBlendBuckets.length > 0 && (
               <div className="space-y-3">
-                {blendBuckets.map(bucket => {
+                {effectiveBlendBuckets.map(bucket => {
                   const fifoLots = getFifoLotsForBucket(rawInventoryAll, bucket.bucket_id);
                   const sel = selectedLots[bucket.bucket_id];
                   return (
@@ -480,12 +510,12 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
 
             {lotsConfirmed && (
               <div className="rounded bg-chart-2/5 border border-chart-2/20 divide-y text-xs">
-                {blendBuckets.map(bucket => {
+                {effectiveBlendBuckets.map(bucket => {
                   const sel = selectedLots[bucket.bucket_id];
                   return (
                     <div key={bucket.bucket_id} className="flex justify-between px-2 py-1.5">
                       <span className="text-muted-foreground">{bucket.bucket_name}</span>
-                      <span className="font-mono font-semibold">{sel?.lot_number}</span>
+                      <span className="font-mono font-semibold">{sel?.lot_number || stageToUse?.input_lot_number || "—"}</span>
                     </div>
                   );
                 })}
