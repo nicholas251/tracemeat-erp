@@ -420,15 +420,17 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
                 input_qty_lbs: parseFloat(cookBatchLbs.toFixed(2)),
                 racks_count: allRackNums.length,
                 cook_batch_lot: cookBatchLot,
-                input_lot_number: cookBatchLot,
+                input_lot_number: allLots.join(", "),
                 notes: `Cook Batch #${currentCookBatchNumber} — Racks ${allRackNums.join(", ")} — Raw lots: ${allLots.join(", ")}`,
               });
             } else {
               // Stage exists but might be locked — unlock it
               const cookStage = existingCookStages.find(s => s.cook_batch_lot === cookBatchLot);
               if (cookStage && cookStage.status === "locked") {
+                const rawLots = [...new Set(Object.values(newActiveLots).map(al => al.lot_number).filter(Boolean))];
                 await base44.entities.ProductionStage.update(cookStage.id, {
                   status: "available",
+                  input_lot_number: rawLots.join(", "),
                 });
               }
             }
