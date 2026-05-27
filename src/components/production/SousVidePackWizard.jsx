@@ -75,6 +75,7 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
   const [selectedSplitLotId, setSelectedSplitLotId] = useState(null);
   const [splitConfirmedRackNumber, setSplitConfirmedRackNumber] = useState(null);
   const [expandedBatches, setExpandedBatches] = useState({});
+  const [debugData, setDebugData] = useState(null);
 
   // ── Step 1 state: lot selection ──
   const [selectedLots, setSelectedLots] = useState({}); // { [bucket_id]: { raw_inventory_id, lot_number, available_qty } }
@@ -688,6 +689,16 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
     onClose();
   };
 
+  const handleDebug = async () => {
+    try {
+      const res = await base44.functions.invoke('debugSousVidStage', { stageId: stageData.id });
+      setDebugData(res.data);
+    } catch (error) {
+      console.error('Debug error:', error);
+      setDebugData({ error: error.message });
+    }
+  };
+
   // Primary active lot info for display
   const primaryBucketId = effectiveBuckets.length > 0 ? effectiveBuckets[0].bucket_id : null;
   const primaryActiveLot = primaryBucketId ? activeLots[primaryBucketId] : null;
@@ -710,13 +721,33 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
                 &nbsp;·&nbsp;{plan.totalRacks} racks &nbsp;·&nbsp;{plan.cookBatches.length} cook batches
               </p>
             </div>
-            <div className="ml-auto shrink-0">
+            <div className="ml-auto shrink-0 flex items-center gap-2">
               <Badge variant="outline" className="text-xs">{completedCount}/{plan.totalRacks} done</Badge>
+              <Button size="sm" variant="outline" onClick={handleDebug} className="text-xs h-8">Debug</Button>
             </div>
           </div>
 
           {/* Body */}
           <div className="flex-1 overflow-y-auto px-5 py-5 space-y-5">
+
+            {/* Debug panel */}
+            {debugData && (
+              <div className="rounded-lg bg-slate-100 border border-slate-300 p-3 text-xs font-mono space-y-2 max-h-48 overflow-auto">
+                <p className="font-bold">Sub-batches in DB:</p>
+                {debugData.error ? (
+                  <p className="text-red-600">{debugData.error}</p>
+                ) : debugData.sub_batches && debugData.sub_batches.length > 0 ? (
+                  debugData.sub_batches.map((sb, i) => (
+                    <div key={i} className="bg-white p-2 rounded border border-slate-200">
+                      Rack #{sb.rack_number || 'N/A'} • {sb.qty_lbs || sb.lbs || 0} lbs • Status: {sb.status}
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-slate-600">No sub-batches found</p>
+                )}
+              </div>
+            )}
+
 
             {/* ── Step 1: Raw material lots ── */}
             <div className={`rounded-xl border-2 p-4 space-y-3 ${lotsConfirmed ? "border-chart-2/40 bg-chart-2/5" : "border-amber-300 bg-amber-50/40"}`}>
