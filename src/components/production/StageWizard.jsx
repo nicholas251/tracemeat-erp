@@ -1107,12 +1107,18 @@ function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form, setFor
   const spiceIsShort = spiceRequired > 0 && spiceTotalAllocated > 0 && spiceTotalAllocated < spiceRequired - 0.001;
   const spiceBlocksNext = spiceIsShort && !spiceShortNotes?.trim();
 
+  // Check if low temperature requires notes (cooking stage)
+  const isCookStage = capKey === "cooking" && stepDef.id === "cook";
+  const tempTooLow = isCookStage && form.temperature_f < 165;
+  const lowTempBlocksNext = tempTooLow && !form.notes?.trim();
+
   const canProceed = isLinking ? !!cookBatch
-    : isTumble ? !!cookPlan
-    : isRacking ? !!cookPlan
-    : isPackaging ? (form.case_count > 0 && caseWeights.length === parseInt(form.case_count))
-    : isMixerInputs ? (!!form.pork_lot_confirmed && !!form.binder_lot_confirmed)
-    : !spiceBlocksNext;
+     : isTumble ? !!cookPlan
+     : isRacking ? !!cookPlan
+     : isPackaging ? (form.case_count > 0 && caseWeights.length === parseInt(form.case_count))
+     : isMixerInputs ? (!!form.pork_lot_confirmed && !!form.binder_lot_confirmed)
+     : isCookStage ? !lowTempBlocksNext
+     : !spiceBlocksNext;
 
   return (
     <div className="space-y-5">
@@ -1151,6 +1157,19 @@ function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form, setFor
               onCasingSelect={(id, name) => setForm(f => ({ ...f, casing_bucket_id: id, casing_bucket_name: name }))}
             />
           ))}
+        </div>
+      )}
+
+      {/* Low temperature warning for cooking stage */}
+      {isCookStage && tempTooLow && (
+        <div className="rounded-lg border-2 border-amber-400 bg-amber-50 p-3 space-y-2">
+          <div className="flex items-start gap-2">
+            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-semibold text-amber-900">Temperature Below 165°F</p>
+              <p className="text-xs text-amber-800 mt-0.5">Notes are required for temperatures below 165°F safety threshold.</p>
+            </div>
+          </div>
         </div>
       )}
 
