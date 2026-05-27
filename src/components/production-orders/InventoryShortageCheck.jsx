@@ -152,11 +152,12 @@ export default function InventoryShortageCheck({ product: productProp, rawInputL
   const product = productProp;
 
   const { data: rawInventory = [], isLoading } = useQuery({
-    queryKey: ["rawInventoryAvailable"],
-    queryFn: () => base44.entities.RawInventory.list("received_date", 500),
+    queryKey: ["rawInventoryAvailable", product?.id],
+    queryFn: () => base44.entities.RawInventory.list("received_date", 2000),
     enabled: !!product && rawInputLbs > 0,
     staleTime: 0,
     refetchOnMount: "always",
+    refetchOnWindowFocus: true,
   });
 
   const { data: spiceMixData } = useQuery({
