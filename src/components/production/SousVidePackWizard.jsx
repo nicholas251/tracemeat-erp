@@ -430,7 +430,6 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
           rackNumber: rackNum,
           currentLotNumber: primaryActive?.lot_number,
           currentRemaining: primaryActive?.remaining_qty,
-          nextLotNumber: nextLot.lot_number || nextLot.id,
           weightNeeded: lbs,
           availableLots: nextLots,
         };
@@ -467,217 +466,192 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
         }
       }
 
-    // ── Check if we'll need to split across lots before doing anything ──
-    // Skip if user already confirmed the split via the split dialog
-    if (!skipSplitCheck && splitConfirmedRackNumber !== rackNum) {
-      const splitNeeded = checkSplitLotNeeded(rackNum, lbs, freshActiveLots);
-      if (splitNeeded) {
-        // Show confirmation dialog and return — do NOT close the rack form yet
-        setSplitLotConfirmation(splitNeeded);
-        return;
-      }
-    }
-
-    // ── Save cook batch number before closing form ──
-    const currentCookBatchNumber = editingRack.cookBatchNumber;
-
-    // ── Close rack form, then proceed with deduction ──
-    setEditingRack(null);
-    setSaving(true);
-
-    // ── Deduct rack weight from active lot(s), splitting across lots if needed ──
-    const newActiveLots = { ...freshActiveLots };
-    for (const b of effectiveBuckets) {
-      let active = newActiveLots[b.bucket_id];
-      if (!active?.raw_inventory_id) continue;
-
-      let remaining = lbs; // lbs still to deduct
-
-      // First: deduct from the current active lot
-      const freshRow = await base44.entities.RawInventory.filter({ id: active.raw_inventory_id }).then(r => r?.[0]);
-      const currentQty = freshRow?.available_qty ?? 0;
-      const takeFromFirst = Math.min(currentQty, remaining);
-      const firstNewQty = parseFloat((currentQty - takeFromFirst).toFixed(2));
-
-      await base44.entities.RawInventory.update(active.raw_inventory_id, {
-        available_qty: firstNewQty,
-        status: firstNewQty <= 0 ? "depleted" : "in_use",
-      });
-      newActiveLots[b.bucket_id] = { ...active, remaining_qty: firstNewQty };
-      remaining = parseFloat((remaining - takeFromFirst).toFixed(2));
-
-      // Second: if first lot ran out mid-rack, deduct from the next FIFO lot
-      // BUT do NOT auto-advance the active lot — user must confirm first via needsNewLot dialog
-      if (remaining > 0.01) {
-        // Get fresh FIFO list to find alternative lots (exclude the primary lot we just deducted from)
-        const nextLots = getFifoLots(rawInventory, b.bucket_id).filter(l => l.id !== active.raw_inventory_id);
-        if (nextLots.length > 0) {
-          const nextLot = nextLots[0];
-          const nextFreshRow = await base44.entities.RawInventory.filter({ id: nextLot.id }).then(r => r?.[0]);
-          const nextCurrentQty = nextFreshRow?.available_qty ?? 0;
-          const takeFromNext = Math.min(nextCurrentQty, remaining);
-          const nextNewQty = parseFloat((nextCurrentQty - takeFromNext).toFixed(2));
-
-          await base44.entities.RawInventory.update(nextLot.id, {
-            available_qty: nextNewQty,
-            status: nextNewQty <= 0 ? "depleted" : "in_use",
-          });
-
-          // Do NOT auto-advance activeLots — keep it as the original lot so user is prompted
-          // to manually select the next lot via handleConfirmNextLot
-          remaining = parseFloat((remaining - takeFromNext).toFixed(2));
+        // ── Check if we'll need to split across lots before doing anything ──
+      // Skip if user already confirmed the split via the split dialog
+      if (!skipSplitCheck && splitConfirmedRackNumber !== rackNum) {
+        const splitNeeded = checkSplitLotNeeded(rackNum, lbs, freshActiveLots);
+        if (splitNeeded) {
+          setSplitLotConfirmation(splitNeeded);
+          return;
         }
       }
-    }
-    setActiveLots(newActiveLots);
 
-    // Check if active lot is now exhausted (< 1 lb) and there are still racks to pack
-    const lotExhausted = primaryBucketId && newActiveLots[primaryBucketId] && newActiveLots[primaryBucketId].remaining_qty < 1;
+      // ── Save cook batch number before closing form ──
+      const currentCookBatchNumber = editingRack.cookBatchNumber;
 
-    // Always fetch the freshest stage from DB before merging sub_batches
-    const latestStage = await base44.entities.ProductionStage.filter({ id: stageData.id }).then(r => r?.[0]);
+      // ── Close rack form, then proceed with deduction ──
+      setEditingRack(null);
+      setSaving(true);
 
-    // Collect the raw material lots that were consumed for this rack
-    const rawLotsUsed = [...new Set(
-      Object.values(newActiveLots).map(al => al.lot_number).filter(Boolean)
-    )];
+      // ── Deduct rack weight from active lot(s), splitting across lots if needed ──
+      const newActiveLots = { ...freshActiveLots };
+      for (const b of effectiveBuckets) {
+        let active = newActiveLots[b.bucket_id];
+        if (!active?.raw_inventory_id) continue;
 
-    const newSubBatch = {
-      sub_batch_id: `rack-${rackNum}`,
-      rack_number: rackNum,
-      label: `Rack #${rackNum}`,
-      lbs,
-      qty_lbs: lbs,
-      lot_number: lot,
-      raw_lots: rawLotsUsed,
-      notes: editForm.notes,
-      short_weight_reason: lbs < RACK_LBS ? editForm.short_weight_reason : null,
-      cook_batch_number: currentCookBatchNumber,
-      status: "completed",
-    };
+        let remaining = lbs;
 
-    const existingSubs = latestStage?.sub_batches || stageData.sub_batches || [];
-    const newSubs = [...existingSubs.filter(sb => sb.rack_number !== rackNum), newSubBatch];
+        const freshRow = await base44.entities.RawInventory.filter({ id: active.raw_inventory_id }).then(r => r?.[0]);
+        const currentQty = freshRow?.available_qty ?? 0;
+        const takeFromFirst = Math.min(currentQty, remaining);
+        const firstNewQty = parseFloat((currentQty - takeFromFirst).toFixed(2));
 
-    const newCompleted = {};
-    for (const sb of newSubs) {
-      if (sb.rack_number) newCompleted[sb.rack_number] = { completed: true, lbs: sb.qty_lbs || sb.lbs || RACK_LBS, lot_number: sb.lot_number || "" };
-    }
-
-    // Save rack progress + persist updated active lots
-    await base44.entities.ProductionStage.update(stageData.id, {
-      sub_batches: newSubs,
-      pork_lot_number: JSON.stringify(newActiveLots),
-    });
-
-    // Check if ALL racks done → complete the stage
-    const allRacksDone = plan.racks.every(r => newCompleted[r.rackNumber]?.completed);
-    if (allRacksDone) {
-      await base44.entities.ProductionStage.update(stageData.id, {
-        status: "completed",
-        completed_at: new Date().toISOString(),
-        output_qty_lbs: parseFloat(plan.racks.reduce((s, r) => s + (newCompleted[r.rackNumber]?.lbs || r.lbs), 0).toFixed(2)),
-        racks_count: plan.totalRacks,
-        sub_batches: newSubs,
-      });
-    }
-
-    // Refetch the latest stage state before checking for cook batch completion
-    await refetchStage();
-    const refreshedStage = await base44.entities.ProductionStage.filter({ id: stageData.id }).then(r => r?.[0]);
-
-    // Check if cook batch is now complete → create cooking stage
-    const cookBatch = plan.cookBatches.find(cb => cb.cookBatchNumber === currentCookBatchNumber);
-    if (cookBatch && refreshedStage?.sub_batches) {
-      const allRackNums = cookBatch.racks.map(r => r.rackNumber);
-      const refreshedMap = {};
-      for (const sb of refreshedStage.sub_batches) {
-        if (sb.rack_number) refreshedMap[sb.rack_number] = { completed: true, lbs: sb.qty_lbs || sb.lbs || RACK_LBS, lot_number: sb.lot_number || "" };
-      }
-      const allDone = allRackNums.every(rn => refreshedMap[rn]?.completed);
-
-      if (allDone) {
-        // Use a stable cook batch lot identifier so we can reliably deduplicate
-        const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
-        const cookBatchLot = `SV-CB${currentCookBatchNumber}-${stageData.order_number}-${today}`;
-
-        const existingCookStages = await base44.entities.ProductionStage.filter({
-          order_id: stageData.order_id,
-          capability_key: "cooking",
+        await base44.entities.RawInventory.update(active.raw_inventory_id, {
+          available_qty: firstNewQty,
+          status: firstNewQty <= 0 ? "depleted" : "in_use",
         });
-        const alreadyExists = existingCookStages.some(s => s.cook_batch_lot === cookBatchLot);
+        newActiveLots[b.bucket_id] = { ...active, remaining_qty: firstNewQty };
+        remaining = parseFloat((remaining - takeFromFirst).toFixed(2));
 
-        if (!alreadyExists) {
-          const orderData = await base44.entities.ProductionOrder.filter({ id: stageData.order_id }).then(r => r?.[0]);
-          const flowData = orderData?.flow_id ? await base44.entities.ProductFlow.filter({ id: orderData.flow_id }).then(r => r?.[0]) : null;
-          const cookStep = flowData?.steps?.find(s => s.capability_key === "cooking");
-          const cookBatchLbs = allRackNums.reduce((s, rn) => s + (refreshedMap[rn]?.lbs || RACK_LBS), 0);
+        if (remaining > 0.01) {
+          const nextLots = getFifoLots(rawInventory, b.bucket_id).filter(l => l.id !== active.raw_inventory_id);
+          if (nextLots.length > 0) {
+            const nextLot = nextLots[0];
+            const nextFreshRow = await base44.entities.RawInventory.filter({ id: nextLot.id }).then(r => r?.[0]);
+            const nextCurrentQty = nextFreshRow?.available_qty ?? 0;
+            const takeFromNext = Math.min(nextCurrentQty, remaining);
+            const nextNewQty = parseFloat((nextCurrentQty - takeFromNext).toFixed(2));
 
-          // Collect all unique lot numbers from the racks in this cook batch
-          const rackLots = allRackNums
-            .map(rn => refreshedMap[rn]?.lot_number)
-            .filter(Boolean);
-          const uniqueRackLots = [...new Set(rackLots)];
-          // Also include the raw material lot(s) that were active during packing
-          const rawLots = Object.values(newActiveLots).map(al => al.lot_number).filter(Boolean);
-          const allLots = [...new Set([...rawLots, ...uniqueRackLots])];
-
-          // Find the cooking step's work profile to assign the stage
-          let cookProfileId = cookStep?.work_profile_id;
-          let cookProfileName = cookStep?.work_profile_name;
-          if (!cookProfileId) {
-            // Fallback: try to find a work profile with "cooking" or "cook" capability
-            const allProfiles = await base44.entities.WorkProfile.filter({ status: "active" });
-            const cookProfile = allProfiles.find(p => (p.capability_keys || []).includes("cooking"));
-            if (cookProfile) {
-              cookProfileId = cookProfile.id;
-              cookProfileName = cookProfile.name;
-            }
+            await base44.entities.RawInventory.update(nextLot.id, {
+              available_qty: nextNewQty,
+              status: nextNewQty <= 0 ? "depleted" : "in_use",
+            });
+            remaining = parseFloat((remaining - takeFromNext).toFixed(2));
           }
-
-          await base44.entities.ProductionStage.create({
-            order_id: stageData.order_id,
-            order_number: stageData.order_number,
-            product_name: stageData.product_name,
-            step_number: refreshedStage.step_number + 1,
-            capability_id: cookStep?.capability_id || "",
-            capability_key: "cooking",
-            capability_name: "Cooking",
-            work_profile_id: cookProfileId || "",
-            work_profile_name: cookProfileName || "",
-            status: "available",
-            input_qty_lbs: parseFloat(cookBatchLbs.toFixed(2)),
-            racks_count: allRackNums.length,
-            // Stable lot id used for deduplication and traceability
-            cook_batch_lot: cookBatchLot,
-            // Primary input lot = cook batch lot; all contributing lots in notes for traceability
-            input_lot_number: cookBatchLot,
-            notes: `Cook Batch #${currentCookBatchNumber} — Racks ${allRackNums.join(", ")} — Raw lots: ${allLots.join(", ")}`,
-          });
         }
       }
-    }
-    await refetchInventory();
-    queryClient.invalidateQueries({ queryKey: ["orderStages", stageData.order_id] });
-    queryClient.invalidateQueries({ queryKey: ["allStages"] });
-    queryClient.invalidateQueries({ queryKey: ["productionOrders"] });
+      setActiveLots(newActiveLots);
 
-    setSaving(false);
-    setSplitLotConfirmation(null); // Close split confirmation dialog after rack is completed
-    setSplitConfirmedRackNumber(null); // Clear the rack split confirmation flag
+      const lotExhausted = primaryBucketId && newActiveLots[primaryBucketId] && newActiveLots[primaryBucketId].remaining_qty < 1;
 
-    // After closing the rack dialog, check if lot is now exhausted and more racks remain
-    if (lotExhausted && !allRacksDone) {
-      setNeedsNewLot(true);
-    }
+      const latestStage = await base44.entities.ProductionStage.filter({ id: stageData.id }).then(r => r?.[0]);
 
-    if (allRacksDone) onCompleted?.();
+      const rawLotsUsed = [...new Set(
+        Object.values(newActiveLots).map(al => al.lot_number).filter(Boolean)
+      )];
+
+      const newSubBatch = {
+        sub_batch_id: `rack-${rackNum}`,
+        rack_number: rackNum,
+        label: `Rack #${rackNum}`,
+        lbs,
+        qty_lbs: lbs,
+        lot_number: lot,
+        raw_lots: rawLotsUsed,
+        notes: editForm.notes,
+        short_weight_reason: lbs < RACK_LBS ? editForm.short_weight_reason : null,
+        cook_batch_number: currentCookBatchNumber,
+        status: "completed",
+      };
+
+      const existingSubs = latestStage?.sub_batches || stageData.sub_batches || [];
+      const newSubs = [...existingSubs.filter(sb => sb.rack_number !== rackNum), newSubBatch];
+
+      const newCompleted = {};
+      for (const sb of newSubs) {
+        if (sb.rack_number) newCompleted[sb.rack_number] = { completed: true, lbs: sb.qty_lbs || sb.lbs || RACK_LBS, lot_number: sb.lot_number || "" };
+      }
+
+      await base44.entities.ProductionStage.update(stageData.id, {
+        sub_batches: newSubs,
+        pork_lot_number: JSON.stringify(newActiveLots),
+      });
+
+      const allRacksDone = plan.racks.every(r => newCompleted[r.rackNumber]?.completed);
+      if (allRacksDone) {
+        await base44.entities.ProductionStage.update(stageData.id, {
+          status: "completed",
+          completed_at: new Date().toISOString(),
+          output_qty_lbs: parseFloat(plan.racks.reduce((s, r) => s + (newCompleted[r.rackNumber]?.lbs || r.lbs), 0).toFixed(2)),
+          racks_count: plan.totalRacks,
+          sub_batches: newSubs,
+        });
+      }
+
+      await refetchStage();
+      const refreshedStage = await base44.entities.ProductionStage.filter({ id: stageData.id }).then(r => r?.[0]);
+
+      const cookBatch = plan.cookBatches.find(cb => cb.cookBatchNumber === currentCookBatchNumber);
+      if (cookBatch && refreshedStage?.sub_batches) {
+        const allRackNums = cookBatch.racks.map(r => r.rackNumber);
+        const refreshedMap = {};
+        for (const sb of refreshedStage.sub_batches) {
+          if (sb.rack_number) refreshedMap[sb.rack_number] = { completed: true, lbs: sb.qty_lbs || sb.lbs || RACK_LBS, lot_number: sb.lot_number || "" };
+        }
+        const allDone = allRackNums.every(rn => refreshedMap[rn]?.completed);
+
+        if (allDone) {
+          const cookBatchLot = `SV-CB${currentCookBatchNumber}-${stageData.order_number}-${today}`;
+
+          const existingCookStages = await base44.entities.ProductionStage.filter({
+            order_id: stageData.order_id,
+            capability_key: "cooking",
+          });
+          const alreadyExists = existingCookStages.some(s => s.cook_batch_lot === cookBatchLot);
+
+          if (!alreadyExists) {
+            const orderData = await base44.entities.ProductionOrder.filter({ id: stageData.order_id }).then(r => r?.[0]);
+            const flowData = orderData?.flow_id ? await base44.entities.ProductFlow.filter({ id: orderData.flow_id }).then(r => r?.[0]) : null;
+            const cookStep = flowData?.steps?.find(s => s.capability_key === "cooking");
+            const cookBatchLbs = allRackNums.reduce((s, rn) => s + (refreshedMap[rn]?.lbs || RACK_LBS), 0);
+
+            const rackLots = allRackNums.map(rn => refreshedMap[rn]?.lot_number).filter(Boolean);
+            const uniqueRackLots = [...new Set(rackLots)];
+            const rawLots = Object.values(newActiveLots).map(al => al.lot_number).filter(Boolean);
+            const allLots = [...new Set([...rawLots, ...uniqueRackLots])];
+
+            let cookProfileId = cookStep?.work_profile_id;
+            let cookProfileName = cookStep?.work_profile_name;
+            if (!cookProfileId) {
+              const allProfiles = await base44.entities.WorkProfile.filter({ status: "active" });
+              const cookProfile = allProfiles.find(p => (p.capability_keys || []).includes("cooking"));
+              if (cookProfile) {
+                cookProfileId = cookProfile.id;
+                cookProfileName = cookProfile.name;
+              }
+            }
+
+            await base44.entities.ProductionStage.create({
+              order_id: stageData.order_id,
+              order_number: stageData.order_number,
+              product_name: stageData.product_name,
+              step_number: refreshedStage.step_number + 1,
+              capability_id: cookStep?.capability_id || "",
+              capability_key: "cooking",
+              capability_name: "Cooking",
+              work_profile_id: cookProfileId || "",
+              work_profile_name: cookProfileName || "",
+              status: "available",
+              input_qty_lbs: parseFloat(cookBatchLbs.toFixed(2)),
+              racks_count: allRackNums.length,
+              cook_batch_lot: cookBatchLot,
+              input_lot_number: cookBatchLot,
+              notes: `Cook Batch #${currentCookBatchNumber} — Racks ${allRackNums.join(", ")} — Raw lots: ${allLots.join(", ")}`,
+            });
+          }
+        }
+      }
+
+      await refetchInventory();
+      queryClient.invalidateQueries({ queryKey: ["orderStages", stageData.order_id] });
+      queryClient.invalidateQueries({ queryKey: ["allStages"] });
+      queryClient.invalidateQueries({ queryKey: ["productionOrders"] });
+
+      setSaving(false);
+      setSplitLotConfirmation(null);
+      setSplitConfirmedRackNumber(null);
+
+      if (lotExhausted && !allRacksDone) {
+        setNeedsNewLot(true);
+      }
+
+      if (allRacksDone) onCompleted?.();
     } catch (error) {
-     console.error("Error in handleCompleteRack:", error);
-     setEditingRack(null);
-     setSaving(false);
+      console.error("Error in handleCompleteRack:", error);
+      setEditingRack(null);
+      setSaving(false);
     }
-    };
+  };
 
   const handleClose = () => {
     setEditingRack(null);
