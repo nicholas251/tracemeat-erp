@@ -242,7 +242,9 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
     setEditingRack(rack);
   };
 
-  // ─── Switch to next lot ───────────────────────────────────────────────────
+  // ─── Switch to next lot (manual override — used when lot exhausted exactly on a rack boundary) ──
+  // Note: mid-rack splits are handled automatically in handleCompleteRack.
+  // This prompt only fires when a rack completes and the lot hits exactly 0.
   const handleConfirmNextLot = async () => {
     setSaving(true);
     const newActive = { ...activeLots };
@@ -262,7 +264,7 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
     setNextLotSelection({});
     setNeedsNewLot(false);
 
-    // Persist updated active lots
+    // Persist updated active lots (no deduction — rack was already fully deducted)
     await base44.entities.ProductionStage.update(stageData.id, {
       pork_lot_number: JSON.stringify(newActive),
     });
@@ -271,7 +273,9 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
     setSaving(false);
   };
 
-  // ─── Step 2: Save completed rack — deduct actual weight from active lot ────
+  // ─── Step 2: Save completed rack — deduct actual weight from active lot(s) ──
+  // Handles split deduction: if the active lot doesn't cover the full rack weight,
+  // it deducts what's left from it, then automatically pulls the remainder from the next FIFO lot.
   const handleCompleteRack = async () => {
     if (!editingRack) return;
     setSaving(true);
@@ -280,27 +284,55 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
     const lbs = parseFloat(editForm.lbs) || editingRack.lbs;
     const lot = editForm.lot_number.trim() || `SV-R${rackNum}-${Date.now()}`;
 
-    // ── Deduct actual rack weight from active lot(s) ──
+    // ── Deduct rack weight from active lot(s), splitting across lots if needed ──
     const newActiveLots = { ...activeLots };
     for (const b of effectiveBuckets) {
-      const active = newActiveLots[b.bucket_id];
+      let active = newActiveLots[b.bucket_id];
       if (!active?.raw_inventory_id) continue;
 
-      // Fetch the freshest available qty from DB
+      let remaining = lbs; // lbs still to deduct
+
+      // First: deduct from the current active lot
       const freshRow = await base44.entities.RawInventory.filter({ id: active.raw_inventory_id }).then(r => r?.[0]);
       const currentQty = freshRow?.available_qty ?? 0;
-      const newQty = Math.max(0, currentQty - lbs);
+      const takeFromFirst = Math.min(currentQty, remaining);
+      const firstNewQty = parseFloat((currentQty - takeFromFirst).toFixed(2));
 
       await base44.entities.RawInventory.update(active.raw_inventory_id, {
-        available_qty: parseFloat(newQty.toFixed(2)),
-        status: newQty <= 0 ? "depleted" : "in_use",
+        available_qty: firstNewQty,
+        status: firstNewQty <= 0 ? "depleted" : "in_use",
       });
+      newActiveLots[b.bucket_id] = { ...active, remaining_qty: firstNewQty };
+      remaining = parseFloat((remaining - takeFromFirst).toFixed(2));
 
-      newActiveLots[b.bucket_id] = { ...active, remaining_qty: newQty };
+      // Second: if first lot ran out mid-rack, pull remainder from next FIFO lot automatically
+      if (remaining > 0.01) {
+        const nextLots = getFifoLots(rawInventory, b.bucket_id).filter(l => l.id !== active.raw_inventory_id);
+        if (nextLots.length > 0) {
+          const nextLot = nextLots[0];
+          const nextFreshRow = await base44.entities.RawInventory.filter({ id: nextLot.id }).then(r => r?.[0]);
+          const nextCurrentQty = nextFreshRow?.available_qty ?? 0;
+          const takeFromNext = Math.min(nextCurrentQty, remaining);
+          const nextNewQty = parseFloat((nextCurrentQty - takeFromNext).toFixed(2));
+
+          await base44.entities.RawInventory.update(nextLot.id, {
+            available_qty: nextNewQty,
+            status: nextNewQty <= 0 ? "depleted" : "in_use",
+          });
+
+          // Automatically advance the active lot to this next lot
+          newActiveLots[b.bucket_id] = {
+            raw_inventory_id: nextLot.id,
+            lot_number: nextLot.lot_number || "",
+            remaining_qty: nextNewQty,
+          };
+          remaining = parseFloat((remaining - takeFromNext).toFixed(2));
+        }
+      }
     }
     setActiveLots(newActiveLots);
 
-    // Check if any active lot is now exhausted (or close to it — less than 1 rack worth)
+    // Check if active lot is now exhausted (< 1 lb) and there are still racks to pack
     const primaryBucketId = effectiveBuckets[0]?.bucket_id;
     const primaryActive = newActiveLots[primaryBucketId];
     const lotExhausted = primaryActive && primaryActive.remaining_qty < 1;
