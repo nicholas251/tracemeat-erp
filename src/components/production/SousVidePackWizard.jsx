@@ -604,17 +604,21 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
       } else {
         // Check if current cook batch is done and unlock its cooking stage
         const cookBatch = plan.cookBatches.find(cb => cb.cookBatchNumber === currentCookBatchNumber);
+        console.log("[handleCompleteRack] Checking unlock:", { currentCookBatchNumber, foundBatch: !!cookBatch, allRacks: plan.racks.map(r => r.rackNumber), newCompleted: Object.keys(newCompleted) });
         if (cookBatch) {
           const allRackNums = cookBatch.racks.map(r => r.rackNumber);
           const batchDone = allRackNums.every(rn => newCompleted[rn]?.completed);
           if (batchDone) {
             const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
             const cookBatchLot = `SV-CB${currentCookBatchNumber}-${stageData.order_number}-${today}`;
+            console.log("[handleCompleteRack] Batch done—looking for cooking stage:", { cookBatchLot, orderId: stageData.order_id });
             const existingCookStages = await base44.entities.ProductionStage.filter({
               order_id: stageData.order_id,
               capability_key: "cooking",
             });
+            console.log("[handleCompleteRack] Found cook stages:", { count: existingCookStages.length, stages: existingCookStages.map(s => ({ id: s.id, status: s.status, cook_batch_lot: s.cook_batch_lot })) });
             const cookStage = existingCookStages.find(s => s.cook_batch_lot === cookBatchLot);
+            console.log("[handleCompleteRack] Matching stage found:", { found: !!cookStage, status: cookStage?.status });
             if (cookStage && cookStage.status === "locked") {
               await base44.entities.ProductionStage.update(cookStage.id, {
                 status: "available",
