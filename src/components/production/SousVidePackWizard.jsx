@@ -275,6 +275,11 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
       const remainingNeeded = parseFloat((rackLbs - primaryActive.remaining_qty).toFixed(2));
       const nextLots = getFifoLots(rawInventory, primaryBucketId).filter(l => l.id !== primaryActive.raw_inventory_id);
       if (nextLots.length > 0) {
+        // Pre-select the first FIFO lot BEFORE showing dialog
+        const firstLotId = nextLots[0].id;
+        setSelectedSplitLotId(firstLotId);
+        
+        // Then show the dialog with available lots
         setSplitLotConfirmation({
           rackNumber: rack.rackNumber,
           currentLotNumber: primaryActive.lot_number,
@@ -282,8 +287,6 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
           weightNeeded: rackLbs,
           availableLots: nextLots,
         });
-        // Pre-select the first FIFO lot
-        setSelectedSplitLotId(nextLots[0].id);
         // Don't open rack form yet — wait for split confirmation
         return;
       }
@@ -364,9 +367,14 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
       // Step 6: Refresh inventory to reflect deductions
       await refetchInventory();
 
-      // Step 7: Open the rack form for final weight/notes entry
+      // Step 7: Mark split as confirmed for this rack to prevent re-triggering
+      // (Note: already set at line 358, but confirming sequencing)
+
+      // Step 8: Open the rack form for final weight/notes entry
       const rackToOpen = plan.racks.find(r => r.rackNumber === rackNumber);
       if (rackToOpen) {
+        // Delay slightly to allow state to settle before opening form
+        await new Promise(r => setTimeout(r, 100));
         openEditRack(rackToOpen, true);
       }
     } catch (error) {
@@ -457,7 +465,8 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
     }
 
     // ── Check if we'll need to split across lots before doing anything ──
-    if (!skipSplitCheck) {
+    // Skip if user already confirmed the split via the split dialog
+    if (!skipSplitCheck && splitConfirmedRackNumber !== rackNum) {
       const splitNeeded = checkSplitLotNeeded(rackNum, lbs, freshActiveLots);
       if (splitNeeded) {
         // Show confirmation dialog and return — do NOT close the rack form yet
