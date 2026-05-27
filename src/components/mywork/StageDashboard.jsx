@@ -35,10 +35,12 @@ export default function StageDashboard({ user, profile, onBack, singleProfile = 
 
   // Only show stages assigned to this work profile that are available or in-progress
   // Completed stages are locked and not editable
-  const myStages = allStages.filter(s => 
-    capKeys.includes(s.capability_key) && 
-    (s.status === "in_progress" || s.status === "available")
-  );
+  // If profile has cooking capability, also show chilling (auto-created from cooking)
+  const showChilling = capKeys.includes("cooking");
+  const myStages = allStages.filter(s => {
+    const isAssigned = capKeys.includes(s.capability_key) || (showChilling && s.capability_key === "chilling");
+    return isAssigned && (s.status === "in_progress" || s.status === "available");
+  });
 
   // Group stages by capability
   const cookingStages = myStages.filter(s => s.capability_key === "cooking");
