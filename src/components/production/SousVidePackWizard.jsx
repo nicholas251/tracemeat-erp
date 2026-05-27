@@ -25,6 +25,20 @@ function getFifoLots(inventoryRows, bucketId) {
     });
 }
 
+// Build lot object from selection or raw inventory row
+function buildLotEntry(rawRow) {
+  return {
+    raw_inventory_id: rawRow.id,
+    lot_number: rawRow.lot_number || "",
+    remaining_qty: rawRow.available_qty ?? 0,
+  };
+}
+
+// Extract last raw lot from rack data
+function getLastRawLot(rackData) {
+  return rackData?.raw_lots?.length > 0 ? rackData.raw_lots[rackData.raw_lots.length - 1] : null;
+}
+
 function buildPlan(totalLbs) {
   const totalRacks = Math.ceil(totalLbs / RACK_LBS);
   const racks = Array.from({ length: totalRacks }, (_, i) => {
@@ -201,17 +215,12 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
     try {
       const primaryLot = selectedLots[effectiveBuckets[0]?.bucket_id]?.lot_number || "";
 
-      // Initialize activeLots from selected lots
       const initial = {};
       for (const b of effectiveBuckets) {
         const sel = selectedLots[b.bucket_id];
         if (sel?.raw_inventory_id) {
           const freshRow = await base44.entities.RawInventory.filter({ id: sel.raw_inventory_id }).then(r => r?.[0]);
-          initial[b.bucket_id] = {
-            raw_inventory_id: sel.raw_inventory_id,
-            lot_number: sel.lot_number,
-            remaining_qty: freshRow?.available_qty ?? sel.available_qty ?? 0,
-          };
+          initial[b.bucket_id] = buildLotEntry(freshRow || sel);
         }
       }
       setActiveLots(initial);
@@ -248,18 +257,11 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
 
     // Check if user already confirmed a lot switch for this rack (don't show split dialog again)
     if (splitConfirmedRackNumber === rack.rackNumber) {
-      // Skip split check — proceed directly to rack form
       const currentActiveLotNumber = activeLots[primaryBucketId]?.lot_number;
-      const lastCompletedRackNum = rack.rackNumber - 1;
-      const lastRackData = completedRacks[lastCompletedRackNum];
-      const lastRawLot = lastRackData?.raw_lots?.length > 0 
-        ? lastRackData.raw_lots[lastRackData.raw_lots.length - 1]
-        : null;
-
+      const lastRawLot = getLastRawLot(completedRacks[rack.rackNumber - 1]);
       const lotChanged = lastRawLot && currentActiveLotNumber && lastRawLot !== currentActiveLotNumber;
       setLotChangedFrom(lotChanged ? lastRawLot : null);
       setLotChangeConfirmed(autoConfirmLotChange);
-
       setEditingRack(rack);
       return;
     }
@@ -268,14 +270,11 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
     const primaryActive = activeLots[primaryBucketId];
     const hasEnoughInCurrentLot = primaryActive?.remaining_qty >= rackLbs;
 
-    // If not enough, show split confirmation to let user pick which lot to pull the remainder from
+    // If not enough, show split confirmation
     if (!hasEnoughInCurrentLot && primaryActive?.remaining_qty > 0) {
       const nextLots = getFifoLots(rawInventory, primaryBucketId).filter(l => l.id !== primaryActive.raw_inventory_id);
       if (nextLots.length > 0) {
-        // Pre-select the first FIFO lot BEFORE showing dialog
-        const firstLotId = nextLots[0].id;
-        setSelectedSplitLotId(firstLotId);
-
+        setSelectedSplitLotId(nextLots[0].id);
         setSplitLotConfirmation({
           rackNumber: rack.rackNumber,
           currentLotNumber: primaryActive.lot_number,
@@ -289,16 +288,10 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
 
     // Detect lot change from previous rack
     const currentActiveLotNumber = activeLots[primaryBucketId]?.lot_number;
-    const lastCompletedRackNum = rack.rackNumber - 1;
-    const lastRackData = completedRacks[lastCompletedRackNum];
-    const lastRawLot = lastRackData?.raw_lots?.length > 0 
-      ? lastRackData.raw_lots[lastRackData.raw_lots.length - 1]
-      : null;
-
+    const lastRawLot = getLastRawLot(completedRacks[rack.rackNumber - 1]);
     const lotChanged = lastRawLot && currentActiveLotNumber && lastRawLot !== currentActiveLotNumber;
     setLotChangedFrom(lotChanged ? lastRawLot : null);
     setLotChangeConfirmed(autoConfirmLotChange);
-
     setEditingRack(rack);
   };
 
@@ -386,18 +379,12 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
     setSaving(true);
     try {
       const newActive = { ...activeLots };
-
       for (const b of effectiveBuckets) {
         const sel = nextLotSelection[b.bucket_id];
         if (!sel?.raw_inventory_id) continue;
         const freshRow = await base44.entities.RawInventory.filter({ id: sel.raw_inventory_id }).then(r => r?.[0]);
-        newActive[b.bucket_id] = {
-          raw_inventory_id: sel.raw_inventory_id,
-          lot_number: sel.lot_number,
-          remaining_qty: freshRow?.available_qty ?? sel.available_qty ?? 0,
-        };
+        newActive[b.bucket_id] = buildLotEntry(freshRow || sel);
       }
-
       setActiveLots(newActive);
       setNextLotSelection({});
       setNeedsNewLot(false);
