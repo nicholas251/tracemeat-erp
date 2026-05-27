@@ -307,54 +307,73 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
   // ─── Handle split lot confirmation (when mid-rack lot exhaustion occurs) ──
   // User confirmed the split and selected the lot — deduct from old lot, switch to selected lot
   const handleConfirmSplitLot = async () => {
-    if (!splitLotConfirmation || !selectedSplitLotId) return;
+    if (!splitLotConfirmation || !selectedSplitLotId) {
+      console.warn("Split confirmation missing data", { splitLotConfirmation, selectedSplitLotId });
+      return;
+    }
 
     setSaving(true);
-    const rackNumber = splitLotConfirmation.rackNumber;
-    const primaryBucketId = effectiveBuckets[0]?.bucket_id;
-    const currentActive = activeLots[primaryBucketId];
+    try {
+      const rackNumber = splitLotConfirmation.rackNumber;
+      const lbs = splitLotConfirmation.weightNeeded;
+      const primaryBucketId = effectiveBuckets[0]?.bucket_id;
+      const currentActive = activeLots[primaryBucketId];
 
-    // Deduct the old lot's remaining amount
-    if (currentActive?.raw_inventory_id) {
-      const deductAmount = splitLotConfirmation.currentRemaining;
-      const oldLotNewQty = parseFloat((currentActive.remaining_qty - deductAmount).toFixed(2));
-      await base44.entities.RawInventory.update(currentActive.raw_inventory_id, {
-        available_qty: Math.max(0, oldLotNewQty),
-        status: oldLotNewQty <= 0 ? "depleted" : "in_use",
-      });
+      // Step 1: Deduct remaining from old lot (consume it fully)
+      if (currentActive?.raw_inventory_id) {
+        const deductAmount = splitLotConfirmation.currentRemaining;
+        const oldLotNewQty = Math.max(0, parseFloat((currentActive.remaining_qty - deductAmount).toFixed(2)));
+        await base44.entities.RawInventory.update(currentActive.raw_inventory_id, {
+          available_qty: oldLotNewQty,
+          status: oldLotNewQty <= 0 ? "depleted" : "in_use",
+        });
+      }
+
+      // Step 2: Deduct remaining needed from new lot
+      const selectedLotRow = await base44.entities.RawInventory.filter({ id: selectedSplitLotId }).then(r => r?.[0]);
+      if (selectedLotRow) {
+        const remainingNeeded = lbs - splitLotConfirmation.currentRemaining;
+        const newLotNewQty = Math.max(0, parseFloat((selectedLotRow.available_qty - remainingNeeded).toFixed(2)));
+        await base44.entities.RawInventory.update(selectedSplitLotId, {
+          available_qty: newLotNewQty,
+          status: newLotNewQty <= 0 ? "depleted" : "in_use",
+        });
+
+        // Step 3: Switch active lot to the new lot
+        const updatedActiveLots = { ...activeLots };
+        updatedActiveLots[primaryBucketId] = {
+          raw_inventory_id: selectedLotRow.id,
+          lot_number: selectedLotRow.lot_number || "",
+          remaining_qty: newLotNewQty,
+        };
+        setActiveLots(updatedActiveLots);
+
+        // Persist the updated active lots
+        await base44.entities.ProductionStage.update(stageData.id, {
+          pork_lot_number: JSON.stringify(updatedActiveLots),
+        });
+      }
+
+      // Step 4: Mark this rack as split-confirmed
+      setSplitConfirmedRackNumber(rackNumber);
+
+      // Step 5: Close split confirmation dialog
+      setSplitLotConfirmation(null);
+      setSelectedSplitLotId(null);
+
+      // Step 6: Refresh inventory to reflect deductions
+      await refetchInventory();
+
+      // Step 7: Open the rack form for final weight/notes entry
+      const rackToOpen = plan.racks.find(r => r.rackNumber === rackNumber);
+      if (rackToOpen) {
+        openEditRack(rackToOpen, true);
+      }
+    } catch (error) {
+      console.error("Error in handleConfirmSplitLot:", error);
+    } finally {
+      setSaving(false);
     }
-
-    // Switch active lot to the user-selected lot
-    const selectedLotRow = await base44.entities.RawInventory.filter({ id: selectedSplitLotId }).then(r => r?.[0]);
-    if (selectedLotRow) {
-      const updatedActiveLots = { ...activeLots };
-      updatedActiveLots[primaryBucketId] = {
-        raw_inventory_id: selectedLotRow.id,
-        lot_number: selectedLotRow.lot_number || "",
-        remaining_qty: selectedLotRow.available_qty ?? 0,
-      };
-      setActiveLots(updatedActiveLots);
-
-      // Persist the updated active lots
-      await base44.entities.ProductionStage.update(stageData.id, {
-        pork_lot_number: JSON.stringify(updatedActiveLots),
-      });
-    }
-
-    // Mark this rack as split-confirmed so dialog won't re-appear
-    setSplitConfirmedRackNumber(rackNumber);
-
-    // Close split confirmation dialog and open the rack form for final completion
-    setSplitLotConfirmation(null);
-    setSelectedSplitLotId(null);
-    
-    // Now open the rack form so user can enter weight and notes
-    const rackToOpen = plan.racks.find(r => r.rackNumber === rackNumber);
-    if (rackToOpen) {
-      openEditRack(rackToOpen, true); // autoConfirmLotChange = true since we already handled it
-    }
-    
-    setSaving(false);
   };
 
   // ─── Switch to next lot (manual override — used when lot exhausted exactly on a rack boundary) ──
