@@ -333,13 +333,14 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
     if (!skipSplitCheck) {
       const splitNeeded = checkSplitLotNeeded(rackNum, lbs);
       if (splitNeeded) {
-        // Show confirmation dialog and return
+        // Show confirmation dialog and return — do NOT close the rack form yet
         setSplitLotConfirmation(splitNeeded);
         return;
       }
     }
 
-    // ── Proceed with deduction ──
+    // ── Close rack form first, then proceed with deduction ──
+    setEditingRack(null);
     setSaving(true);
 
     // ── Deduct rack weight from active lot(s), splitting across lots if needed ──
@@ -524,7 +525,6 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
     queryClient.invalidateQueries({ queryKey: ["productionOrders"] });
 
     setSaving(false);
-    setEditingRack(null);
     setSplitLotConfirmation(null); // Close split confirmation dialog after rack is completed
 
     // After closing the rack dialog, check if lot is now exhausted and more racks remain
@@ -854,9 +854,10 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
                 </Button>
                 <Button
                   className="flex-1 bg-amber-600 hover:bg-amber-700 gap-2"
-                  onClick={() => {
-                    // Retry rack completion without split check, then close dialog
-                    handleCompleteRack(true).then(() => setSplitLotConfirmation(null));
+                  onClick={async () => {
+                    // Proceed without re-checking split (already confirmed by user)
+                    await handleCompleteRack(true);
+                    setSplitLotConfirmation(null);
                   }}
                   disabled={saving}
                 >
