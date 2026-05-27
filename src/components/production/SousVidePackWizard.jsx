@@ -342,17 +342,30 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
       const allDone = allRackNums.every(rn => newCompleted[rn]?.completed);
 
       if (allDone) {
+        // Use a stable cook batch lot identifier so we can reliably deduplicate
+        const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+        const cookBatchLot = `SV-CB${editingRack.cookBatchNumber}-${stageData.order_number}-${today}`;
+
         const existingCookStages = await base44.entities.ProductionStage.filter({
           order_id: stageData.order_id,
           capability_key: "cooking",
         });
-        const alreadyExists = existingCookStages.some(s => s.notes?.includes(`Cook Batch #${editingRack.cookBatchNumber}`));
+        const alreadyExists = existingCookStages.some(s => s.cook_batch_lot === cookBatchLot);
 
         if (!alreadyExists) {
           const orderData = await base44.entities.ProductionOrder.filter({ id: stageData.order_id }).then(r => r?.[0]);
           const flowData = orderData?.flow_id ? await base44.entities.ProductFlow.filter({ id: orderData.flow_id }).then(r => r?.[0]) : null;
           const cookStep = flowData?.steps?.find(s => s.capability_key === "cooking");
           const cookBatchLbs = allRackNums.reduce((s, rn) => s + (newCompleted[rn]?.lbs || RACK_LBS), 0);
+
+          // Collect all unique lot numbers from the racks in this cook batch
+          const rackLots = allRackNums
+            .map(rn => newCompleted[rn]?.lot_number)
+            .filter(Boolean);
+          const uniqueRackLots = [...new Set(rackLots)];
+          // Also include the raw material lot(s) that were active during packing
+          const rawLots = Object.values(newActiveLots).map(al => al.lot_number).filter(Boolean);
+          const allLots = [...new Set([...rawLots, ...uniqueRackLots])];
 
           await base44.entities.ProductionStage.create({
             order_id: stageData.order_id,
@@ -367,8 +380,11 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
             status: "available",
             input_qty_lbs: parseFloat(cookBatchLbs.toFixed(2)),
             racks_count: allRackNums.length,
-            input_lot_number: `SV-CB${editingRack.cookBatchNumber}-${Date.now()}`,
-            notes: `Cook Batch #${editingRack.cookBatchNumber} — Racks ${allRackNums.join(", ")}`,
+            // Stable lot id used for deduplication and traceability
+            cook_batch_lot: cookBatchLot,
+            // Primary input lot = cook batch lot; all contributing lots in notes for traceability
+            input_lot_number: cookBatchLot,
+            notes: `Cook Batch #${editingRack.cookBatchNumber} — Racks ${allRackNums.join(", ")} — Raw lots: ${allLots.join(", ")}`,
           });
         }
       }
