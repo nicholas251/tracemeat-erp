@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CheckCircle2, Circle, Package, AlertCircle, AlertTriangle, ShieldCheck } from "lucide-react";
+import { CheckCircle2, Circle, Package, AlertCircle, AlertTriangle } from "lucide-react";
 
 const RACK_LBS = 610;
 const RACKS_PER_COOK_BATCH = 3;
@@ -53,7 +53,7 @@ function buildPlan(totalLbs) {
 export default function SousVidePackWizard({ stage, open, onClose, onCompleted }) {
   const queryClient = useQueryClient();
   const [saving, setSaving] = useState(false);
-   const [editingRack, setEditingRack] = useState(null);
+  const [editingRack, setEditingRack] = useState(null);
    const [editForm, setEditForm] = useState({ lot_number: "", notes: "", lbs: "", short_weight_reason: "" });
    const [lotChangeConfirmed, setLotChangeConfirmed] = useState(false);
    const [lotChangedFrom, setLotChangedFrom] = useState(null); // lot number of previously active lot
@@ -195,12 +195,6 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
   const completedCount = plan.racks.filter(r => completedRacks[r.rackNumber]?.completed).length;
   const lotsValid = effectiveBuckets.length > 0 && effectiveBuckets.every(b => selectedLots[b.bucket_id]?.raw_inventory_id);
 
-  // ── Compute total lbs already deducted (from completed racks) per bucket ──
-  // For a single-bucket product, all rack lbs come from one bucket
-  const totalDeductedLbs = plan.racks
-    .filter(r => completedRacks[r.rackNumber]?.completed)
-    .reduce((s, r) => s + (completedRacks[r.rackNumber]?.lbs || r.lbs), 0);
-
   // ─── Step 1: Confirm lots — just record the lot, deduct first rack's worth only when rack completes ──
   const handleConfirmLots = async () => {
     setSaving(true);
@@ -272,7 +266,6 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
 
     // If not enough, show split confirmation to let user pick which lot to pull the remainder from
     if (!hasEnoughInCurrentLot && primaryActive?.remaining_qty > 0) {
-      const remainingNeeded = parseFloat((rackLbs - primaryActive.remaining_qty).toFixed(2));
       const nextLots = getFifoLots(rawInventory, primaryBucketId).filter(l => l.id !== primaryActive.raw_inventory_id);
       if (nextLots.length > 0) {
         // Pre-select the first FIFO lot BEFORE showing dialog
@@ -390,30 +383,35 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
   // This prompt only fires when a rack completes and the lot hits exactly 0.
   const handleConfirmNextLot = async () => {
     setSaving(true);
-    const newActive = { ...activeLots };
+    try {
+      const newActive = { ...activeLots };
 
-    for (const b of effectiveBuckets) {
-      const sel = nextLotSelection[b.bucket_id];
-      if (!sel?.raw_inventory_id) continue;
-      const freshRow = await base44.entities.RawInventory.filter({ id: sel.raw_inventory_id }).then(r => r?.[0]);
-      newActive[b.bucket_id] = {
-        raw_inventory_id: sel.raw_inventory_id,
-        lot_number: sel.lot_number,
-        remaining_qty: freshRow?.available_qty ?? sel.available_qty ?? 0,
-      };
+      for (const b of effectiveBuckets) {
+        const sel = nextLotSelection[b.bucket_id];
+        if (!sel?.raw_inventory_id) continue;
+        const freshRow = await base44.entities.RawInventory.filter({ id: sel.raw_inventory_id }).then(r => r?.[0]);
+        newActive[b.bucket_id] = {
+          raw_inventory_id: sel.raw_inventory_id,
+          lot_number: sel.lot_number,
+          remaining_qty: freshRow?.available_qty ?? sel.available_qty ?? 0,
+        };
+      }
+
+      setActiveLots(newActive);
+      setNextLotSelection({});
+      setNeedsNewLot(false);
+
+      // Persist updated active lots (no deduction — rack was already fully deducted)
+      await base44.entities.ProductionStage.update(stageData.id, {
+        pork_lot_number: JSON.stringify(newActive),
+      });
+
+      await refetchInventory();
+    } catch (error) {
+      console.error("Error in handleConfirmNextLot:", error);
+    } finally {
+      setSaving(false);
     }
-
-    setActiveLots(newActive);
-    setNextLotSelection({});
-    setNeedsNewLot(false);
-
-    // Persist updated active lots (no deduction — rack was already fully deducted)
-    await base44.entities.ProductionStage.update(stageData.id, {
-      pork_lot_number: JSON.stringify(newActive),
-    });
-
-    await refetchInventory();
-    setSaving(false);
   };
 
   // ─── Check for mid-rack split (lot exhaustion during rack completion) ──
@@ -447,7 +445,8 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
 
     const rackNum = editingRack.rackNumber;
     const lbs = parseFloat(editForm.lbs) || editingRack.lbs;
-    const lot = editForm.lot_number.trim() || `SV-R${rackNum}-${Date.now()}`;
+    const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+    const lot = editForm.lot_number.trim() || `SV-R${rackNum}-${today}`;
 
     // ── Refresh active lots from DB to ensure remaining_qty is current ──
     const freshActiveLots = { ...activeLots };
@@ -682,8 +681,8 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
   };
 
   // Primary active lot info for display
-  const primaryBucketId = effectiveBuckets[0]?.bucket_id;
-  const primaryActiveLot = activeLots[primaryBucketId];
+  const primaryBucketId = effectiveBuckets.length > 0 ? effectiveBuckets[0].bucket_id : null;
+  const primaryActiveLot = primaryBucketId ? activeLots[primaryBucketId] : null;
 
   // ─── Render ───────────────────────────────────────────────────────────────
   return (
@@ -1029,8 +1028,12 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
                   step="1"
                   min="1"
                   max="610"
-                  value={editForm.lbs}
-                  onChange={e => setEditForm(f => ({ ...f, lbs: Math.min(610, Math.max(0, parseFloat(e.target.value) || 0)) }))}
+                  value={editForm.lbs || ""}
+                  onChange={e => {
+                    const val = e.target.value.trim();
+                    const num = val ? parseFloat(val) : 0;
+                    setEditForm(f => ({ ...f, lbs: isNaN(num) ? 0 : Math.min(610, Math.max(0, num)) }));
+                  }}
                   className="h-11"
                 />
               </div>
