@@ -70,23 +70,23 @@
     },
     "output_lot_number": {
       "type": "string",
-      "description": "Lot number assigned to this stage's output (chopping, cooking, chilling, packaging)"
+      "description": "Lot number assigned to this stage's output"
     },
     "cook_batch_lot": {
       "type": "string",
-      "description": "Cook batch lot number \u2014 assigned during linking stage when 1 or 2 linking batches are merged into a cook batch"
+      "description": "Cook batch lot number"
     },
     "pork_lot_number": {
       "type": "string",
-      "description": "Lot number for the pork batch routed directly from blending to the mixer (kielbasa flow). Also used as JSON store for active lot state in sous vide packing."
+      "description": "Pork batch lot (kielbasa flow) / active lot JSON store (sous vide)"
     },
     "binder_lot_number": {
       "type": "string",
-      "description": "Lot number for the binder batch coming from the bowl chopper into the mixer (kielbasa flow)"
+      "description": "Binder batch lot from bowl chopper (kielbasa flow)"
     },
     "binder_qty_lbs": {
       "type": "number",
-      "description": "Quantity of the binder batch from bowl chopper entering the mixer"
+      "description": "Quantity of binder batch entering the mixer"
     },
     "spice_mix_id": {
       "type": "string"
@@ -99,11 +99,11 @@
     },
     "spice_mix_lot_number": {
       "type": "string",
-      "description": "Lot number of the kitted spice mix batch (chopping stage)"
+      "description": "Lot number of the kitted spice mix batch"
     },
     "cure_lot_number": {
       "type": "string",
-      "description": "Lot number of the cure ingredient used (chopping stage)"
+      "description": "Lot number of the cure ingredient used"
     },
     "temperature_c": {
       "type": "number"
@@ -113,6 +113,11 @@
     },
     "racks_count": {
       "type": "number"
+    },
+    "expiry_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Expiry date calculated at chilling completion and carried through to packaging and finished goods"
     },
     "sub_batches": {
       "type": "array",
@@ -124,11 +129,10 @@
           },
           "rack_number": {
             "type": "number",
-            "description": "Physical rack number (for sous vide packing)"
+            "description": "Physical rack number (sous vide packing)"
           },
           "label": {
-            "type": "string",
-            "description": "e.g. 'Filling Batch #1' or 'Rack #1'"
+            "type": "string"
           },
           "qty_lbs": {
             "type": "number"
@@ -138,34 +142,29 @@
             "description": "Alias for qty_lbs"
           },
           "lot_number": {
-            "type": "string",
-            "description": "Lot number for this batch/rack"
+            "type": "string"
           },
           "raw_lots": {
             "type": "array",
             "items": {
               "type": "string"
             },
-            "description": "List of raw material lot numbers used"
+            "description": "Raw material lot numbers used"
           },
           "notes": {
-            "type": "string",
-            "description": "Operator notes"
+            "type": "string"
           },
           "short_weight_reason": {
-            "type": "string",
-            "description": "Reason if batch is below standard weight"
+            "type": "string"
           },
           "cook_batch_number": {
-            "type": "number",
-            "description": "Cook batch this rack belongs to"
+            "type": "number"
           },
           "merged_from": {
             "type": "array",
             "items": {
               "type": "string"
-            },
-            "description": "Sub-batch IDs merged into this one"
+            }
           },
           "racks": {
             "type": "number"
@@ -180,7 +179,7 @@
           },
           "gaylord_contributions": {
             "type": "array",
-            "description": "Which gaylords this rack contributed to, and how much",
+            "description": "Which gaylords this rack contributed to and how much",
             "items": {
               "type": "object",
               "properties": {
@@ -204,23 +203,21 @@
         "properties": {
           "gaylord_number": {
             "type": "number",
-            "description": "Sequential gaylord number (1, 2, 3...)"
+            "description": "Sequential gaylord number"
           },
           "lot_number": {
             "type": "string",
-            "description": "Finished goods lot number for this gaylord (used on physical label)"
+            "description": "Finished goods lot number for this gaylord"
           },
           "qty_lbs": {
-            "type": "number",
-            "description": "Total weight in this gaylord"
+            "type": "number"
           },
           "status": {
             "type": "string",
             "enum": [
               "open",
               "sealed"
-            ],
-            "description": "open = still filling; sealed = full or manually closed"
+            ]
           },
           "sealed_at": {
             "type": "string",
@@ -230,43 +227,37 @@
             "type": "array",
             "items": {
               "type": "number"
-            },
-            "description": "Which racks contributed to this gaylord"
+            }
           },
           "source_cook_batch_lots": {
             "type": "array",
             "items": {
               "type": "string"
-            },
-            "description": "Cook batch lot numbers that contributed to this gaylord"
+            }
           },
           "is_mixed_lot": {
-            "type": "boolean",
-            "description": "True if this gaylord contains product from more than one cook batch lot"
+            "type": "boolean"
           }
         }
       }
     },
     "cases": {
       "type": "array",
+      "description": "Individual case weights for varied weight products",
       "items": {
         "type": "object",
         "properties": {
           "case_number": {
-            "type": "number",
-            "description": "Sequential case number"
+            "type": "number"
           },
           "weight_lbs": {
-            "type": "number",
-            "description": "Individual case weight in lbs (for varied weights products)"
+            "type": "number"
           },
           "lot_number": {
-            "type": "string",
-            "description": "Lot number for this case"
+            "type": "string"
           }
         }
-      },
-      "description": "Individual case weights for products with varied weights"
+      }
     },
     "notes": {
       "type": "string"

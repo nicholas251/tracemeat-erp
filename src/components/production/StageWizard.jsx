@@ -652,6 +652,17 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
           delete updates.temperature_f;
         }
 
+        // For chilling: calculate and store expiry_date on the stage so packaging can carry it forward
+        if (capKey === "chilling") {
+          const chillOrder = await base44.entities.ProductionOrder.filter({ id: stage.order_id }).then(r => r?.[0]);
+          if (chillOrder?.product_id) {
+            const chillProduct = await base44.entities.Product.filter({ id: chillOrder.product_id }).then(r => r?.[0]);
+            if (chillProduct?.shelf_life_days) {
+              updates.expiry_date = new Date(today.getTime() + chillProduct.shelf_life_days * 86400000).toISOString().slice(0, 10);
+            }
+          }
+        }
+
         await base44.entities.ProductionStage.update(stage.id, updates);
 
         // If this is packaging: push into the FG bucket AND create an InventoryItem lot
@@ -670,9 +681,21 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
              const productData = await base44.entities.Product.filter({ id: order.product_id }).then(r => r?.[0]);
              const shelfLifeDays = productData?.shelf_life_days || null;
              const caseWeightLbs = productData?.case_weight_lbs || null;
-             const expiryDate = shelfLifeDays
-               ? new Date(today.getTime() + shelfLifeDays * 86400000).toISOString().slice(0, 10)
-               : null;
+
+             // Try to carry expiry date from the chilling stage that produced this packaging stage
+             // The chilling stage is matched by cook_batch_lot
+             let expiryDate = null;
+             if (stage.cook_batch_lot) {
+               const allOrderStages = await base44.entities.ProductionStage.filter({ order_id: stage.order_id });
+               const chillingStage = allOrderStages.find(
+                 s => s.capability_key === "chilling" && s.cook_batch_lot === stage.cook_batch_lot && s.status === "completed"
+               );
+               expiryDate = chillingStage?.expiry_date || null;
+             }
+             // Fall back to shelf life calculation if no expiry was set upstream
+             if (!expiryDate && shelfLifeDays) {
+               expiryDate = new Date(today.getTime() + shelfLifeDays * 86400000).toISOString().slice(0, 10);
+             }
 
              // Calculate cases from packages if case info available
              const packagesPerCase = productData?.packages_per_case || null;
