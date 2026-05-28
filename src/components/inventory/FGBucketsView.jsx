@@ -147,8 +147,8 @@ export default function FGBucketsView() {
                           <TableCell className="text-sm">{(lot.quantity_lbs || 0).toLocaleString()} lbs</TableCell>
                           <TableCell className="text-sm">{lot.cases || 0} cases</TableCell>
                           <TableCell className="text-xs text-muted-foreground">
-                            {lot.production_date || "—"}
-                            {lot.expiry_date && <span className="ml-1">→ {lot.expiry_date}</span>}
+                            {lot.production_date ? lot.production_date.slice(0, 10) : "—"}
+                            {lot.expiry_date && <span className="ml-1">→ {lot.expiry_date.slice(0, 10)}</span>}
                           </TableCell>
                           <TableCell />
                         </TableRow>
