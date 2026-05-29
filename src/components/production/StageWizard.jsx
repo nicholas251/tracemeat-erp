@@ -967,14 +967,15 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
               } else {
                 // Single-batch flow (sous vide): create one chilling stage from this cooking stage's output
                 const outputQty = updates.output_qty_lbs || stage.input_qty_lbs || 0;
-                const lotNum = updates.output_lot_number || `COOK-${stage.cook_batch_lot || stage.order_number}-${today_str}`;
+                const cookOutputLot = updates.output_lot_number || stage.input_lot_number || `COOK-${stage.order_number}-${today_str}`;
+                const cookBatchKey = stage.cook_batch_lot || cookOutputLot;
                 // Check if chilling stage for this cook batch already exists
                 const existingChillStages = await base44.entities.ProductionStage.filter({
                   order_id: stage.order_id,
                   capability_key: "chilling",
+                  cook_batch_lot: cookBatchKey,
                 });
-                const chillAlreadyExists = existingChillStages.some(s => s.cook_batch_lot === (stage.cook_batch_lot || lotNum));
-                if (!chillAlreadyExists) {
+                if (existingChillStages.length === 0) {
                   await base44.entities.ProductionStage.create({
                     order_id: stage.order_id,
                     order_number: stage.order_number,
@@ -987,8 +988,8 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
                     work_profile_name: chillFlowStep.work_profile_name || "",
                     status: "available",
                     input_qty_lbs: parseFloat(outputQty.toFixed ? outputQty.toFixed(2) : outputQty),
-                    input_lot_number: lotNum,
-                    cook_batch_lot: stage.cook_batch_lot || lotNum,
+                    input_lot_number: cookOutputLot,
+                    cook_batch_lot: cookBatchKey,
                   });
                 }
               }
