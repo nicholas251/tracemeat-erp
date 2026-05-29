@@ -917,85 +917,110 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
         }
 
         // For cooking stage, create chilling stages
-        // Handles both multi-batch (tumble/racking flows with cookPlan) and single-batch (sous vide flow)
-        if (capKey === "cooking") {
-          const cookOrder = await base44.entities.ProductionOrder.filter({ id: stage.order_id }).then(r => r?.[0]);
-          if (cookOrder?.flow_id) {
-            const cookFlow = await base44.entities.ProductFlow.filter({ id: cookOrder.flow_id }).then(r => r?.[0]);
-            const chillFlowStep = cookFlow?.steps?.find(s => s.capability_key === "chilling");
-            if (chillFlowStep) {
-              if (cookPlan?.cookBatches?.length > 0) {
-                // Multi-batch flow (tumble/racking): save sub_batches then create one chilling stage per cook batch
-                const cookedSubBatches = cookPlan.cookBatches.map((batch) => ({
-                  sub_batch_id: `cooked-batch-${batch.cookBatchNumber}-${Date.now()}`,
-                  label: `Cook Batch #${batch.cookBatchNumber}`,
-                  qty_lbs: parseFloat(batch.lbs.toFixed(2)),
-                  status: "completed",
-                  cook_batch_number: batch.cookBatchNumber,
-                }));
-                await base44.entities.ProductionStage.update(stage.id, {
-                  sub_batches: cookedSubBatches,
-                });
-                for (const batch of cookPlan.cookBatches) {
-                  const batchQty = parseFloat(batch.lbs.toFixed(2));
-                  // Use per-batch lot numbers, NOT the single output_lot_number field
-                  const lotNum = `CB${batch.cookBatchNumber}-${stage.order_number}-${today_str}`;
-                  // Check if chilling stage for this cook batch already exists
-                  const existingChillStages = await base44.entities.ProductionStage.filter({
-                    order_id: stage.order_id,
-                    capability_key: "chilling",
-                    cook_batch_lot: lotNum,
-                  });
-                  if (existingChillStages.length === 0) {
-                    await base44.entities.ProductionStage.create({
-                      order_id: stage.order_id,
-                      order_number: stage.order_number,
-                      product_name: stage.product_name,
-                      step_number: chillFlowStep.step_number,
-                      capability_id: chillFlowStep.capability_id,
-                      capability_key: chillFlowStep.capability_key,
-                      capability_name: chillFlowStep.capability_name,
-                      work_profile_id: chillFlowStep.work_profile_id || "",
-                      work_profile_name: chillFlowStep.work_profile_name || "",
-                      status: "available",
-                      input_qty_lbs: batchQty,
-                      input_lot_number: lotNum,
-                      cook_batch_lot: lotNum,
-                    });
-                  }
-                }
-              } else {
-                // Single-batch flow (sous vide): create one chilling stage from this cooking stage's output
-                const outputQty = updates.output_qty_lbs || stage.input_qty_lbs || 0;
-                const cookOutputLot = updates.output_lot_number || stage.input_lot_number || `COOK-${stage.order_number}-${today_str}`;
-                const cookBatchKey = stage.cook_batch_lot || cookOutputLot;
-                // Check if chilling stage for this cook batch already exists
-                const existingChillStages = await base44.entities.ProductionStage.filter({
-                  order_id: stage.order_id,
-                  capability_key: "chilling",
-                  cook_batch_lot: cookBatchKey,
-                });
-                if (existingChillStages.length === 0) {
-                  await base44.entities.ProductionStage.create({
-                    order_id: stage.order_id,
-                    order_number: stage.order_number,
-                    product_name: stage.product_name,
-                    step_number: chillFlowStep.step_number,
-                    capability_id: chillFlowStep.capability_id,
-                    capability_key: chillFlowStep.capability_key,
-                    capability_name: chillFlowStep.capability_name,
-                    work_profile_id: chillFlowStep.work_profile_id || "",
-                    work_profile_name: chillFlowStep.work_profile_name || "",
-                    status: "available",
-                    input_qty_lbs: parseFloat(outputQty.toFixed ? outputQty.toFixed(2) : outputQty),
-                    input_lot_number: cookOutputLot,
-                    cook_batch_lot: cookBatchKey,
-                  });
-                }
-              }
-            }
-          }
-        }
+         // Detect flow type by checking if stage's cook_batch_lot suggests multi-batch
+         if (capKey === "cooking") {
+           const cookOrder = await base44.entities.ProductionOrder.filter({ id: stage.order_id }).then(r => r?.[0]);
+           if (cookOrder?.flow_id) {
+             const cookFlow = await base44.entities.ProductFlow.filter({ id: cookOrder.flow_id }).then(r => r?.[0]);
+             const chillFlowStep = cookFlow?.steps?.find(s => s.capability_key === "chilling");
+             if (chillFlowStep) {
+               // Detect multi-batch: if cookPlan exists OR if stage.cook_batch_lot matches CB* pattern
+               const isMultiBatch = cookPlan?.cookBatches?.length > 0 || /^CB\d+/.test(stage.cook_batch_lot || "");
+
+               if (isMultiBatch && cookPlan?.cookBatches?.length > 0) {
+                 // Multi-batch with active cookPlan: save sub_batches and create per-batch chilling
+                 const cookedSubBatches = cookPlan.cookBatches.map((batch) => ({
+                   sub_batch_id: `cooked-batch-${batch.cookBatchNumber}-${Date.now()}`,
+                   label: `Cook Batch #${batch.cookBatchNumber}`,
+                   qty_lbs: parseFloat(batch.lbs.toFixed(2)),
+                   status: "completed",
+                   cook_batch_number: batch.cookBatchNumber,
+                 }));
+                 await base44.entities.ProductionStage.update(stage.id, {
+                   sub_batches: cookedSubBatches,
+                 });
+                 for (const batch of cookPlan.cookBatches) {
+                   const batchQty = parseFloat(batch.lbs.toFixed(2));
+                   const lotNum = `CB${batch.cookBatchNumber}-${stage.order_number}-${today_str}`;
+                   const existingChillStages = await base44.entities.ProductionStage.filter({
+                     order_id: stage.order_id,
+                     capability_key: "chilling",
+                     cook_batch_lot: lotNum,
+                   });
+                   if (existingChillStages.length === 0) {
+                     await base44.entities.ProductionStage.create({
+                       order_id: stage.order_id,
+                       order_number: stage.order_number,
+                       product_name: stage.product_name,
+                       step_number: chillFlowStep.step_number,
+                       capability_id: chillFlowStep.capability_id,
+                       capability_key: chillFlowStep.capability_key,
+                       capability_name: chillFlowStep.capability_name,
+                       work_profile_id: chillFlowStep.work_profile_id || "",
+                       work_profile_name: chillFlowStep.work_profile_name || "",
+                       status: "available",
+                       input_qty_lbs: batchQty,
+                       input_lot_number: lotNum,
+                       cook_batch_lot: lotNum,
+                     });
+                   }
+                 }
+               } else if (isMultiBatch && /^CB\d+/.test(stage.cook_batch_lot)) {
+                 // Multi-batch detected from existing stage.cook_batch_lot (cooking opened later, no cookPlan)
+                 const outputQty = updates.output_qty_lbs || stage.input_qty_lbs || 0;
+                 const existingChillStages = await base44.entities.ProductionStage.filter({
+                   order_id: stage.order_id,
+                   capability_key: "chilling",
+                   cook_batch_lot: stage.cook_batch_lot,
+                 });
+                 if (existingChillStages.length === 0) {
+                   await base44.entities.ProductionStage.create({
+                     order_id: stage.order_id,
+                     order_number: stage.order_number,
+                     product_name: stage.product_name,
+                     step_number: chillFlowStep.step_number,
+                     capability_id: chillFlowStep.capability_id,
+                     capability_key: chillFlowStep.capability_key,
+                     capability_name: chillFlowStep.capability_name,
+                     work_profile_id: chillFlowStep.work_profile_id || "",
+                     work_profile_name: chillFlowStep.work_profile_name || "",
+                     status: "available",
+                     input_qty_lbs: parseFloat(outputQty.toFixed ? outputQty.toFixed(2) : outputQty),
+                     input_lot_number: stage.cook_batch_lot,
+                     cook_batch_lot: stage.cook_batch_lot,
+                   });
+                 }
+               } else {
+                 // Single-batch flow (sous vide or single cooking): create one chilling stage
+                 const outputQty = updates.output_qty_lbs || stage.input_qty_lbs || 0;
+                 const cookOutputLot = updates.output_lot_number || stage.input_lot_number || `COOK-${stage.order_number}-${today_str}`;
+                 const cookBatchKey = stage.cook_batch_lot || cookOutputLot;
+                 const existingChillStages = await base44.entities.ProductionStage.filter({
+                   order_id: stage.order_id,
+                   capability_key: "chilling",
+                   cook_batch_lot: cookBatchKey,
+                 });
+                 if (existingChillStages.length === 0) {
+                   await base44.entities.ProductionStage.create({
+                     order_id: stage.order_id,
+                     order_number: stage.order_number,
+                     product_name: stage.product_name,
+                     step_number: chillFlowStep.step_number,
+                     capability_id: chillFlowStep.capability_id,
+                     capability_key: chillFlowStep.capability_key,
+                     capability_name: chillFlowStep.capability_name,
+                     work_profile_id: chillFlowStep.work_profile_id || "",
+                     work_profile_name: chillFlowStep.work_profile_name || "",
+                     status: "available",
+                     input_qty_lbs: parseFloat(outputQty.toFixed ? outputQty.toFixed(2) : outputQty),
+                     input_lot_number: cookOutputLot,
+                     cook_batch_lot: cookBatchKey,
+                   });
+                 }
+               }
+             }
+           }
+         }
 
         // For chopping: create independent linking stage instead of updating one
         if (capKey === "chopping") {
