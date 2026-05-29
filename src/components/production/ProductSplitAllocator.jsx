@@ -18,7 +18,7 @@ export default function ProductSplitAllocator({ compatibleProducts = [], splits 
     const newSplit = {
       product_id: compatibleProducts[0]?.id || "",
       product_name: compatibleProducts[0]?.name || "",
-      quantity_lbs: 0,
+      quantity_cases: 0,
     };
     setLocalSplits([...localSplits, newSplit]);
   };
@@ -37,8 +37,13 @@ export default function ProductSplitAllocator({ compatibleProducts = [], splits 
     setLocalSplits(localSplits.filter((_, i) => i !== idx));
   };
 
-  const totalAllocated = localSplits.reduce((s, sp) => s + (Number(sp.quantity_lbs) || 0), 0);
-  const isBalanced = totalAllocated > 0 && totalAllocated === totalLbs;
+  // Calculate total lbs from cases for validation
+  const totalAllocatedLbs = localSplits.reduce((s, sp) => {
+    const product = compatibleProducts.find(p => p.id === sp.product_id);
+    const caseWeightLbs = product?.case_weight_lbs || 0;
+    return s + ((Number(sp.quantity_cases) || 0) * caseWeightLbs);
+  }, 0);
+  const isBalanced = totalAllocatedLbs > 0 && Math.abs(totalAllocatedLbs - totalLbs) < 0.01;
 
   return (
     <div className="space-y-4">
@@ -56,50 +61,60 @@ export default function ProductSplitAllocator({ compatibleProducts = [], splits 
         </div>
       ) : (
         <div className="space-y-3">
-          {localSplits.map((split, idx) => (
-            <Card key={idx}>
-              <CardContent className="p-4 space-y-3">
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-medium">Product</Label>
-                    <Select value={split.product_id || ""} onValueChange={(val) => updateSplit(idx, "product_id", val)}>
-                      <SelectTrigger className="h-9 text-sm">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {compatibleProducts.map(p => (
-                          <SelectItem key={p.id} value={p.id}>
-                            {p.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-medium">Quantity (lbs)</Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={split.quantity_lbs || ""}
-                      onChange={(e) => updateSplit(idx, "quantity_lbs", Number(e.target.value))}
-                      className="h-9 text-sm"
-                      placeholder="0"
-                    />
-                  </div>
+          {localSplits.map((split, idx) => {
+        const product = compatibleProducts.find(p => p.id === split.product_id);
+        const caseWeightLbs = product?.case_weight_lbs || 0;
+        const splitLbs = (Number(split.quantity_cases) || 0) * caseWeightLbs;
+        return (
+          <Card key={idx}>
+            <CardContent className="p-4 space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium">Product</Label>
+                  <Select value={split.product_id || ""} onValueChange={(val) => updateSplit(idx, "product_id", val)}>
+                    <SelectTrigger className="h-9 text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {compatibleProducts.map(p => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
-                <div className="flex justify-end">
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => removeSplit(idx)}
-                    className="text-destructive hover:text-destructive hover:bg-destructive/10 gap-1.5"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" /> Remove
-                  </Button>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium">Cases</Label>
+                  <Input
+                    type="number"
+                    step="1"
+                    value={split.quantity_cases || ""}
+                    onChange={(e) => updateSplit(idx, "quantity_cases", Number(e.target.value))}
+                    className="h-9 text-sm"
+                    placeholder="0"
+                  />
                 </div>
-              </CardContent>
-            </Card>
-          ))}
+              </div>
+              {caseWeightLbs > 0 && (
+                <div className="text-xs text-muted-foreground pt-1 border-t">
+                  {split.quantity_cases} cases × {caseWeightLbs} lbs = <span className="font-semibold text-foreground">{splitLbs.toFixed(2)} lbs</span>
+                </div>
+              )}
+              <div className="flex justify-end">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => removeSplit(idx)}
+                  className="text-destructive hover:text-destructive hover:bg-destructive/10 gap-1.5"
+                >
+                  <Trash2 className="w-3.5 h-3.5" /> Remove
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })}
 
           <Button
             size="sm"
@@ -117,14 +132,14 @@ export default function ProductSplitAllocator({ compatibleProducts = [], splits 
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Total Allocated</span>
             <span className={`font-semibold ${isBalanced ? "text-chart-2" : "text-amber-700"}`}>
-              {totalAllocated.toFixed(2)} / {totalLbs.toFixed(2)} lbs
+              {totalAllocatedLbs.toFixed(2)} / {totalLbs.toFixed(2)} lbs
             </span>
           </div>
           {!isBalanced && (
             <p className={`text-xs ${isBalanced ? "text-chart-2" : "text-amber-700"}`}>
-              {totalAllocated < totalLbs
-                ? `Remaining: ${(totalLbs - totalAllocated).toFixed(2)} lbs`
-                : `Over by: ${(totalAllocated - totalLbs).toFixed(2)} lbs`}
+              {totalAllocatedLbs < totalLbs
+                ? `Remaining: ${(totalLbs - totalAllocatedLbs).toFixed(2)} lbs`
+                : `Over by: ${(totalAllocatedLbs - totalLbs).toFixed(2)} lbs`}
             </p>
           )}
         </div>

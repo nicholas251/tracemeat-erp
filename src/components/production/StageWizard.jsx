@@ -742,13 +742,13 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
               const distributeToProducts = async (splitConfigs) => {
                 for (const splitConfig of splitConfigs) {
                   const targetProductId = splitConfig.product_id;
-                  const splitLbs = splitConfig.quantity_lbs;
+                  const productData = await base44.entities.Product.filter({ id: targetProductId }).then(r => r?.[0]);
+                  const caseWeightLbs = productData?.case_weight_lbs || 0;
+                  const splitLbs = (Number(splitConfig.quantity_cases) || 0) * caseWeightLbs;
 
                   if (splitLbs <= 0) continue;
 
-                  const productData = await base44.entities.Product.filter({ id: targetProductId }).then(r => r?.[0]);
                   const shelfLifeDays = productData?.shelf_life_days || null;
-                  const caseWeightLbs = productData?.case_weight_lbs || null;
 
                   // Calculate expiry for this split
                   let splitExpiryDate = expiryDate;
