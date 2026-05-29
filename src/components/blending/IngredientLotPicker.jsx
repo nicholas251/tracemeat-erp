@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CheckCircle2, AlertCircle, Plus, Trash2, Package } from "lucide-react";
 
 /**
@@ -101,13 +102,23 @@ export default function IngredientLotPicker({ ing, disabled, onChange, onConfirm
     let val = value;
     if (field === "actual_lbs") {
       const numVal = Number(value);
-      // Cap at available qty for that lot (if known)
       const avail = allocations[idx]?.available_qty;
       if (avail > 0) val = Math.min(numVal, avail);
-      // Also cap total across all lots at required_lbs
       const otherTotal = allocations.reduce((s, a, i) => i === idx ? s : s + (Number(a.actual_lbs) || 0), 0);
       val = Math.min(val, Math.max(0, ing.required_lbs - otherTotal));
       val = parseFloat(val.toFixed(2));
+    }
+    if (field === "lot_number") {
+      // When a lot is selected from the dropdown, also sync available_qty and raw_inventory_id
+      const row = inventoryRows.find(r => r.lot_number === value);
+      const updated = allocations.map((a, i) => i === idx ? {
+        ...a,
+        lot_number: value,
+        available_qty: row?.available_qty || 0,
+        raw_inventory_id: row?.id || null,
+      } : a);
+      onChange("lot_allocations", updated);
+      return;
     }
     const updated = allocations.map((a, i) => i === idx ? { ...a, [field]: val } : a);
     onChange("lot_allocations", updated);
@@ -177,13 +188,37 @@ export default function IngredientLotPicker({ ing, disabled, onChange, onConfirm
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1">
                 <Label className="text-xs font-semibold">Lot Number</Label>
-                <Input
-                  value={alloc.lot_number}
-                  disabled={disabled}
-                  onChange={e => updateAllocation(idx, "lot_number", e.target.value)}
-                  placeholder="e.g. LOT-001"
-                  className="h-10 text-sm"
-                />
+                {disabled ? (
+                  <div className="h-10 flex items-center px-3 rounded border border-border bg-muted/30 text-sm font-mono">
+                    {alloc.lot_number || "—"}
+                  </div>
+                ) : inventoryRows.length > 0 ? (
+                  <Select
+                    value={alloc.lot_number || ""}
+                    onValueChange={v => updateAllocation(idx, "lot_number", v)}
+                  >
+                    <SelectTrigger className="h-10 text-sm">
+                      <SelectValue placeholder="Select lot..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {inventoryRows
+                        .filter(r => (r.available_qty || 0) > 0)
+                        .sort((a, b) => (a.received_date || "") < (b.received_date || "") ? -1 : 1)
+                        .map(r => (
+                          <SelectItem key={r.id} value={r.lot_number}>
+                            {r.lot_number} <span className="text-muted-foreground text-xs ml-1">({r.available_qty} lbs avail)</span>
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Input
+                    value={alloc.lot_number}
+                    onChange={e => updateAllocation(idx, "lot_number", e.target.value)}
+                    placeholder="e.g. LOT-001"
+                    className="h-10 text-sm"
+                  />
+                )}
                 {!alloc.lot_number && !disabled && (
                   <p className="text-xs text-destructive flex items-center gap-1">
                     <AlertCircle className="w-3 h-3" /> Required
