@@ -1679,6 +1679,25 @@ function FinalStep({ stage, capKey, stageLabel, resolvedBatches, form, cookBatch
             <AlertCircle className="w-4 h-4" /> No cook batch assembled — go back to build one.
           </p>
         )}
+        {capKey === "packaging" && (
+          <div className="space-y-1.5 pt-1">
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Cases (Finished Product)</span>
+              <span className="font-semibold">{form.packages_produced || 0}</span>
+            </div>
+            {form.finished_product_splits && form.finished_product_splits.length > 0 && (
+              <div className="space-y-1 pt-1">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Split Into Products</p>
+                {form.finished_product_splits.map((split, i) => (
+                  <div key={i} className="flex items-center justify-between bg-white/60 rounded px-2.5 py-1.5 text-xs">
+                    <span className="font-semibold">{split.product_name}</span>
+                    <span className="text-muted-foreground">{split.quantity_cases} cases</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
         {isTumble && cookPlan && (
           <div className="space-y-1.5 pt-1">
             <div className="flex justify-between text-sm">
