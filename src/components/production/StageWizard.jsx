@@ -827,22 +827,25 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
               };
 
               if (splits && splits.length > 0) {
-                // Hot dog split mode: distribute across multiple products
+                // Hot dog split mode: distribute ONLY splits, no original product
                 // Ensure splits are properly parsed objects (not stringified)
                 const parsedSplits = splits.map(s => typeof s === 'string' ? JSON.parse(s) : s);
                 await distributeToProducts(parsedSplits);
               } else {
-                // Single product mode: use original order product
+                // Single product mode: use original order product with packages_produced cases
                 const targetProductId = order.product_id;
                 const productData = await base44.entities.Product.filter({ id: targetProductId }).then(r => r?.[0]);
                 const shelfLifeDays = productData?.shelf_life_days || null;
-                const caseWeightLbs = productData?.case_weight_lbs || null;
+                const caseWeightLbs = productData?.case_weight_lbs || 1;
 
                 if (!expiryDate && shelfLifeDays) {
                   expiryDate = new Date(today.getTime() + shelfLifeDays * 86400000).toISOString().slice(0, 10);
                 }
 
-                const casesProduced = caseWeightLbs && totalOutputLbs ? parseFloat((totalOutputLbs / caseWeightLbs).toFixed(2)) : 0;
+                // Use packages_produced from form (the actual case count packaged)
+                const casesProduced = Number(packagesProduced) || 0;
+                // Calculate lbs based on actual cases produced
+                const actualOutputLbs = casesProduced * caseWeightLbs;
 
                 // Use original single-product flow
                 const existingBuckets = await base44.entities.FinishedGoodsBucket.filter({ product_id: targetProductId });
@@ -853,13 +856,13 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
                     lot_number: baseFgLot,
                     production_date: today_str,
                     expiry_date: expiryDate,
-                    quantity_lbs: totalOutputLbs,
+                    quantity_lbs: parseFloat(actualOutputLbs.toFixed(2)),
                     cases: casesProduced,
                     order_number: order.order_number || "",
                     status: "available",
                   }];
                   await base44.entities.FinishedGoodsBucket.update(bucket.id, {
-                    quantity_lbs: (bucket.quantity_lbs || 0) + totalOutputLbs,
+                    quantity_lbs: parseFloat(((bucket.quantity_lbs || 0) + actualOutputLbs).toFixed(2)),
                     cases_on_hand: (bucket.cases_on_hand || 0) + casesProduced,
                     lots: newLots,
                   });
@@ -870,14 +873,14 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
                     sku: productData?.sku || "",
                     product_number: productData?.product_number || "",
                     category: productData?.category || "",
-                    quantity_lbs: totalOutputLbs,
+                    quantity_lbs: parseFloat(actualOutputLbs.toFixed(2)),
                     cases_on_hand: casesProduced,
                     case_weight_lbs: caseWeightLbs,
                     lots: [{
                       lot_number: baseFgLot,
                       production_date: today_str,
                       expiry_date: expiryDate,
-                      quantity_lbs: totalOutputLbs,
+                      quantity_lbs: parseFloat(actualOutputLbs.toFixed(2)),
                       cases: casesProduced,
                       order_number: order.order_number || "",
                       status: "available",
@@ -889,12 +892,12 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
                 await base44.entities.InventoryItem.create({
                   product_id: targetProductId || "",
                   product_name: productData?.name || stage.product_name || order.product_name || "",
-                  sku: product?.sku || order.sku || "",
+                  sku: productData?.sku || "",
                   batch_id: stage.order_id,
                   batch_number: order.order_number || "",
                   lot_number: baseFgLot,
-                  quantity_lbs: totalOutputLbs,
-                  original_quantity_lbs: totalOutputLbs,
+                  quantity_lbs: parseFloat(actualOutputLbs.toFixed(2)),
+                  original_quantity_lbs: parseFloat(actualOutputLbs.toFixed(2)),
                   status: "available",
                   production_date: today_str,
                   expiry_date: expiryDate,
