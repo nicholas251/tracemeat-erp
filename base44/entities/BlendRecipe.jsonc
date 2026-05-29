@@ -1,0 +1,49 @@
+{
+  "name": "BlendRecipe",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Blend recipe name (e.g. 'Hot Dog Base Blend')"
+    },
+    "blend_batch_lbs": {
+      "type": "number",
+      "description": "Total batch size in lbs"
+    },
+    "ingredients": {
+      "type": "array",
+      "description": "Protein buckets and quantities for this blend",
+      "items": {
+        "type": "object",
+        "properties": {
+          "bucket_id": {
+            "type": "string"
+          },
+          "bucket_name": {
+            "type": "string"
+          },
+          "quantity_lbs": {
+            "type": "number"
+          },
+          "category": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "notes": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "archived"
+      ],
+      "default": "active"
+    }
+  },
+  "required": [
+    "name"
+  ]
+}

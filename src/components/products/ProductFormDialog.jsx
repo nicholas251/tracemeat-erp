@@ -9,7 +9,9 @@ import { Switch } from "@/components/ui/switch";
 import { base44 } from "@/api/base44Client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useQuery } from "@tanstack/react-query";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Save, BookOpen } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/components/ui/use-toast";
 
 const categories = [
   { value: "beef", label: "Beef" },
@@ -39,6 +41,10 @@ const finishedProductUnits = [
 ];
 
 export default function ProductFormDialog({ open, onClose, onSave, product, flows = [] }) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const [saveRecipeName, setSaveRecipeName] = useState("");
+  const [showSaveRecipe, setShowSaveRecipe] = useState(false);
   const [form, setForm] = useState(product || {
     name: "", product_number: "", sku: "", category: "beef", description: "",
     packaging_type: "vacuum_sealed", package_size: "", packages_per_case: "",
@@ -62,6 +68,12 @@ export default function ProductFormDialog({ open, onClose, onSave, product, flow
       });
     }
   }, [open, product]);
+
+  const { data: blendRecipes = [] } = useQuery({
+    queryKey: ["blendRecipes"],
+    queryFn: () => base44.entities.BlendRecipe.filter({ status: "active" }),
+    enabled: open,
+  });
 
   const { data: spiceMixes = [] } = useQuery({
     queryKey: ["spiceMixes"],
@@ -104,6 +116,27 @@ export default function ProductFormDialog({ open, onClose, onSave, product, flow
     }
   }, [form.package_size, form.packages_per_case, form.varied_weights]);
 
+  const handleApplyRecipe = (recipeId) => {
+    const recipe = blendRecipes.find(r => r.id === recipeId);
+    if (!recipe) return;
+    update("blend_ingredients", recipe.ingredients || []);
+    update("blend_batch_lbs", recipe.blend_batch_lbs || "");
+  };
+
+  const handleSaveRecipe = async () => {
+    if (!saveRecipeName.trim()) return;
+    await base44.entities.BlendRecipe.create({
+      name: saveRecipeName.trim(),
+      blend_batch_lbs: form.blend_batch_lbs ? Number(form.blend_batch_lbs) : undefined,
+      ingredients: form.blend_ingredients || [],
+      status: "active",
+    });
+    queryClient.invalidateQueries({ queryKey: ["blendRecipes"] });
+    toast({ title: "Blend recipe saved", description: saveRecipeName.trim() });
+    setSaveRecipeName("");
+    setShowSaveRecipe(false);
+  };
+
   const handleSave = () => {
     onSave({
       ...form,
@@ -139,6 +172,25 @@ export default function ProductFormDialog({ open, onClose, onSave, product, flow
           </TabsList>
 
           <TabsContent value="blending" className="space-y-4 py-4">
+            {/* Load from saved recipe */}
+            <div className="space-y-2">
+              <Label className="flex items-center gap-1"><BookOpen className="w-3.5 h-3.5" /> Load Blend Recipe</Label>
+              <Select onValueChange={handleApplyRecipe}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a saved recipe to load..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {blendRecipes.map(r => (
+                    <SelectItem key={r.id} value={r.id}>
+                      {r.name}{r.blend_batch_lbs ? ` — ${r.blend_batch_lbs} lbs` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="border-t border-border" />
+
             <div className="space-y-2">
               <Label>Blend Batch Size (lbs)</Label>
               <Input type="number" step="0.1" value={form.blend_batch_lbs || ""} onChange={e => update("blend_batch_lbs", e.target.value)} placeholder="e.g. 500" />
@@ -186,6 +238,32 @@ export default function ProductFormDialog({ open, onClose, onSave, product, flow
                 </div>
               )}
             </div>
+
+            {/* Save as recipe */}
+            {(form.blend_ingredients?.length > 0) && (
+              <div className="border-t border-border pt-3 space-y-2">
+                {!showSaveRecipe ? (
+                  <Button size="sm" variant="outline" className="gap-1 text-xs h-7" onClick={() => setShowSaveRecipe(true)}>
+                    <Save className="w-3 h-3" /> Save as Blend Recipe
+                  </Button>
+                ) : (
+                  <div className="flex gap-2 items-center">
+                    <Input
+                      value={saveRecipeName}
+                      onChange={e => setSaveRecipeName(e.target.value)}
+                      placeholder="Recipe name..."
+                      className="h-8 text-sm flex-1"
+                    />
+                    <Button size="sm" className="h-8 gap-1 text-xs" onClick={handleSaveRecipe} disabled={!saveRecipeName.trim()}>
+                      <Save className="w-3 h-3" /> Save
+                    </Button>
+                    <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => { setShowSaveRecipe(false); setSaveRecipeName(""); }}>
+                      Cancel
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="chopping" className="space-y-4 py-4">
