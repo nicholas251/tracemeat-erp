@@ -420,103 +420,34 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
           ingredients: batchIngredients,
         }).catch(err => console.warn("Inventory deduction failed:", err));
 
-        // Route blending outputs: beef → chopping (step 2), pork → mixer (step 3) directly
-        const order = await base44.entities.ProductionOrder.filter({ id: stage.order_id }).then(r => r?.[0]);
-        if (order) {
-          const allStages = await base44.entities.ProductionStage.filter({ order_id: stage.order_id });
-          const nextFlow = await base44.entities.ProductFlow.filter({ id: order.flow_id }).then(r => r?.[0]);
+        // For multi-batch blending: accumulate all batches before unlocking next stage
+        // Check if this is the last batch
+        const allBlendStages = await base44.entities.ProductionStage.filter({ order_id: stage.order_id, capability_key: "blending" });
+        const isLastBlendBatch = !allBlendStages.some(s => s.id !== stage.id && s.status !== "completed" && s.status !== "in_progress");
 
-          // Detect if this is a kielbasa-style flow with a mixer step
-          const hasMixerStep = nextFlow?.steps?.some(s => s.capability_key === "mixer");
+        if (isLastBlendBatch) {
+          // Last batch complete — now unlock next stage with accumulated total from ALL batches
+          const order = await base44.entities.ProductionOrder.filter({ id: stage.order_id }).then(r => r?.[0]);
+          if (order) {
+            const allStages = await base44.entities.ProductionStage.filter({ order_id: stage.order_id });
+            const completedBlendStages = allStages.filter(s => s.capability_key === "blending" && s.status === "completed");
+            const totalBlendOutput = completedBlendStages.reduce((s, st) => s + (st.output_qty_lbs || st.input_qty_lbs || 0), 0);
 
-          // Separate pork and beef ingredients from this batch
-          const porkIngredients = currentBatch.ingredients.filter(ing =>
-            ing.bucket_name?.toLowerCase().includes("pork")
-          );
-          const beefIngredients = currentBatch.ingredients.filter(ing =>
-            !ing.bucket_name?.toLowerCase().includes("pork")
-          );
-
-          const porkLbs = porkIngredients.reduce((s, ing) =>
-            s + (ing.lot_allocations?.reduce((ss, a) => ss + (Number(a.actual_lbs) || 0), 0) || ing.required_lbs || 0), 0
-          );
-          const beefLbs = currentBatch.batchLbs - porkLbs;
-
-          const blendOutputLot = form.output_lot_number || `BLEND-${Date.now()}`;
-          const porkLotNumber = porkIngredients[0]?.lot_allocations?.[0]?.lot_number || `${blendOutputLot}-PORK`;
-
-          if (hasMixerStep && porkLbs > 0 && beefLbs > 0) {
-            // ── Kielbasa flow: route beef to chopping, pork to mixer ──
-            const nextStepNum = (stage.step_number || 1) + 1; // chopping
-            const mixerStep = nextFlow?.steps?.find(s => s.capability_key === "mixer");
-            const choppingStep = nextFlow?.steps?.find(s => s.capability_key === "chopping");
-
-            // Unlock/create chopping stage with beef qty + lot
-            const existingChoppingStage = allStages.find(s => s.step_number === nextStepNum && s.capability_key === "chopping");
-            if (existingChoppingStage && existingChoppingStage.status === "locked") {
-              await base44.entities.ProductionStage.update(existingChoppingStage.id, {
-                status: "available",
-                input_qty_lbs: parseFloat(beefLbs.toFixed(2)),
-                input_lot_number: `${blendOutputLot}-BEEF`,
-              });
-            } else if (!existingChoppingStage && choppingStep) {
-              await base44.entities.ProductionStage.create({
-                order_id: stage.order_id,
-                order_number: stage.order_number,
-                product_name: stage.product_name,
-                step_number: choppingStep.step_number,
-                capability_id: choppingStep.capability_id,
-                capability_key: choppingStep.capability_key,
-                capability_name: choppingStep.capability_name,
-                work_profile_id: choppingStep.work_profile_id || "",
-                work_profile_name: choppingStep.work_profile_name || "",
-                status: "available",
-                input_qty_lbs: parseFloat(beefLbs.toFixed(2)),
-                input_lot_number: `${blendOutputLot}-BEEF`,
-              });
-            }
-
-            // Unlock/create mixer stage with pork qty + lot (pork bypasses chopping)
-            const existingMixerStage = allStages.find(s => s.capability_key === "mixer");
-            if (existingMixerStage && existingMixerStage.status === "locked") {
-              await base44.entities.ProductionStage.update(existingMixerStage.id, {
-                // Store pork lot info on the mixer stage for the wizard to read
-                pork_lot_number: porkLotNumber,
-                input_qty_lbs: parseFloat(porkLbs.toFixed(2)),
-                input_lot_number: porkLotNumber,
-              });
-            } else if (!existingMixerStage && mixerStep) {
-              await base44.entities.ProductionStage.create({
-                order_id: stage.order_id,
-                order_number: stage.order_number,
-                product_name: stage.product_name,
-                step_number: mixerStep.step_number,
-                capability_id: mixerStep.capability_id,
-                capability_key: mixerStep.capability_key,
-                capability_name: mixerStep.capability_name,
-                work_profile_id: mixerStep.work_profile_id || "",
-                work_profile_name: mixerStep.work_profile_name || "",
-                status: "locked", // stays locked until chopping completes and provides the binder
-                pork_lot_number: porkLotNumber,
-                input_qty_lbs: parseFloat(porkLbs.toFixed(2)),
-                input_lot_number: porkLotNumber,
-              });
-            }
-          } else {
-            // ── Standard flow: unlock the immediately next stage ──
+            const nextFlow = await base44.entities.ProductFlow.filter({ id: order.flow_id }).then(r => r?.[0]);
             const nextStepNum = (stage.step_number || 1) + 1;
-            const existingNextStage = allStages.find(s => s.step_number === nextStepNum);
+            const nextStep = nextFlow?.steps?.find(s => s.step_number === nextStepNum);
 
-            if (existingNextStage && existingNextStage.status === "locked") {
-              await base44.entities.ProductionStage.update(existingNextStage.id, {
-                status: "available",
-                input_qty_lbs: currentBatch.batchLbs,
-                input_lot_number: blendOutputLot,
-              });
-            } else if (!existingNextStage) {
-              const nextStep = nextFlow?.steps?.find(s => s.step_number === nextStepNum);
-              if (nextStep) {
-                const nextLot = form.output_lot_number || `BLEND-${Date.now()}`;
+            if (nextStep) {
+              const existingNextStage = allStages.find(s => s.step_number === nextStepNum && s.capability_key === nextStep.capability_key);
+              const blendOutputLot = form.output_lot_number || `BLEND-${Date.now()}`;
+
+              if (existingNextStage && existingNextStage.status === "locked") {
+                await base44.entities.ProductionStage.update(existingNextStage.id, {
+                  status: "available",
+                  input_qty_lbs: parseFloat(totalBlendOutput.toFixed(2)),
+                  input_lot_number: blendOutputLot,
+                });
+              } else if (!existingNextStage) {
                 await base44.entities.ProductionStage.create({
                   order_id: stage.order_id,
                   order_number: stage.order_number,
@@ -525,11 +456,11 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
                   capability_id: nextStep.capability_id,
                   capability_key: nextStep.capability_key,
                   capability_name: nextStep.capability_name,
-                  work_profile_id: nextStep.work_profile_id,
-                  work_profile_name: nextStep.work_profile_name,
+                  work_profile_id: nextStep.work_profile_id || "",
+                  work_profile_name: nextStep.work_profile_name || "",
                   status: "available",
-                  input_qty_lbs: currentBatch.batchLbs,
-                  input_lot_number: nextLot,
+                  input_qty_lbs: parseFloat(totalBlendOutput.toFixed(2)),
+                  input_lot_number: blendOutputLot,
                 });
               }
             }
