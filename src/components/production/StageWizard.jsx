@@ -761,15 +761,8 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
                     splitExpiryDate = new Date(today.getTime() + shelfLifeDays * 86400000).toISOString().slice(0, 10);
                   }
 
-                  // Calculate cases for this split (proportional if packages available)
-                  let casesProduced = 0;
-                  if (packagesProduced > 0 && caseWeightLbs) {
-                    const proportionalPackages = Math.round((splitLbs / totalOutputLbs) * packagesProduced);
-                    const packagesPerCase = productData?.packages_per_case || null;
-                    casesProduced = packagesPerCase ? Math.floor(proportionalPackages / packagesPerCase) : parseFloat((splitLbs / caseWeightLbs).toFixed(2));
-                  } else if (caseWeightLbs) {
-                    casesProduced = parseFloat((splitLbs / caseWeightLbs).toFixed(2));
-                  }
+                  // Calculate cases for this split — use the quantity_cases directly from the split config
+                  const casesProduced = Number(splitConfig.quantity_cases) || 0;
 
                   // Create a unique lot number for each split
                   const splitLotNumber = `${baseFgLot}-${productData?.sku || "SPLIT"}`.slice(0, 50);
