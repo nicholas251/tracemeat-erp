@@ -75,7 +75,7 @@ function buildMeasurementSteps(stage, product, capKey, casingBuckets = []) {
       fields: [
         { key: "input_lot_confirmed", label: `Confirm blend lot ${stage?.input_lot_number || "N/A"} added to bowl?`, type: "boolean" },
         { key: "spice_mix", label: "Spice Mix", type: "spice_mix_picker", requiredLbs: product?.chop_spice_qty_lbs || 0, filterSpiceMixId: product?.chop_spice_mix_id },
-        { key: "cure_lot_number", label: "Cure Lot #", type: "text", placeholder: "e.g. CURE-LOT-2024-001" },
+        { key: "cure_lot_number", label: "Cure Lot #", type: "cure_select" },
         { key: "cure_amount_lbs", label: "Cure Added (lbs)", type: "number" },
         { key: "water_amount_lbs", label: "Water Amount Added (lbs)", type: "number" },
         { key: "output_qty_lbs", label: "Output Qty (lbs)", type: "number" },
@@ -265,6 +265,24 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
     queryKey: ["casingBuckets"],
     queryFn: () => base44.entities.InventoryBucket.filter({ category: "casing" }),
     enabled: open && capKey === "linking",
+  });
+
+  const { data: cureBucket = null } = useQuery({
+    queryKey: ["cureBucket", product?.cure_bucket_id],
+    queryFn: async () => {
+      if (!product?.cure_bucket_id) return null;
+      const buckets = await base44.entities.InventoryBucket.filter({ id: product.cure_bucket_id });
+      return buckets[0] || null;
+    },
+    enabled: open && capKey === "chopping" && !!product?.cure_bucket_id,
+  });
+
+  const { data: cureInventory = [] } = useQuery({
+    queryKey: ["cureInventory", cureBucket?.id],
+    queryFn: () => base44.entities.RawInventory.filter({ bucket_id: cureBucket?.id }),
+    staleTime: 0,
+    gcTime: 0,
+    enabled: open && capKey === "chopping" && !!cureBucket?.id,
   });
 
   // For ingredient-batch stages (blending)
@@ -999,25 +1017,26 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
 
           {/* ── MEASUREMENT STEP ── */}
           {isMeasureStep && currentMeasureStep && (
-            <MeasureStep
-              stepDef={currentMeasureStep}
-              stepIndex={step - 1}
-              totalSteps={totalMeasureSteps}
-              progressPct={progressPct}
-              form={form}
-              setForm={setForm}
-              casingBuckets={casingBuckets}
-              capKey={capKey}
-              stage={stage}
-              product={product}
-              cookBatch={cookBatch}
-              setCookBatch={setCookBatch}
-              cookPlan={cookPlan}
-              setCookPlan={setCookPlan}
-              onBack={() => setStep(s => s - 1)}
-              onNext={() => setStep(s => s + 1)}
-              isLast={step === totalMeasureSteps}
-            />
+           <MeasureStep
+             stepDef={currentMeasureStep}
+             stepIndex={step - 1}
+             totalSteps={totalMeasureSteps}
+             progressPct={progressPct}
+             form={form}
+             setForm={setForm}
+             casingBuckets={casingBuckets}
+             cureInventory={cureInventory}
+             capKey={capKey}
+             stage={stage}
+             product={product}
+             cookBatch={cookBatch}
+             setCookBatch={setCookBatch}
+             cookPlan={cookPlan}
+             setCookPlan={setCookPlan}
+             onBack={() => setStep(s => s - 1)}
+             onNext={() => setStep(s => s + 1)}
+             isLast={step === totalMeasureSteps}
+           />
           )}
 
           {/* ── FINAL REVIEW ── */}
@@ -1149,7 +1168,7 @@ function BatchConfirmStep({ batch, batchIdx, totalBatches, progressPct, onUpdate
   );
 }
 
-function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form, setForm, casingBuckets, capKey, stage, product, cookBatch, setCookBatch, cookPlan, setCookPlan, onBack, onNext, isLast }) {
+function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form, setForm, casingBuckets, cureInventory = [], capKey, stage, product, cookBatch, setCookBatch, cookPlan, setCookPlan, onBack, onNext, isLast }) {
   const [spiceShortNotes, setSpiceShortNotes] = React.useState("");
   const [caseWeights, setCaseWeights] = React.useState(form.case_weights || []);
 
@@ -1211,14 +1230,15 @@ function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form, setFor
       {stepDef.fields.length > 0 && (
         <div className="space-y-4">
           {stepDef.fields.map(field => (
-            <FieldInput
-              key={field.key}
-              field={field}
-              value={form[field.key]}
-              casingBuckets={casingBuckets}
-              spiceShortNotes={spiceShortNotes}
-              onSpiceShortNotesChange={setSpiceShortNotes}
-              onChange={val => {
+           <FieldInput
+             key={field.key}
+             field={field}
+             value={form[field.key]}
+             casingBuckets={casingBuckets}
+             cureInventory={cureInventory}
+             spiceShortNotes={spiceShortNotes}
+             onSpiceShortNotesChange={setSpiceShortNotes}
+             onChange={val => {
                 if (field.type === "spice_mix_picker") {
                   // Spread spice mix sub-fields onto form for easy saving
                   setForm(f => ({
@@ -1352,7 +1372,7 @@ function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form, setFor
   );
 }
 
-function FieldInput({ field, value, onChange, casingBuckets = [], onCasingSelect, spiceShortNotes, onSpiceShortNotesChange }) {
+function FieldInput({ field, value, onChange, casingBuckets = [], cureInventory = [], onCasingSelect, spiceShortNotes, onSpiceShortNotesChange }) {
   if (field.type === "spice_mix_picker") {
     return (
       <SpiceMixLotPicker
@@ -1377,6 +1397,32 @@ function FieldInput({ field, value, onChange, casingBuckets = [], onCasingSelect
           <SelectTrigger className="h-11"><SelectValue placeholder="Select casings..." /></SelectTrigger>
           <SelectContent>
             {(field.options || casingBuckets).map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </div>
+    );
+  }
+  if (field.type === "cure_select") {
+    return (
+      <div className="space-y-1.5">
+        <Label className="text-sm font-semibold">{field.label}</Label>
+        <Select value={value || ""} onValueChange={onChange}>
+          <SelectTrigger className="h-11">
+            <SelectValue placeholder={cureInventory.length === 0 ? "No cure inventory" : "Select cure lot..."} />
+          </SelectTrigger>
+          <SelectContent>
+            {cureInventory.length === 0 ? (
+              <div className="px-3 py-2 text-xs text-muted-foreground">No cure inventory available</div>
+            ) : (
+              cureInventory
+                .filter(c => (c.available_qty || 0) > 0)
+                .sort((a, b) => (a.received_date || "") < (b.received_date || "") ? -1 : 1)
+                .map(c => (
+                  <SelectItem key={c.id} value={c.lot_number}>
+                    {c.lot_number} <span className="text-muted-foreground text-xs ml-1">({c.available_qty} lbs)</span>
+                  </SelectItem>
+                ))
+            )}
           </SelectContent>
         </Select>
       </div>
