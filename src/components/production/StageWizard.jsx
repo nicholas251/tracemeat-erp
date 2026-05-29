@@ -1789,16 +1789,23 @@ function FinalStep({ stage, capKey, stageLabel, resolvedBatches, form, cookBatch
       ))}
 
       {/* Measurement summary */}
-      {!resolvedBatches && Object.keys(form).length > 0 && (
-        <div className="rounded-xl border divide-y text-sm overflow-hidden">
-          {Object.entries(form).filter(([, v]) => v !== "" && v !== null && v !== undefined).map(([k, v]) => (
-            <div key={k} className="flex items-center justify-between px-3 py-2.5">
-              <span className="text-muted-foreground capitalize">{k.replace(/_/g, " ")}</span>
-              <span className="font-semibold">{typeof v === "boolean" ? (v ? "Yes" : "No") : String(v)}</span>
-            </div>
-          ))}
-        </div>
-      )}
+       {!resolvedBatches && Object.keys(form).length > 0 && (
+         <div className="rounded-xl border divide-y text-sm overflow-hidden">
+           {Object.entries(form).filter(([, v]) => v !== "" && v !== null && v !== undefined).map(([k, v]) => {
+             // Skip finished_product_splits as it's already displayed above in packaging section
+             if (k === 'finished_product_splits') return null;
+             // Handle arrays and objects safely
+             if (Array.isArray(v)) return null;
+             if (typeof v === 'object') return null;
+             return (
+               <div key={k} className="flex items-center justify-between px-3 py-2.5">
+                 <span className="text-muted-foreground capitalize">{k.replace(/_/g, " ")}</span>
+                 <span className="font-semibold">{typeof v === "boolean" ? (v ? "Yes" : "No") : String(v)}</span>
+               </div>
+             );
+           })}
+         </div>
+       )}
 
       <div className="flex gap-3 pt-1">
         <Button variant="outline" className="gap-2 h-11 px-5" onClick={onBack}>
