@@ -189,11 +189,17 @@ function buildMeasurementSteps(stage, product, capKey, casingBuckets = []) {
     // For sous vide flows, gaylords are already tracked at the packing stage.
     // The packaging stage just needs QC confirmation + notes.
     // output_qty_lbs and lot_number are pre-filled from the chilling stage input.
+    // Cases are automatically calculated from product case_weight_lbs.
+    const caseWeightLbs = product?.case_weight_lbs || 1;
+    const totalOutputLbs = stage?.input_qty_lbs || 0;
+    const autoCalculatedCases = caseWeightLbs > 0 ? Math.floor(totalOutputLbs / caseWeightLbs) : 0;
+    
     steps.push({
       id: "packaging",
       label: "Packaging Confirmation",
       fields: [
         { key: "output_qty_lbs", label: "Total Output Weight (lbs)", type: "number", defaultValue: stage?.input_qty_lbs },
+        { key: "packages_produced", label: "Cases (Auto-calculated)", type: "number", defaultValue: autoCalculatedCases, disabled: true },
         { key: "lot_number", label: "Finished Goods Lot #", type: "text", defaultValue: stage?.input_lot_number || "" },
         { key: "finished_product_splits", label: "Package As (Product)", type: "finished_product_split" },
       ],
