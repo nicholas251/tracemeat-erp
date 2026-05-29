@@ -192,36 +192,33 @@ export default function IngredientLotPicker({ ing, disabled, onChange, onConfirm
               <div className="space-y-1">
                 <Label className="text-xs font-semibold">Lot Number</Label>
                 {disabled ? (
-                  <div className="h-10 flex items-center px-3 rounded border border-border bg-muted/30 text-sm font-mono">
-                    {alloc.lot_number || "—"}
-                  </div>
-                ) : inventoryRows.length > 0 ? (
-                  <Select
-                    value={alloc.lot_number || ""}
-                    onValueChange={v => updateAllocation(idx, "lot_number", v)}
-                  >
-                    <SelectTrigger className="h-10 text-sm">
-                      <SelectValue placeholder="Select lot..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {inventoryRows
-                        .filter(r => (r.available_qty || 0) > 0)
-                        .sort((a, b) => (a.received_date || "") < (b.received_date || "") ? -1 : 1)
-                        .map(r => (
-                          <SelectItem key={r.id} value={r.lot_number}>
-                            {r.lot_number} <span className="text-muted-foreground text-xs ml-1">({r.available_qty} lbs avail)</span>
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <Input
-                    value={alloc.lot_number}
-                    onChange={e => updateAllocation(idx, "lot_number", e.target.value)}
-                    placeholder="e.g. LOT-001"
-                    className="h-10 text-sm"
-                  />
-                )}
+                   <div className="h-10 flex items-center px-3 rounded border border-border bg-muted/30 text-sm font-mono">
+                     {alloc.lot_number || "—"}
+                   </div>
+                 ) : (
+                   <Select
+                     value={alloc.lot_number || ""}
+                     onValueChange={v => updateAllocation(idx, "lot_number", v)}
+                   >
+                     <SelectTrigger className="h-10 text-sm">
+                       <SelectValue placeholder={inventoryRows.length === 0 ? "No inventory available" : "Select lot..."} />
+                     </SelectTrigger>
+                     <SelectContent>
+                       {inventoryRows.length === 0 ? (
+                         <div className="px-3 py-2 text-xs text-muted-foreground">No inventory available</div>
+                       ) : (
+                         inventoryRows
+                           .filter(r => (r.available_qty || 0) > 0)
+                           .sort((a, b) => (a.received_date || "") < (b.received_date || "") ? -1 : 1)
+                           .map(r => (
+                             <SelectItem key={r.id} value={r.lot_number}>
+                               {r.lot_number} <span className="text-muted-foreground text-xs ml-1">({r.available_qty} lbs avail)</span>
+                             </SelectItem>
+                           ))
+                       )}
+                     </SelectContent>
+                   </Select>
+                 )}
                 {!alloc.lot_number && !disabled && (
                   <p className="text-xs text-destructive flex items-center gap-1">
                     <AlertCircle className="w-3 h-3" /> Required
