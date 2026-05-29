@@ -90,10 +90,11 @@ export default function IngredientLotPicker({ ing, disabled, onChange, onConfirm
 
   // Sync back to parent when inventory first loads
   useEffect(() => {
+    console.log(`[IngredientLotPicker] bucket_id=${ing.bucket_id}, inventoryRows=${inventoryRows.length}, isLoading=${isLoading}`);
     if (inventoryRows.length > 0 && !ing.lot_allocations) {
       onChange("lot_allocations", buildFifoAllocations(inventoryRows, ing.required_lbs));
     }
-  }, [inventoryRows]);
+  }, [inventoryRows, isLoading]);
 
   const totalActual = allocations.reduce((s, a) => s + (Number(a.actual_lbs) || 0), 0);
   const isOver = totalActual > ing.required_lbs;
