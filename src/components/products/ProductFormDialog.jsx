@@ -51,7 +51,7 @@ export default function ProductFormDialog({ open, onClose, onSave, product, flow
     case_weight_lbs: "", shelf_life_days: "", storage_temp_c: "", status: "draft",
     allergens: [], regulatory_codes: [], ingredients: [],
     recipe_consumption_per_case_lbs: "", process_id: "", process_name: "", finished_product_unit: "lbs",
-    varied_weights: false
+    varied_weights: false, is_hotdog: false, hotdog_family: "", hotdog_length: "", hotdog_casing: ""
   });
   const [tab, setTab] = useState("basic");
 
@@ -64,7 +64,7 @@ export default function ProductFormDialog({ open, onClose, onSave, product, flow
         case_weight_lbs: "", shelf_life_days: "", storage_temp_c: "", status: "draft",
         allergens: [], regulatory_codes: [], ingredients: [],
         recipe_consumption_per_case_lbs: "", process_id: "", process_name: "", finished_product_unit: "lbs",
-        varied_weights: false
+        varied_weights: false, is_hotdog: false, hotdog_family: "", hotdog_length: "", hotdog_casing: ""
       });
     }
   }, [open, product]);
@@ -415,6 +415,30 @@ export default function ProductFormDialog({ open, onClose, onSave, product, flow
                 </div>
                 <Switch checked={form.varied_weights || false} onCheckedChange={v => update("varied_weights", v)} />
               </div>
+              <div className="space-y-2 md:col-span-2 flex items-center justify-between rounded-lg border border-border p-3">
+                <div>
+                  <Label>Hot Dog Product</Label>
+                  <p className="text-xs text-muted-foreground mt-0.5">Enable to set family and specs</p>
+                </div>
+                <Switch checked={form.is_hotdog || false} onCheckedChange={v => update("is_hotdog", v)} />
+              </div>
+              {form.is_hotdog && (
+                <>
+                  <div className="space-y-2">
+                    <Label>Hot Dog Family</Label>
+                    <Input value={form.hotdog_family || ""} onChange={e => update("hotdog_family", e.target.value)} placeholder="e.g. Beef Wieners, Pork Links" />
+                    <p className="text-xs text-muted-foreground">Product family for multi-product splits</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Link Length</Label>
+                    <Input value={form.hotdog_length || ""} onChange={e => update("hotdog_length", e.target.value)} placeholder="e.g. 6 inch, 8 inch" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Casing Type</Label>
+                    <Input value={form.hotdog_casing || ""} onChange={e => update("hotdog_casing", e.target.value)} placeholder="e.g. Collagen, Natural" />
+                  </div>
+                </>
+              )}
               </div>
               </TabsContent>
         </Tabs>
