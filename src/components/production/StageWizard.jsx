@@ -500,9 +500,18 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
         queryClient.invalidateQueries({ queryKey: ["productionOrders"] });
         queryClient.invalidateQueries({ queryKey: ["blendingStages"] });
 
-        // Close wizard after each batch completion
-        onCompleted?.();
-        onClose();
+        // Only close wizard after final batch completion
+        if (isLastBatch) {
+          onCompleted?.();
+          onClose();
+        } else {
+          // Advance to next batch instead of closing
+          queryClient.invalidateQueries({ queryKey: ["allStages"] });
+          queryClient.invalidateQueries({ queryKey: ["orderStages", stage.order_id] });
+          queryClient.invalidateQueries({ queryKey: ["productionOrders"] });
+          queryClient.invalidateQueries({ queryKey: ["blendingStages"] });
+          // Stay in wizard, user can navigate to next batch or close manually
+        }
       } else if ((capKey === "tumble" || capKey === "tumbling") && cookPlan) {
         // ── Tumble: complete stage, then create one cooking stage per cook batch ──
         const totalOutputLbs = cookPlan.cookBatches.reduce((s, b) => s + b.lbs, 0);
