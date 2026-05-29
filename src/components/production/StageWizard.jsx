@@ -837,7 +837,9 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
 
               if (splits && splits.length > 0) {
                 // Hot dog split mode: distribute across multiple products
-                await distributeToProducts(splits);
+                // Ensure splits are properly parsed objects (not stringified)
+                const parsedSplits = splits.map(s => typeof s === 'string' ? JSON.parse(s) : s);
+                await distributeToProducts(parsedSplits);
               } else {
                 // Single product mode: use original order product
                 const targetProductId = order.product_id;
