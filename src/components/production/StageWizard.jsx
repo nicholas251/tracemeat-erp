@@ -909,7 +909,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
 
         // Unlock next stage and pass lot traceability (or create it if it doesn't exist)
         const allStages = await base44.entities.ProductionStage.filter({ order_id: stage.order_id });
-        let nextStage = allStages.find(s => s.step_number === stage.step_number + 1 && s.status !== "completed");
+        let nextStage = allStages.find(s => s.step_number === stage.step_number + 1 && s.status !== "completed" && s.id !== stage.id);
         
         // For chilling, create a packaging stage if one doesn't exist for this cook batch
         if (capKey === "chilling") {
