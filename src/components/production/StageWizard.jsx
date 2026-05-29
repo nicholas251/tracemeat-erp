@@ -435,16 +435,8 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
             const mixerStep = nextFlow?.steps?.find(s => s.capability_key === "mixer");
             const choppingStep = nextFlow?.steps?.find(s => s.capability_key === "chopping");
 
-            // Unlock/create chopping stage with beef qty + lot
-             const existingChoppingStage = allStages.find(s => s.step_number === nextStepNum && s.capability_key === "chopping");
-             if (existingChoppingStage) {
-               const accumulatedBeefQty = parseFloat(((existingChoppingStage.input_qty_lbs || 0) + beefLbs).toFixed(2));
-               await base44.entities.ProductionStage.update(existingChoppingStage.id, {
-                 status: "available",
-                 input_qty_lbs: accumulatedBeefQty,
-                 input_lot_number: `${(existingChoppingStage.input_lot_number || "").split(",").concat([`${blendOutputLot}-BEEF`]).join(", ")}`.slice(0, 255),
-               });
-             } else if (choppingStep) {
+            // Create independent chopping stage for this batch's beef
+             if (choppingStep && beefLbs > 0) {
               await base44.entities.ProductionStage.create({
                 order_id: stage.order_id,
                 order_number: stage.order_number,
@@ -461,17 +453,8 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
               });
             }
 
-            // Unlock/create mixer stage with pork qty + lot (pork bypasses chopping)
-            const existingMixerStage = allStages.find(s => s.capability_key === "mixer");
-            if (existingMixerStage) {
-              const accumulatedPorkQty = parseFloat(((existingMixerStage.input_qty_lbs || 0) + porkLbs).toFixed(2));
-              await base44.entities.ProductionStage.update(existingMixerStage.id, {
-                pork_lot_number: porkLotNumber,
-                input_qty_lbs: accumulatedPorkQty,
-                input_lot_number: `${(existingMixerStage.input_lot_number || "").split(",").concat([porkLotNumber]).join(", ")}`.slice(0, 255),
-                status: existingMixerStage.status === "locked" ? "locked" : existingMixerStage.status,
-              });
-            } else if (mixerStep) {
+            // Create independent mixer stage for this batch's pork (stays locked until binder arrives)
+             if (mixerStep && porkLbs > 0) {
               await base44.entities.ProductionStage.create({
                 order_id: stage.order_id,
                 order_number: stage.order_number,
@@ -482,7 +465,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
                 capability_name: mixerStep.capability_name,
                 work_profile_id: mixerStep.work_profile_id || "",
                 work_profile_name: mixerStep.work_profile_name || "",
-                status: "locked", // stays locked until chopping completes and provides the binder
+                status: "locked",
                 pork_lot_number: porkLotNumber,
                 input_qty_lbs: parseFloat(porkLbs.toFixed(2)),
                 input_lot_number: porkLotNumber,
