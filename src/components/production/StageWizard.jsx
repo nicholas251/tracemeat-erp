@@ -987,41 +987,73 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
           }
         }
 
-        if (nextStage?.status === "locked") {
-           const rawQty = updates.output_qty_lbs || stage.input_qty_lbs || 0;
+        // For chopping: create independent linking stage instead of updating one
+        if (capKey === "chopping") {
+          const choppingOrder = await base44.entities.ProductionOrder.filter({ id: stage.order_id }).then(r => r?.[0]);
+          if (choppingOrder?.flow_id) {
+            const choppingFlow = await base44.entities.ProductFlow.filter({ id: choppingOrder.flow_id }).then(r => r?.[0]);
+            const nextStep = choppingFlow?.steps?.find(s => s.step_number === stage.step_number + 1);
+            if (nextStep) {
+              const chopOutputQty = updates.output_qty_lbs || stage.input_qty_lbs || 0;
+              const chopOutputLot = updates.output_lot_number || stage.input_lot_number || "";
+              
+              if (nextStep.capability_key === "mixer") {
+                // Chopping output becomes binder for mixer
+                await base44.entities.ProductionStage.create({
+                  order_id: stage.order_id,
+                  order_number: stage.order_number,
+                  product_name: stage.product_name,
+                  step_number: nextStep.step_number,
+                  capability_id: nextStep.capability_id,
+                  capability_key: nextStep.capability_key,
+                  capability_name: nextStep.capability_name,
+                  work_profile_id: nextStep.work_profile_id || "",
+                  work_profile_name: nextStep.work_profile_name || "",
+                  status: "locked", // stays locked until pork arrives
+                  binder_lot_number: chopOutputLot,
+                  binder_qty_lbs: chopOutputQty,
+                });
+              } else {
+                // Standard: create independent linking/next stage
+                await base44.entities.ProductionStage.create({
+                  order_id: stage.order_id,
+                  order_number: stage.order_number,
+                  product_name: stage.product_name,
+                  step_number: nextStep.step_number,
+                  capability_id: nextStep.capability_id,
+                  capability_key: nextStep.capability_key,
+                  capability_name: nextStep.capability_name,
+                  work_profile_id: nextStep.work_profile_id || "",
+                  work_profile_name: nextStep.work_profile_name || "",
+                  status: "available",
+                  input_qty_lbs: chopOutputQty,
+                  input_lot_number: chopOutputLot,
+                });
+              }
+            }
+          }
+        } else if (nextStage?.status === "locked") {
+          // For other stages: update existing locked stage
+          const rawQty = updates.output_qty_lbs || stage.input_qty_lbs || 0;
           const productYield = product?.yield_percent;
           if (!productYield) console.warn(`Product missing yield_percent; using default 85%`);
           const yieldFraction = (productYield ?? 85) / 100;
-          const nextInputQty = capKey === "cooking" ? parseFloat((rawQty * yieldFraction).toFixed(2)) : rawQty; // No yield applied to chilling
+          const nextInputQty = capKey === "cooking" ? parseFloat((rawQty * yieldFraction).toFixed(2)) : rawQty;
           
-          // Determine lot number to pass forward
           let nextInputLot = "";
           if (capKey === "packaging") {
             nextInputLot = updates.lot_number || "";
-          } else if (capKey === "chopping" || capKey === "cooking" || capKey === "chilling" || capKey === "mixer" || capKey === "racking") {
-            // These stages produce an output lot number that feeds the next stage
+          } else if (capKey === "cooking" || capKey === "chilling" || capKey === "racking") {
             nextInputLot = updates.output_lot_number || stage.cook_batch_lot || stage.input_lot_number || "";
           } else {
-            // Linking: use cook batch lot
             nextInputLot = stage.cook_batch_lot || stage.input_lot_number || "";
           }
 
-          // Special case: chopping feeds into a mixer stage — unlock it and store the binder lot
-          if (capKey === "chopping" && nextStage.capability_key === "mixer") {
-            await base44.entities.ProductionStage.update(nextStage.id, {
-              status: "available",
-              input_qty_lbs: nextInputQty,
-              input_lot_number: nextStage.input_lot_number || "", // keep pork lot that was set by blending
-              binder_lot_number: nextInputLot, // chopping output becomes the binder
-              binder_qty_lbs: nextInputQty,
-            });
-          } else {
-            await base44.entities.ProductionStage.update(nextStage.id, {
-              status: "available",
-              input_qty_lbs: nextInputQty,
-              input_lot_number: nextInputLot,
-            });
-          }
+          await base44.entities.ProductionStage.update(nextStage.id, {
+            status: "available",
+            input_qty_lbs: nextInputQty,
+            input_lot_number: nextInputLot,
+          });
         }
 
         queryClient.invalidateQueries({ queryKey: ["allStages"] });
