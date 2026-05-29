@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Trash2 } from "lucide-react";
 
-export default function ProductSplitAllocator({ compatibleProducts = [], splits = [], onChange, totalLbs = 0 }) {
+export default function ProductSplitAllocator({ compatibleProducts = [], splits = [], onChange, totalLbs = 0, remainingCases = 0 }) {
   const [localSplits, setLocalSplits] = useState(splits && splits.length > 0 ? splits : []);
 
   useEffect(() => {
@@ -48,9 +48,9 @@ export default function ProductSplitAllocator({ compatibleProducts = [], splits 
   return (
     <div className="space-y-4">
       <div className="space-y-1.5">
-        <Label className="text-sm font-semibold">Split Packaging Output</Label>
-        <p className="text-xs text-muted-foreground">Allocate finished goods across compatible products</p>
-      </div>
+         <Label className="text-sm font-semibold">Split Packaging Output</Label>
+         <p className="text-xs text-muted-foreground">Allocate remaining {remainingCases} cases across compatible products</p>
+       </div>
 
       {localSplits.length === 0 ? (
         <div className="rounded-lg border border-dashed border-border p-4 text-center">

@@ -199,7 +199,7 @@ function buildMeasurementSteps(stage, product, capKey, casingBuckets = []) {
       label: "Packaging Confirmation",
       fields: [
         { key: "output_qty_lbs", label: "Total Output Weight (lbs)", type: "number", defaultValue: stage?.input_qty_lbs },
-        { key: "packages_produced", label: "Cases (Auto-calculated)", type: "number", defaultValue: autoCalculatedCases, disabled: true },
+        { key: "packages_produced", label: "Cases (Finished Product)", type: "number", defaultValue: autoCalculatedCases, hint: `Max: ${autoCalculatedCases} cases`, maxCases: autoCalculatedCases },
         { key: "lot_number", label: "Finished Goods Lot #", type: "text", defaultValue: stage?.input_lot_number || "" },
         { key: "finished_product_splits", label: "Package As (Product)", type: "finished_product_split" },
       ],
@@ -1155,6 +1155,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
              onBack={() => setStep(s => s - 1)}
              onNext={() => setStep(s => s + 1)}
              isLast={step === totalMeasureSteps}
+             autoCalculatedCases={capKey === "packaging" ? Math.floor((stage?.input_qty_lbs || 0) / (product?.case_weight_lbs || 1)) : 0}
            />
           )}
 
@@ -1287,7 +1288,7 @@ function BatchConfirmStep({ batch, batchIdx, totalBatches, progressPct, onUpdate
   );
 }
 
-function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form, setForm, casingBuckets, cureInventory = [], compatibleHotdogProducts = [], capKey, stage, product, cookBatch, setCookBatch, cookPlan, setCookPlan, onBack, onNext, isLast }) {
+function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form, setForm, casingBuckets, cureInventory = [], compatibleHotdogProducts = [], capKey, stage, product, cookBatch, setCookBatch, cookPlan, setCookPlan, onBack, onNext, isLast, autoCalculatedCases = 0 }) {
   const [spiceShortNotes, setSpiceShortNotes] = React.useState("");
   const [caseWeights, setCaseWeights] = React.useState(form.case_weights || []);
 
@@ -1357,6 +1358,7 @@ function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form, setFor
              cureInventory={cureInventory}
              compatibleHotdogProducts={compatibleHotdogProducts}
              totalLbs={form.output_qty_lbs || stage?.input_qty_lbs || 0}
+             remainingCases={capKey === "packaging" ? autoCalculatedCases - (Number(form.packages_produced) || 0) : 0}
              spiceShortNotes={spiceShortNotes}
              onSpiceShortNotesChange={setSpiceShortNotes}
              onChange={val => {
@@ -1493,7 +1495,7 @@ function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form, setFor
   );
 }
 
-function FieldInput({ field, value, onChange, casingBuckets = [], cureInventory = [], compatibleHotdogProducts = [], totalLbs = 0, onCasingSelect, spiceShortNotes, onSpiceShortNotesChange }) {
+function FieldInput({ field, value, onChange, casingBuckets = [], cureInventory = [], compatibleHotdogProducts = [], totalLbs = 0, remainingCases = 0, onCasingSelect, spiceShortNotes, onSpiceShortNotesChange }) {
   if (field.type === "finished_product_split") {
     return (
       <ProductSplitAllocator
@@ -1501,6 +1503,7 @@ function FieldInput({ field, value, onChange, casingBuckets = [], cureInventory 
         splits={value || []}
         onChange={onChange}
         totalLbs={totalLbs}
+        remainingCases={remainingCases}
       />
     );
   }
@@ -1620,6 +1623,7 @@ function FieldInput({ field, value, onChange, casingBuckets = [], cureInventory 
         className="h-11 text-base"
         disabled={field.disabled}
       />
+      {field.hint && <p className="text-xs text-muted-foreground">{field.hint}</p>}
     </div>
   );
 }
