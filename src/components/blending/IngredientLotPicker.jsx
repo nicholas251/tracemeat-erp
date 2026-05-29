@@ -77,6 +77,8 @@ export default function IngredientLotPicker({ ing, disabled, onChange, onConfirm
     queryKey: ["rawInventory", ing.bucket_id],
     queryFn: () => base44.entities.RawInventory.filter({ bucket_id: ing.bucket_id }),
     enabled: !!ing.bucket_id,
+    staleTime: 0,
+    gcTime: 0,
   });
 
   // Initialize allocations from FIFO once inventory loads, if not already set
