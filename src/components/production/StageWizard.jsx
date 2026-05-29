@@ -299,7 +299,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
         p.id !== product.id
       );
     },
-    enabled: open && capKey === "packaging" && product?.is_hotdog,
+    enabled: !!(open && capKey === "packaging" && product?.is_hotdog),
   });
 
   // For ingredient-batch stages (blending)
