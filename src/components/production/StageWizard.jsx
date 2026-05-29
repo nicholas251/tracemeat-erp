@@ -194,6 +194,7 @@ function buildMeasurementSteps(stage, product, capKey, casingBuckets = []) {
       fields: [
         { key: "output_qty_lbs", label: "Total Output Weight (lbs)", type: "number", defaultValue: stage?.input_qty_lbs },
         { key: "lot_number", label: "Finished Goods Lot #", type: "text", defaultValue: stage?.input_lot_number || "" },
+        { key: "finished_product_id", label: "Package As (Product)", type: "finished_product_select" },
       ],
     });
   }
@@ -283,6 +284,22 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
     staleTime: 0,
     gcTime: 0,
     enabled: open && capKey === "chopping" && !!cureBucket?.id,
+  });
+
+  // For packaging: fetch compatible hot dog products (same family & link length)
+  const { data: compatibleHotdogProducts = [] } = useQuery({
+    queryKey: ["compatibleHotdogs", product?.id],
+    queryFn: async () => {
+      if (!product?.is_hotdog || !product?.hotdog_family || !product?.hotdog_length) return [];
+      const allProducts = await base44.entities.Product.filter({ is_hotdog: true });
+      return allProducts.filter(p =>
+        p.is_hotdog &&
+        p.hotdog_family === product.hotdog_family &&
+        p.hotdog_length === product.hotdog_length &&
+        p.id !== product.id
+      );
+    },
+    enabled: open && capKey === "packaging" && product?.is_hotdog,
   });
 
   // For ingredient-batch stages (blending)
@@ -696,7 +713,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
         await base44.entities.ProductionStage.update(stage.id, updates);
 
         // If this is packaging: push into the FG bucket AND create an InventoryItem lot
-         if (capKey === "packaging") {
+        if (capKey === "packaging") {
            const order = await base44.entities.ProductionOrder.filter({ id: stage.order_id }).then(r => r?.[0]);
            if (order) {
              // today and today_str already defined above
@@ -707,8 +724,10 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
              const outputLbs = updates.output_qty_lbs || stage.input_qty_lbs || 0;
              const packagesProduced = updates.packages_produced || 0;
 
+             // For hot dogs: use selected product (if different) or original order product
+             const targetProductId = (form.finished_product_id && form.finished_product_id !== "") ? form.finished_product_id : order.product_id;
              // Find the product to get shelf life and case weight
-             const productData = await base44.entities.Product.filter({ id: order.product_id }).then(r => r?.[0]);
+             const productData = await base44.entities.Product.filter({ id: targetProductId }).then(r => r?.[0]);
              const shelfLifeDays = productData?.shelf_life_days || null;
              const caseWeightLbs = productData?.case_weight_lbs || null;
 
@@ -734,7 +753,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
                : (caseWeightLbs && outputLbs ? parseFloat((outputLbs / caseWeightLbs).toFixed(2)) : 0);
 
             // 1. Push into FinishedGoodsBucket (find or create)
-            const existingBuckets = await base44.entities.FinishedGoodsBucket.filter({ product_id: order.product_id });
+            const existingBuckets = await base44.entities.FinishedGoodsBucket.filter({ product_id: targetProductId });
             const bucket = existingBuckets[0];
             if (bucket) {
               const newLots = [...(bucket.lots || []), {
@@ -754,8 +773,8 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
             } else {
               // Create bucket on the fly if missing
               await base44.entities.FinishedGoodsBucket.create({
-                product_id: order.product_id || "",
-                product_name: stage.product_name || order.product_name || "",
+                product_id: targetProductId || "",
+                product_name: productData?.name || stage.product_name || order.product_name || "",
                 sku: productData?.sku || "",
                 product_number: productData?.product_number || "",
                 category: productData?.category || "",
@@ -777,8 +796,8 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
 
             // 2. Also create InventoryItem for lot-level traceability
             await base44.entities.InventoryItem.create({
-              product_id: order.product_id || "",
-              product_name: stage.product_name || order.product_name || "",
+              product_id: targetProductId || "",
+              product_name: productData?.name || stage.product_name || order.product_name || "",
               sku: product?.sku || order.sku || "",
               batch_id: stage.order_id,
               batch_number: order.order_number || "",
@@ -1026,6 +1045,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
              setForm={setForm}
              casingBuckets={casingBuckets}
              cureInventory={cureInventory}
+             compatibleHotdogProducts={compatibleHotdogProducts}
              capKey={capKey}
              stage={stage}
              product={product}
@@ -1168,7 +1188,7 @@ function BatchConfirmStep({ batch, batchIdx, totalBatches, progressPct, onUpdate
   );
 }
 
-function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form, setForm, casingBuckets, cureInventory = [], capKey, stage, product, cookBatch, setCookBatch, cookPlan, setCookPlan, onBack, onNext, isLast }) {
+function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form, setForm, casingBuckets, cureInventory = [], compatibleHotdogProducts = [], capKey, stage, product, cookBatch, setCookBatch, cookPlan, setCookPlan, onBack, onNext, isLast }) {
   const [spiceShortNotes, setSpiceShortNotes] = React.useState("");
   const [caseWeights, setCaseWeights] = React.useState(form.case_weights || []);
 
@@ -1236,6 +1256,7 @@ function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form, setFor
              value={form[field.key]}
              casingBuckets={casingBuckets}
              cureInventory={cureInventory}
+             compatibleHotdogProducts={compatibleHotdogProducts}
              spiceShortNotes={spiceShortNotes}
              onSpiceShortNotesChange={setSpiceShortNotes}
              onChange={val => {
@@ -1372,7 +1393,27 @@ function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form, setFor
   );
 }
 
-function FieldInput({ field, value, onChange, casingBuckets = [], cureInventory = [], onCasingSelect, spiceShortNotes, onSpiceShortNotesChange }) {
+function FieldInput({ field, value, onChange, casingBuckets = [], cureInventory = [], compatibleHotdogProducts = [], onCasingSelect, spiceShortNotes, onSpiceShortNotesChange }) {
+  if (field.type === "finished_product_select") {
+    return (
+      <div className="space-y-1.5">
+        <Label className="text-sm font-semibold">{field.label}</Label>
+        <Select value={value || ""} onValueChange={onChange}>
+          <SelectTrigger className="h-11">
+            <SelectValue placeholder="Same as original product (default)" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={null}>Same as original product (default)</SelectItem>
+            {compatibleHotdogProducts.map(p => (
+              <SelectItem key={p.id} value={p.id}>
+                {p.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    );
+  }
   if (field.type === "spice_mix_picker") {
     return (
       <SpiceMixLotPicker
