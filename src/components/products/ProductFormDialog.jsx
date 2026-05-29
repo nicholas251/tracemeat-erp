@@ -426,7 +426,13 @@ export default function ProductFormDialog({ open, onClose, onSave, product, flow
                 <>
                   <div className="space-y-2">
                     <Label>Hot Dog Family</Label>
-                    <Input value={form.hotdog_family || ""} onChange={e => update("hotdog_family", e.target.value)} placeholder="e.g. Beef Wieners, Pork Links" />
+                    <Select value={form.hotdog_family || ""} onValueChange={v => update("hotdog_family", v)}>
+                      <SelectTrigger><SelectValue placeholder="Select family..." /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Grote & Weigel">Grote & Weigel</SelectItem>
+                        <SelectItem value="Mucke">Mucke</SelectItem>
+                      </SelectContent>
+                    </Select>
                     <p className="text-xs text-muted-foreground">Product family for multi-product splits</p>
                   </div>
                   <div className="space-y-2">
