@@ -9,6 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { base44 } from "@/api/base44Client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useQuery } from "@tanstack/react-query";
+import { Plus, Trash2 } from "lucide-react";
 
 const categories = [
   { value: "beef", label: "Beef" },
@@ -68,6 +69,33 @@ export default function ProductFormDialog({ open, onClose, onSave, product, flow
     enabled: open,
   });
 
+  const { data: buckets = [] } = useQuery({
+    queryKey: ["inventoryBuckets"],
+    queryFn: () => base44.entities.InventoryBucket.list(),
+    enabled: open,
+  });
+
+  const addIngredient = () => {
+    update("blend_ingredients", [...(form.blend_ingredients || []), { bucket_id: "", bucket_name: "", quantity_lbs: "", category: "protein" }]);
+  };
+
+  const updateIngredient = (i, field, val) => {
+    const updated = [...(form.blend_ingredients || [])];
+    updated[i] = { ...updated[i], [field]: val };
+    update("blend_ingredients", updated);
+  };
+
+  const removeIngredient = (i) => {
+    update("blend_ingredients", (form.blend_ingredients || []).filter((_, idx) => idx !== i));
+  };
+
+  const handleSelectBucket = (i, bucketId) => {
+    const b = buckets.find(x => x.id === bucketId);
+    const updated = [...(form.blend_ingredients || [])];
+    updated[i] = { ...updated[i], bucket_id: bucketId, bucket_name: b?.name || "", category: b?.category || "protein" };
+    update("blend_ingredients", updated);
+  };
+
   // Auto-calculate case weight when package size/count changes (unless varied weights)
   useEffect(() => {
     if (!form.varied_weights && form.package_size && form.packages_per_case) {
@@ -104,10 +132,61 @@ export default function ProductFormDialog({ open, onClose, onSave, product, flow
         </DialogHeader>
 
         <Tabs value={tab} onValueChange={setTab} className="mt-2">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="basic">Basic Info</TabsTrigger>
+            <TabsTrigger value="blending">Blending</TabsTrigger>
             <TabsTrigger value="chopping">Chopping</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="blending" className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Blend Batch Size (lbs)</Label>
+              <Input type="number" step="0.1" value={form.blend_batch_lbs || ""} onChange={e => update("blend_batch_lbs", e.target.value)} placeholder="e.g. 500" />
+              <p className="text-xs text-muted-foreground">Total protein weight per blending batch.</p>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>Protein Ingredients</Label>
+                <Button size="sm" variant="outline" onClick={addIngredient} className="gap-1 text-xs h-7">
+                  <Plus className="w-3 h-3" /> Add Protein
+                </Button>
+              </div>
+              {(!form.blend_ingredients || form.blend_ingredients.length === 0) && (
+                <p className="text-xs text-muted-foreground bg-muted/40 rounded p-3 text-center">No proteins added yet. Click "Add Protein" to define the blend.</p>
+              )}
+              {(form.blend_ingredients || []).map((ing, i) => (
+                <div key={i} className="flex gap-2 items-center bg-muted/30 rounded-lg p-2">
+                  <div className="flex-1">
+                    <Select value={ing.bucket_id} onValueChange={v => handleSelectBucket(i, v)}>
+                      <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Select protein bucket..." /></SelectTrigger>
+                      <SelectContent>
+                        {buckets.map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="w-28">
+                    <Input
+                      type="number"
+                      className="h-8 text-xs"
+                      placeholder="lbs"
+                      value={ing.quantity_lbs}
+                      onChange={e => updateIngredient(i, "quantity_lbs", e.target.value)}
+                    />
+                  </div>
+                  <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => removeIngredient(i)}>
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+              ))}
+              {form.blend_ingredients?.length > 0 && (
+                <div className="text-xs text-muted-foreground text-right">
+                  Total: <span className="font-semibold text-foreground">
+                    {(form.blend_ingredients || []).reduce((s, i) => s + (Number(i.quantity_lbs) || 0), 0).toFixed(1)} lbs
+                  </span>
+                </div>
+              )}
+            </div>
+          </TabsContent>
 
           <TabsContent value="chopping" className="space-y-4 py-4">
             <div className="space-y-2">
