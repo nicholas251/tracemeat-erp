@@ -287,16 +287,15 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
     enabled: open && capKey === "chopping" && !!cureBucket?.id,
   });
 
-  // For packaging: fetch compatible hot dog products (same family & link length)
+  // For packaging: fetch compatible hot dog products (same family)
   const { data: compatibleHotdogProducts = [] } = useQuery({
     queryKey: ["compatibleHotdogs", product?.id],
     queryFn: async () => {
-      if (!product?.is_hotdog || !product?.hotdog_family || !product?.hotdog_length) return [];
+      if (!product?.is_hotdog || !product?.hotdog_family) return [];
       const allProducts = await base44.entities.Product.filter({ is_hotdog: true });
       return allProducts.filter(p =>
         p.is_hotdog &&
         p.hotdog_family === product.hotdog_family &&
-        p.hotdog_length === product.hotdog_length &&
         p.id !== product.id
       );
     },
