@@ -472,35 +472,24 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
               });
             }
           } else {
-            // ── Standard flow: unlock the immediately next stage ──
+            // ── Standard flow: create independent stage per batch ──
             const nextStepNum = (stage.step_number || 1) + 1;
-            const existingNextStage = allStages.find(s => s.step_number === nextStepNum);
-
-            if (existingNextStage && existingNextStage.status === "locked") {
-              await base44.entities.ProductionStage.update(existingNextStage.id, {
+            const nextStep = nextFlow?.steps?.find(s => s.step_number === nextStepNum);
+            if (nextStep) {
+              await base44.entities.ProductionStage.create({
+                order_id: stage.order_id,
+                order_number: stage.order_number,
+                product_name: stage.product_name,
+                step_number: nextStepNum,
+                capability_id: nextStep.capability_id,
+                capability_key: nextStep.capability_key,
+                capability_name: nextStep.capability_name,
+                work_profile_id: nextStep.work_profile_id,
+                work_profile_name: nextStep.work_profile_name,
                 status: "available",
                 input_qty_lbs: currentBatch.batchLbs,
                 input_lot_number: blendOutputLot,
               });
-            } else if (!existingNextStage) {
-              const nextStep = nextFlow?.steps?.find(s => s.step_number === nextStepNum);
-              if (nextStep) {
-                const nextLot = form.output_lot_number || `BLEND-${Date.now()}`;
-                await base44.entities.ProductionStage.create({
-                  order_id: stage.order_id,
-                  order_number: stage.order_number,
-                  product_name: stage.product_name,
-                  step_number: nextStepNum,
-                  capability_id: nextStep.capability_id,
-                  capability_key: nextStep.capability_key,
-                  capability_name: nextStep.capability_name,
-                  work_profile_id: nextStep.work_profile_id,
-                  work_profile_name: nextStep.work_profile_name,
-                  status: "available",
-                  input_qty_lbs: currentBatch.batchLbs,
-                  input_lot_number: nextLot,
-                });
-              }
             }
           }
         }
