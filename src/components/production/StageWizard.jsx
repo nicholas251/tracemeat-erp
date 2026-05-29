@@ -81,6 +81,7 @@ function buildMeasurementSteps(stage, product, capKey, casingBuckets = []) {
         { key: "water_amount_lbs", label: "Water Amount Added (lbs)", type: "number" },
         { key: "output_qty_lbs", label: "Output Qty (lbs)", type: "number" },
         { key: "output_lot_number", label: "Chopping Output Lot #", type: "text", placeholder: "e.g. CHOP-2024-001" },
+        { key: "notes", label: "Notes / Observations", type: "textarea" },
       ],
     });
   }
@@ -93,7 +94,6 @@ function buildMeasurementSteps(stage, product, capKey, casingBuckets = []) {
         { key: "casing_bucket_id", label: "Casings Used", type: "casing_select", options: casingBuckets },
         { key: "casing_qty_lbs", label: "Casing Qty Used (lbs)", type: "number" },
         { key: "output_qty_lbs", label: "Output Qty (lbs)", type: "number" },
-        { key: "notes", label: "Notes / Observations", type: "textarea" },
       ],
     });
     // Cook batch assembly is handled via the separate cook_batch state, not a field step
@@ -107,6 +107,7 @@ function buildMeasurementSteps(stage, product, capKey, casingBuckets = []) {
       fields: [
         { key: "spice_mix", label: "Spice Mix Added", type: "spice_mix_picker", requiredLbs: spiceQty, filterSpiceMixId: product?.chop_spice_mix_id },
         { key: "duration_minutes", label: "Tumble Duration (minutes)", type: "number" },
+        { key: "notes", label: "Notes / Observations", type: "textarea" },
         // output qty / lot / cook batch plan handled by TumbleCookBatchBuilder embedded in MeasureStep
       ],
     });
@@ -123,6 +124,7 @@ function buildMeasurementSteps(stage, product, capKey, casingBuckets = []) {
         { key: "pork_qty_lbs", label: "Pork Batch Qty (lbs)", type: "number", defaultValue: stage?.input_qty_lbs },
         { key: "binder_lot_confirmed", label: `Confirm Binder batch lot "${binderLot || "— awaiting bowl chopper"}" added to mixer?`, type: "boolean" },
         { key: "binder_qty_lbs", label: "Binder Batch Qty (lbs)", type: "number", defaultValue: stage?.binder_qty_lbs },
+        { key: "notes", label: "Notes / Observations", type: "textarea" },
       ],
     });
     steps.push({
@@ -132,7 +134,6 @@ function buildMeasurementSteps(stage, product, capKey, casingBuckets = []) {
         { key: "duration_minutes", label: "Mix Duration (minutes)", type: "number" },
         { key: "output_qty_lbs", label: "Combined Output Qty (lbs)", type: "number" },
         { key: "output_lot_number", label: "Linker Batch Lot #", type: "text", placeholder: "e.g. MIX-2024-001" },
-        { key: "notes", label: "Notes / Observations", type: "textarea" },
       ],
     });
   }
@@ -150,23 +151,24 @@ function buildMeasurementSteps(stage, product, capKey, casingBuckets = []) {
   }
 
   if (capKey === "cooking") {
-     const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
-     const cookLotDefault = stage?.cook_batch_lot
-       ? `${stage.cook_batch_lot}-${today}`
-       : `COOK-${today}`;
-     // Auto-calculate rack count from stage's racks_count if available
-     const racksCount = stage?.racks_count || 0;
-     steps.push({
-       id: "cook",
-       label: "Cook Parameters",
-       fields: [
-         { key: "temperature_f", label: "Cook End Temperature (°F)", type: "number" },
-         { key: "duration_minutes", label: "Cook Time (minutes)", type: "number" },
-         { key: "racks_count", label: "Rack Count", type: "number", defaultValue: racksCount, disabled: true },
-         { key: "output_lot_number", label: "Cooked Lot #", type: "text", placeholder: "e.g. COOK-2024-001", defaultValue: cookLotDefault },
-       ],
-     });
-   }
+      const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+      const cookLotDefault = stage?.cook_batch_lot
+        ? `${stage.cook_batch_lot}-${today}`
+        : `COOK-${today}`;
+      // Auto-calculate rack count from stage's racks_count if available
+      const racksCount = stage?.racks_count || 0;
+      steps.push({
+        id: "cook",
+        label: "Cook Parameters",
+        fields: [
+          { key: "temperature_f", label: "Cook End Temperature (°F)", type: "number" },
+          { key: "duration_minutes", label: "Cook Time (minutes)", type: "number" },
+          { key: "racks_count", label: "Rack Count", type: "number", defaultValue: racksCount, disabled: true },
+          { key: "output_lot_number", label: "Cooked Lot #", type: "text", placeholder: "e.g. COOK-2024-001", defaultValue: cookLotDefault },
+          { key: "notes", label: "Notes / Observations", type: "textarea" },
+        ],
+      });
+    }
 
   if (capKey === "chilling") {
     const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
@@ -181,6 +183,7 @@ function buildMeasurementSteps(stage, product, capKey, casingBuckets = []) {
         { key: "temperature_c", label: "Exit Temp (°C)", type: "number" },
         { key: "duration_minutes", label: "Chill Duration (minutes)", type: "number" },
         { key: "output_lot_number", label: "Chilled Lot #", type: "text", placeholder: "e.g. CHILL-2024-001", defaultValue: chillLotDefault },
+        { key: "notes", label: "Notes / Observations", type: "textarea" },
       ],
     });
   }
@@ -219,26 +222,7 @@ function buildMeasurementSteps(stage, product, capKey, casingBuckets = []) {
     });
   }
 
-  // Quality + notes always last (skip quality check for cooking)
-   if (capKey !== "cooking") {
-     steps.push({
-       id: "quality",
-       label: "Quality & Notes",
-       fields: [
-         { key: "quality_check_passed", label: "Quality Check Passed", type: "boolean" },
-         { key: "notes", label: "Notes / Observations", type: "textarea" },
-       ],
-     });
-   } else {
-     // Cooking: notes only, no quality check
-     steps.push({
-       id: "quality",
-       label: "Notes",
-       fields: [
-         { key: "notes", label: "Notes / Observations", type: "textarea" },
-       ],
-     });
-   }
+
 
   return steps;
 }
