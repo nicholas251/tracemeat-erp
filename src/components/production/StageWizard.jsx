@@ -186,25 +186,24 @@ function buildMeasurementSteps(stage, product, capKey, casingBuckets = []) {
   }
 
   if (capKey === "packaging") {
-    // For sous vide flows, gaylords are already tracked at the packing stage.
-    // The packaging stage just needs QC confirmation + notes.
-    // output_qty_lbs and lot_number are pre-filled from the chilling stage input.
-    // Cases are automatically calculated from product case_weight_lbs.
-    const caseWeightLbs = product?.case_weight_lbs || 1;
-    const totalOutputLbs = stage?.input_qty_lbs || 0;
-    const autoCalculatedCases = caseWeightLbs > 0 ? Math.floor(totalOutputLbs / caseWeightLbs) : 0;
-    
-    steps.push({
-      id: "packaging",
-      label: "Packaging Confirmation",
-      fields: [
-        { key: "output_qty_lbs", label: "Total Output Weight (lbs)", type: "number", defaultValue: stage?.input_qty_lbs },
-        { key: "packages_produced", label: "Cases (Finished Product)", type: "number", defaultValue: autoCalculatedCases, hint: `Max: ${autoCalculatedCases} cases`, maxCases: autoCalculatedCases },
-        { key: "lot_number", label: "Finished Goods Lot #", type: "text", defaultValue: stage?.input_lot_number || "" },
-        { key: "finished_product_splits", label: "Package As (Product)", type: "finished_product_split" },
-      ],
-    });
-  }
+     // For sous vide flows, gaylords are already tracked at the packing stage.
+     // The packaging stage asks for case count and allows splitting remainder.
+     const caseWeightLbs = product?.case_weight_lbs || 1;
+     const totalOutputLbs = stage?.input_qty_lbs || 0;
+     const maxFullCases = caseWeightLbs > 0 ? Math.floor(totalOutputLbs / caseWeightLbs) : 0;
+     const remainderLbs = totalOutputLbs - (maxFullCases * caseWeightLbs);
+
+     steps.push({
+       id: "packaging",
+       label: "Packaging Confirmation",
+       fields: [
+         { key: "output_qty_lbs", label: "Total Output Weight (lbs)", type: "number", defaultValue: stage?.input_qty_lbs, disabled: true },
+         { key: "packages_produced", label: "Cases to Package (Finished Product)", type: "number", defaultValue: maxFullCases, hint: `Max: ${maxFullCases} full cases (${remainderLbs.toFixed(2)} lbs remainder)` },
+         { key: "lot_number", label: "Finished Goods Lot #", type: "text", defaultValue: stage?.input_lot_number || "" },
+         { key: "finished_product_splits", label: "Split Remainder into Other Product (optional)", type: "finished_product_split" },
+       ],
+     });
+   }
 
   // Generic fallback for any capability not explicitly handled above
   const knownKeys = ["chopping", "linking", "cooking", "chilling", "packaging", "racking", "tumble", "tumbling", "mixer"];
