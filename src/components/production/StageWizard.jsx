@@ -811,13 +811,13 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
               const cooledQty = updates.output_qty_lbs || stage.input_qty_lbs || 0;
               const cooledLot = updates.output_lot_number || stage.input_lot_number || "";
               const cookBatchLotKey = stage.cook_batch_lot || cooledLot;
-              // Only create if no packaging stage for this cook batch already exists
+              // Only create if no packaging stage for this cook batch already exists (completed or not)
               const existingPackStages = await base44.entities.ProductionStage.filter({
                 order_id: stage.order_id,
                 capability_key: "packaging",
+                cook_batch_lot: cookBatchLotKey,
               });
-              const packAlreadyExists = existingPackStages.some(s => s.cook_batch_lot === cookBatchLotKey);
-              if (!packAlreadyExists) {
+              if (existingPackStages.length === 0) {
                 await base44.entities.ProductionStage.create({
                   order_id: stage.order_id,
                   order_number: stage.order_number,
