@@ -342,12 +342,20 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
 
      try {
       if (usesIngredientBatches && currentBatch) {
-        // For blending: complete one batch at a time
+        // For blending: complete one batch at a time w/ lot traceability
         const batchLbs = currentBatch.batchLbs;
+        const blendOutputLot = form.output_lot_number || `BLEND-${Date.now()}`;
         const subBatch = {
-          sub_batch_id: `batch-${currentBatch.batchNumber}-${Date.now()}`,
-          label: `Blending Batch #${currentBatch.batchNumber}`,
+          sub_batch_id: `blend-${currentBatch.batchNumber}-${Date.now()}`,
+          label: `Blend Batch #${currentBatch.batchNumber}`,
           qty_lbs: batchLbs,
+          lot_number: blendOutputLot,
+          ingredients: currentBatch.ingredients.map(ing => ({
+            bucket_name: ing.bucket_name,
+            lot_allocations: ing.lot_allocations,
+            lot_number: ing.lot_allocations?.length === 1 ? ing.lot_allocations[0].lot_number : (ing.lot_allocations?.map(a => a.lot_number).join(", ") || ""),
+            actual_lbs: ing.lot_allocations?.reduce((s, a) => s + (Number(a.actual_lbs) || 0), 0) || 0,
+          })),
           status: "completed",
         };
 
@@ -357,6 +365,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
         await base44.entities.ProductionStage.update(stage.id, {
           sub_batches: updatedSubBatches,
           status: "in_progress",
+          output_lot_number: blendOutputLot,
           completed_at: isLastBatch ? new Date().toISOString() : stage.completed_at,
         });
 
@@ -395,7 +404,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
           const beefLbs = currentBatch.batchLbs - porkLbs;
 
           const blendOutputLot = form.output_lot_number || `BLEND-${Date.now()}`;
-          const porkLotNumber = porkIngredients[0]?.lot_allocations?.[0]?.lot_number || blendOutputLot;
+          const porkLotNumber = porkIngredients[0]?.lot_allocations?.[0]?.lot_number || `${blendOutputLot}-PORK`;
 
           if (hasMixerStep && porkLbs > 0 && beefLbs > 0) {
             // ── Kielbasa flow: route beef to chopping, pork to mixer ──
@@ -409,7 +418,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
               await base44.entities.ProductionStage.update(existingChoppingStage.id, {
                 status: "available",
                 input_qty_lbs: parseFloat(beefLbs.toFixed(2)),
-                input_lot_number: blendOutputLot,
+                input_lot_number: `${blendOutputLot}-BEEF`,
               });
             } else if (!existingChoppingStage && choppingStep) {
               await base44.entities.ProductionStage.create({
@@ -424,7 +433,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
                 work_profile_name: choppingStep.work_profile_name || "",
                 status: "available",
                 input_qty_lbs: parseFloat(beefLbs.toFixed(2)),
-                input_lot_number: blendOutputLot,
+                input_lot_number: `${blendOutputLot}-BEEF`,
               });
             }
 
@@ -468,6 +477,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
             } else if (!existingNextStage) {
               const nextStep = nextFlow?.steps?.find(s => s.step_number === nextStepNum);
               if (nextStep) {
+                const nextLot = form.output_lot_number || `BLEND-${Date.now()}`;
                 await base44.entities.ProductionStage.create({
                   order_id: stage.order_id,
                   order_number: stage.order_number,
@@ -480,6 +490,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
                   work_profile_name: nextStep.work_profile_name,
                   status: "available",
                   input_qty_lbs: currentBatch.batchLbs,
+                  input_lot_number: nextLot,
                 });
               }
             }
@@ -623,6 +634,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
                 work_profile_name: cookStep.work_profile_name,
                 status: "available",
                 input_qty_lbs: cookBatch.totalQty,
+                input_lot_number: cookBatch.lotNumber,
                 cook_batch_lot: cookBatch.lotNumber,
               });
             }
