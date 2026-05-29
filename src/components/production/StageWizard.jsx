@@ -973,21 +973,29 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
                   const batchQty = parseFloat(batch.lbs.toFixed(2));
                   // Use per-batch lot numbers, NOT the single output_lot_number field
                   const lotNum = `CB${batch.cookBatchNumber}-${stage.order_number}-${today_str}`;
-                  await base44.entities.ProductionStage.create({
+                  // Check if chilling stage for this cook batch already exists
+                  const existingChillStages = await base44.entities.ProductionStage.filter({
                     order_id: stage.order_id,
-                    order_number: stage.order_number,
-                    product_name: stage.product_name,
-                    step_number: chillFlowStep.step_number,
-                    capability_id: chillFlowStep.capability_id,
-                    capability_key: chillFlowStep.capability_key,
-                    capability_name: chillFlowStep.capability_name,
-                    work_profile_id: chillFlowStep.work_profile_id || "",
-                    work_profile_name: chillFlowStep.work_profile_name || "",
-                    status: "available",
-                    input_qty_lbs: batchQty,
-                    input_lot_number: lotNum,
+                    capability_key: "chilling",
                     cook_batch_lot: lotNum,
                   });
+                  if (existingChillStages.length === 0) {
+                    await base44.entities.ProductionStage.create({
+                      order_id: stage.order_id,
+                      order_number: stage.order_number,
+                      product_name: stage.product_name,
+                      step_number: chillFlowStep.step_number,
+                      capability_id: chillFlowStep.capability_id,
+                      capability_key: chillFlowStep.capability_key,
+                      capability_name: chillFlowStep.capability_name,
+                      work_profile_id: chillFlowStep.work_profile_id || "",
+                      work_profile_name: chillFlowStep.work_profile_name || "",
+                      status: "available",
+                      input_qty_lbs: batchQty,
+                      input_lot_number: lotNum,
+                      cook_batch_lot: lotNum,
+                    });
+                  }
                 }
               } else {
                 // Single-batch flow (sous vide): create one chilling stage from this cooking stage's output
