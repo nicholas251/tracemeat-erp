@@ -4,25 +4,32 @@ Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
 
-    // Fetch all non-cancelled, non-archived orders that have a route assigned
-    const orders = await base44.asServiceRole.entities.SalesOrder.list();
+    const { notes } = await req.json().catch(() => ({}));
 
+    // Fetch all orders that have a route assigned (excluding cancelled)
+    const orders = await base44.asServiceRole.entities.SalesOrder.list();
     const routedOrders = orders.filter(o => o.route && o.status !== "cancelled");
 
     let archivedCount = 0;
 
     for (const order of routedOrders) {
-      // Clear the route assignment so cards reset for the new week
+      // Archive the order: clear route so route cards reset for next week
+      // Append week-end notes to existing order notes if provided
+      const updatedNotes = notes
+        ? `${order.notes ? order.notes + "\n" : ""}[Week Close-Out ${new Date().toLocaleDateString()}]: ${notes}`
+        : order.notes;
+
       await base44.asServiceRole.entities.SalesOrder.update(order.id, {
-        route: null
+        route: null,
+        notes: updatedNotes,
       });
       archivedCount++;
     }
 
     return Response.json({
       success: true,
-      message: `Weekly route reset complete. ${archivedCount} order(s) had their route cleared.`,
-      count: archivedCount
+      message: `Weekly route archive complete. ${archivedCount} order(s) cleared from routes.`,
+      count: archivedCount,
     });
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });

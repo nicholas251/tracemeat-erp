@@ -3,10 +3,11 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, FileText, Eye, Truck, List } from "lucide-react";
+import { Plus, Eye, Truck, List, AlertTriangle } from "lucide-react";
 import SalesOrderFormDialog from "@/components/sales/SalesOrderFormDialog";
 import SalesOrderDetailDialog from "@/components/sales/SalesOrderDetailDialog";
 import RouteCardsView from "@/components/sales/RouteCardsView";
+import WeeklyCloseOutDialog from "@/components/sales/WeeklyCloseOutDialog";
 
 const STATUS_COLORS = {
   draft: "secondary",
@@ -30,14 +31,25 @@ export default function SalesOrders() {
   const [detailOpen, setDetailOpen] = useState(false);
   const [selected, setSelected] = useState(null);
   const [view, setView] = useState("orders"); // "orders" | "routes"
+  const [closeOutOpen, setCloseOutOpen] = useState(false);
 
   const { data: orders = [], isLoading } = useQuery({
     queryKey: ["salesOrders"],
     queryFn: () => base44.entities.SalesOrder.list("-created_date"),
   });
 
+  // Show close-out banner on Fridays between 1pm and end of day
+  const now = new Date();
+  const isFridayAfternoon = now.getDay() === 5 && now.getHours() >= 13;
+  const hasActiveRoutes = orders.some(o => o.route && o.status !== "cancelled");
+
   const handleView = (o) => { setSelected(o); setDetailOpen(true); };
   const handleNew = () => { setSelected(null); setFormOpen(true); };
+
+  const handleArchiveRoutes = async (notes) => {
+    await base44.functions.invoke("weeklyRouteReset", { notes });
+    queryClient.invalidateQueries({ queryKey: ["salesOrders"] });
+  };
 
   const totalAmount = (order) => (order.line_items || []).reduce((s, l) => s + (l.line_total || 0), 0);
 
@@ -48,10 +60,37 @@ export default function SalesOrders() {
           <h1 className="text-2xl font-bold text-foreground">Sales Orders</h1>
           <p className="text-muted-foreground text-sm mt-1">Create and fulfill customer sales orders</p>
         </div>
-        <Button onClick={handleNew}>
-          <Plus className="w-4 h-4 mr-2" /> New Sales Order
-        </Button>
+        <div className="flex gap-2">
+          {view === "routes" && hasActiveRoutes && (
+            <Button variant="outline" onClick={() => setCloseOutOpen(true)}>
+              <Truck className="w-4 h-4 mr-2" /> Close-Out Routes
+            </Button>
+          )}
+          <Button onClick={handleNew}>
+            <Plus className="w-4 h-4 mr-2" /> New Sales Order
+          </Button>
+        </div>
       </div>
+
+      {/* Friday Close-Out Banner */}
+      {isFridayAfternoon && hasActiveRoutes && (
+        <div className="flex items-center justify-between gap-3 mb-5 p-4 rounded-lg bg-amber-50 border border-amber-300">
+          <div className="flex items-center gap-3">
+            <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0" />
+            <div>
+              <p className="font-semibold text-amber-900 text-sm">End-of-week route close-out</p>
+              <p className="text-amber-700 text-xs mt-0.5">It's Friday afternoon — confirm all trucks went out and archive this week's routes.</p>
+            </div>
+          </div>
+          <Button
+            size="sm"
+            className="bg-amber-600 hover:bg-amber-700 text-white flex-shrink-0"
+            onClick={() => setCloseOutOpen(true)}
+          >
+            Start Close-Out
+          </Button>
+        </div>
+      )}
 
       {/* View Toggle */}
       <div className="flex gap-2 mb-5">
@@ -124,6 +163,13 @@ export default function SalesOrders() {
         open={formOpen}
         onClose={() => setFormOpen(false)}
         onSaved={() => { queryClient.invalidateQueries({ queryKey: ["salesOrders"] }); setFormOpen(false); }}
+      />
+
+      <WeeklyCloseOutDialog
+        open={closeOutOpen}
+        onClose={() => setCloseOutOpen(false)}
+        orders={orders}
+        onArchived={handleArchiveRoutes}
       />
 
       {selected && (
