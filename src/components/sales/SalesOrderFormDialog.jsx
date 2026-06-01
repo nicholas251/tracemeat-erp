@@ -173,7 +173,16 @@ export default function SalesOrderFormDialog({ open, onClose, onSaved }) {
                   <CalendarComponent
                     mode="single"
                     selected={form.route_date ? (() => { const [y, m, d] = form.route_date.split('-'); return new Date(parseInt(y), parseInt(m) - 1, parseInt(d)); })() : undefined}
-                    onSelect={(date) => set("route_date", date ? format(date, "yyyy-MM-dd") : "")}
+                    onSelect={(date) => {
+                      if (date) {
+                        const y = date.getFullYear();
+                        const m = String(date.getMonth() + 1).padStart(2, '0');
+                        const d = String(date.getDate()).padStart(2, '0');
+                        set("route_date", `${y}-${m}-${d}`);
+                      } else {
+                        set("route_date", "");
+                      }
+                    }}
                     disabled={(date) => false}
                     showOutsideDays={false}
                   />
