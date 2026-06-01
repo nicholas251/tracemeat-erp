@@ -502,15 +502,16 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
 
         // Only close wizard after final batch completion
         if (isLastBatch) {
+          // Mark the blending stage itself as completed
+          await base44.entities.ProductionStage.update(stage.id, {
+            status: "completed",
+            completed_at: new Date().toISOString(),
+          });
           onCompleted?.();
           onClose();
         } else {
-          // Advance to next batch instead of closing
-          queryClient.invalidateQueries({ queryKey: ["allStages"] });
-          queryClient.invalidateQueries({ queryKey: ["orderStages", stage.order_id] });
-          queryClient.invalidateQueries({ queryKey: ["productionOrders"] });
-          queryClient.invalidateQueries({ queryKey: ["blendingStages"] });
-          // Stay in wizard, user can navigate to next batch or close manually
+          // Advance to the next batch step
+          setStep(s => s + 1);
         }
       } else if ((capKey === "tumble" || capKey === "tumbling") && cookPlan) {
         // ── Tumble: complete stage, then create one cooking stage per cook batch ──
