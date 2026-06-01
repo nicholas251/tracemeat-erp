@@ -109,7 +109,18 @@ export default function SalesOrderFormDialog({ open, onClose, onSaved }) {
   const totalAmount = form.line_items.reduce((s, l) => s + (l.line_total || 0), 0);
 
   const saveMutation = useMutation({
-    mutationFn: (data) => base44.entities.SalesOrder.create({ ...data, total_amount: totalAmount }),
+    mutationFn: (data) => {
+      const cleanedData = {
+        ...data,
+        total_amount: totalAmount,
+        line_items: data.line_items.map(item => ({
+          ...item,
+          price_per_case: item.price_per_case ? parseFloat(item.price_per_case) : null,
+          price_per_lb: item.price_per_lb ? parseFloat(item.price_per_lb) : null
+        }))
+      };
+      return base44.entities.SalesOrder.create(cleanedData);
+    },
     onSuccess: onSaved,
   });
 
