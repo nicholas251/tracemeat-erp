@@ -244,17 +244,10 @@ export default function RawInventoryPage() {
       <PageHeader
         title="Raw Material Inventory"
         subtitle="On-hand stock organized by inventory buckets"
-        actions={
-          isAdmin && (
-            <Button onClick={() => setShowBucketForm(true)} variant="outline">
-              <Settings className="w-4 h-4 mr-2" /> Manage Buckets
-            </Button>
-          )
-        }
       />
 
       {/* Summary */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <Card className="p-4">
           <div className="flex items-center gap-2 mb-1">
             <Beef className="w-4 h-4 text-chart-4" />
@@ -286,8 +279,19 @@ export default function RawInventoryPage() {
       </div>
 
       <Tabs defaultValue="protein">
-        <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
-          <TabsList>
+        <div className="flex flex-col gap-3 mb-4">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input className="pl-9 w-52" placeholder="Search buckets..." value={search} onChange={e => setSearch(e.target.value)} />
+            </div>
+            {isAdmin && (
+              <Button onClick={() => setShowBucketForm(true)} variant="outline">
+                <Settings className="w-4 h-4 mr-2" /> Manage Buckets
+              </Button>
+            )}
+          </div>
+          <TabsList className="flex flex-wrap h-auto gap-1">
             <TabsTrigger value="protein">Protein</TabsTrigger>
             <TabsTrigger value="spice">Spice</TabsTrigger>
             <TabsTrigger value="spice_mix">Spice Mix</TabsTrigger>
@@ -295,10 +299,6 @@ export default function RawInventoryPage() {
             <TabsTrigger value="casing">Casing</TabsTrigger>
             <TabsTrigger value="ledger">All Lots</TabsTrigger>
           </TabsList>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input className="pl-9 w-52" placeholder="Search buckets..." value={search} onChange={e => setSearch(e.target.value)} />
-          </div>
         </div>
 
         <TabsContent value="protein">
