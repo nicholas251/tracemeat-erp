@@ -53,11 +53,21 @@ export default function SpiceMixes() {
     },
   });
 
-  const handleSaveMix = (data) => {
+  const handleSaveMix = async (data) => {
     if (editingMix) {
       updateMutation.mutate({ id: editingMix.id, data });
     } else {
-      createMutation.mutate(data);
+      // Auto-create a matching is_mix InventoryBucket for this spice mix
+      const bucket = await base44.entities.InventoryBucket.create({
+        name: data.name,
+        category: "spice",
+        is_mix: true,
+        unit: "lbs",
+        code: "",
+        description: "",
+        status: "active",
+      });
+      createMutation.mutate({ ...data, bucket_id: bucket.id, bucket_name: bucket.name });
     }
   };
 
