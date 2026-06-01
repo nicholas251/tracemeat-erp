@@ -3,9 +3,10 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, FileText, Eye } from "lucide-react";
+import { Plus, FileText, Eye, Truck, List } from "lucide-react";
 import SalesOrderFormDialog from "@/components/sales/SalesOrderFormDialog";
 import SalesOrderDetailDialog from "@/components/sales/SalesOrderDetailDialog";
+import RouteCardsView from "@/components/sales/RouteCardsView";
 
 const STATUS_COLORS = {
   draft: "secondary",
@@ -28,6 +29,7 @@ export default function SalesOrders() {
   const [formOpen, setFormOpen] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
   const [selected, setSelected] = useState(null);
+  const [view, setView] = useState("orders"); // "orders" | "routes"
 
   const { data: orders = [], isLoading } = useQuery({
     queryKey: ["salesOrders"],
@@ -51,7 +53,25 @@ export default function SalesOrders() {
         </Button>
       </div>
 
-      {isLoading ? (
+      {/* View Toggle */}
+      <div className="flex gap-2 mb-5">
+        <button
+          onClick={() => setView("orders")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${view === "orders" ? "bg-blue-600 text-white border-blue-600" : "bg-white text-muted-foreground border-border hover:bg-muted/30"}`}
+        >
+          <List className="w-4 h-4" /> All Orders
+        </button>
+        <button
+          onClick={() => setView("routes")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${view === "routes" ? "bg-blue-600 text-white border-blue-600" : "bg-white text-muted-foreground border-border hover:bg-muted/30"}`}
+        >
+          <Truck className="w-4 h-4" /> By Route
+        </button>
+      </div>
+
+      {view === "routes" ? (
+        <RouteCardsView orders={orders} onViewOrder={handleView} />
+      ) : isLoading ? (
         <div className="text-center py-12 text-muted-foreground">Loading...</div>
       ) : orders.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground border-2 border-dashed rounded-lg">
