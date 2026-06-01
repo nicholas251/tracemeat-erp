@@ -174,6 +174,7 @@ export default function SalesOrderFormDialog({ open, onClose, onSaved }) {
                     mode="single"
                     selected={form.route_date ? (() => { const [y, m, d] = form.route_date.split('-'); return new Date(parseInt(y), parseInt(m) - 1, parseInt(d)); })() : undefined}
                     onSelect={(date) => set("route_date", date ? format(date, "yyyy-MM-dd") : "")}
+                    disabled={(date) => false}
                   />
                 </PopoverContent>
               </Popover>
