@@ -14,6 +14,7 @@ import StatusBadge from "@/components/shared/StatusBadge";
 import BucketFormDialog from "@/components/inventory/BucketFormDialog";
 import TestAmountDialog from "@/components/inventory/TestAmountDialog";
 import { Link } from "react-router-dom";
+import { useAuth } from "@/lib/AuthContext";
 
 const CATEGORY_LABELS = {
   protein: { label: "Protein", icon: Beef, color: "text-chart-4" },
@@ -199,12 +200,8 @@ export default function RawInventoryPage() {
   const [showBucketForm, setShowBucketForm] = useState(false);
   const [editBucket, setEditBucket] = useState(null);
   const [testBucket, setTestBucket] = useState(null);
-  const [currentUser, setCurrentUser] = useState(null);
   const queryClient = useQueryClient();
-
-  useEffect(() => {
-    base44.auth.me().then(setCurrentUser).catch(() => {});
-  }, []);
+  const { user: currentUser } = useAuth();
 
   const isAdmin = currentUser?.role === "admin";
 
