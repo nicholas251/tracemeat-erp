@@ -51,7 +51,7 @@ export default function StageDashboard({ user, profile, onBack, singleProfile = 
   const title = profile.name;
 
   return (
-    <div className="p-4 md:p-6 max-w-4xl mx-auto">
+    <div className="max-w-4xl mx-auto">
       <PageHeader
         title={title}
         subtitle={`${user?.full_name} · ${new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}`}

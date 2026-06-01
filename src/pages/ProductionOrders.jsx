@@ -196,7 +196,7 @@ export default function ProductionOrders() {
   };
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="max-w-7xl mx-auto">
       <PageHeader
         title="Production Orders"
         subtitle="Create and track production orders through each stage of the flow"
@@ -225,19 +225,22 @@ export default function ProductionOrders() {
                       <p className="text-xs text-muted-foreground">Order #{order.order_number} · {order.quantity_to_produce} lbs · {order.flow_name || "No flow"}</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5 flex-wrap justify-end">
                     <Badge variant="outline" className={`capitalize text-xs ${STATUS_COLORS[order.status]}`}>
                       {order.status?.replace("_", " ")}
                     </Badge>
                     {isAdminOrSupervisor && (
                       <>
-                        <Button size="sm" variant="outline" onClick={() => { setEditingOrder(order); setShowForm(true); }} className="gap-1 h-7">
-                          <Pencil className="w-3.5 h-3.5" /> Edit
+                        <Button size="sm" variant="outline" onClick={() => setViewingOrder(viewingOrder?.id === order.id ? null : order)} className="gap-1 h-8">
+                          <Eye className="w-3.5 h-3.5" /> {viewingOrder?.id === order.id ? "Hide" : "Stages"}
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => { setEditingOrder(order); setShowForm(true); }} className="h-8 w-8 p-0">
+                          <Pencil className="w-3.5 h-3.5" />
                         </Button>
                         <AlertDialog open={deletingOrderId === order.id} onOpenChange={(open) => setDeletingOrderId(open ? order.id : null)}>
                           <AlertDialogTrigger asChild>
-                            <Button size="sm" variant="outline" className="gap-1 h-7 text-destructive hover:text-destructive">
-                              <Trash2 className="w-3.5 h-3.5" /> Delete
+                            <Button size="sm" variant="outline" className="h-8 w-8 p-0 text-destructive hover:text-destructive">
+                              <Trash2 className="w-3.5 h-3.5" />
                             </Button>
                           </AlertDialogTrigger>
                           <AlertDialogContent>
@@ -254,11 +257,6 @@ export default function ProductionOrders() {
                           </AlertDialogContent>
                         </AlertDialog>
                       </>
-                    )}
-                    {isAdminOrSupervisor && (
-                      <Button size="sm" variant="outline" onClick={() => setViewingOrder(viewingOrder?.id === order.id ? null : order)} className="gap-1">
-                        <Eye className="w-3.5 h-3.5" /> {viewingOrder?.id === order.id ? "Hide" : "Stages"}
-                      </Button>
                     )}
                   </div>
                 </div>

@@ -87,7 +87,7 @@ export default function SpiceMixes() {
   if (isLoading) return <div className="p-6"><div className="w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin"></div></div>;
 
   return (
-    <div className="p-6">
+    <div>
       <PageHeader
         title="Spice Mixes"
         subtitle="Pre-batch seasonings for production"

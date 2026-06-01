@@ -33,30 +33,29 @@ export default function AppLayout() {
         "transition-all duration-300 min-h-screen",
         "lg:ml-[250px]",
         collapsed && "lg:ml-[68px]",
-        // On tablet/mobile, no left margin but add bottom padding for bottom nav
-        "pb-24 lg:pb-0"
+        // Add bottom padding for bottom nav on mobile & tablet
+        "pb-24 lg:pb-6"
       )}>
-        <div className="flex items-center justify-between p-3 sm:p-4 md:p-6 lg:p-8 mb-2">
-          {!sidebarOpen && (
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              onClick={() => setSidebarOpen(true)}
-              className="lg:hidden text-slate-700 hover:bg-slate-200"
-            >
-              <Menu className="w-5 h-5" />
-            </Button>
-          )}
+        {/* Top bar */}
+        <div className="sticky top-0 z-20 bg-slate-50/90 backdrop-blur-sm border-b border-slate-200 flex items-center justify-between px-4 md:px-6 h-14 lg:h-12">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={() => setSidebarOpen(true)}
+            className="lg:hidden text-slate-700 hover:bg-slate-200 -ml-2"
+          >
+            <Menu className="w-5 h-5" />
+          </Button>
           <div className="flex-1" />
           <UserProfileMenu />
         </div>
-        <div className="p-3 sm:p-4 md:p-6 lg:p-8 max-w-[1600px]">
+        <div className="p-4 md:p-6 lg:p-8 max-w-[1600px]">
           <Outlet />
         </div>
       </main>
 
-      {/* Bottom nav — visible on mobile only */}
-      <div className="md:hidden">
+      {/* Bottom nav — visible on mobile & tablet (hidden on lg+) */}
+      <div className="lg:hidden">
         <BottomNav />
       </div>
     </div>
