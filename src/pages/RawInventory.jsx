@@ -280,17 +280,15 @@ export default function RawInventoryPage() {
 
       <Tabs defaultValue="protein">
         <div className="flex flex-col gap-3 mb-4">
-          <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-3 flex-wrap">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input className="pl-9 w-52" placeholder="Search buckets..." value={search} onChange={e => setSearch(e.target.value)} />
             </div>
             {isAdmin && (
-              <div className="flex justify-center flex-1">
-                <Button onClick={() => setShowBucketForm(true)} variant="outline">
-                  <Settings className="w-4 h-4 mr-2" /> Manage Buckets
-                </Button>
-              </div>
+              <Button onClick={() => setShowBucketForm(true)} variant="outline">
+                <Settings className="w-4 h-4 mr-2" /> Manage Buckets
+              </Button>
             )}
           </div>
           <TabsList className="flex flex-wrap h-auto gap-1">
