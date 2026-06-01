@@ -73,25 +73,7 @@ export default function SalesOrders() {
         </div>
       </div>
 
-      {/* Daily Close-Out Banner */}
-      {isDailyCloseOutTime && hasTodaysRoutes && (
-        <div className="flex items-center justify-between gap-3 mb-5 p-4 rounded-lg bg-amber-50 border border-amber-300">
-          <div className="flex items-center gap-3">
-            <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0" />
-            <div>
-              <p className="font-semibold text-amber-900 text-sm">Daily route close-out</p>
-              <p className="text-amber-700 text-xs mt-0.5">It's 1pm — confirm all trucks went out today and close out the routes.</p>
-            </div>
-          </div>
-          <Button
-            size="sm"
-            className="bg-amber-600 hover:bg-amber-700 text-white flex-shrink-0"
-            onClick={() => setCloseOutOpen(true)}
-          >
-            Start Close-Out
-          </Button>
-        </div>
-      )}
+
 
       {/* View Toggle */}
       <div className="flex gap-2 mb-5">
@@ -164,13 +146,6 @@ export default function SalesOrders() {
         open={formOpen}
         onClose={() => setFormOpen(false)}
         onSaved={() => { queryClient.invalidateQueries({ queryKey: ["salesOrders"] }); setFormOpen(false); }}
-      />
-
-      <DailyCloseOutDialog
-        open={closeOutOpen}
-        onClose={() => setCloseOutOpen(false)}
-        orders={orders}
-        onArchived={handleArchiveRoutes}
       />
 
       {selected && (
