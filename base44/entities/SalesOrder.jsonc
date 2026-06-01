@@ -25,9 +25,13 @@
       "enum": [
         "101",
         "102",
-        "103",
-        "104",
-        "105"
+        "202",
+        "203",
+        "402",
+        "403",
+        "303",
+        "502",
+        "503"
       ],
       "description": "In-house truck route assigned to this order"
     },

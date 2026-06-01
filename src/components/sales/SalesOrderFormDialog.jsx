@@ -146,9 +146,13 @@ export default function SalesOrderFormDialog({ open, onClose, onSaved }) {
               <SelectContent position="popper">
                 <SelectItem value="101">Route 101</SelectItem>
                 <SelectItem value="102">Route 102</SelectItem>
-                <SelectItem value="103">Route 103</SelectItem>
-                <SelectItem value="104">Route 104</SelectItem>
-                <SelectItem value="105">Route 105</SelectItem>
+                <SelectItem value="202">Route 202</SelectItem>
+                <SelectItem value="203">Route 203</SelectItem>
+                <SelectItem value="402">Route 402</SelectItem>
+                <SelectItem value="403">Route 403</SelectItem>
+                <SelectItem value="303">Route 303</SelectItem>
+                <SelectItem value="502">Route 502</SelectItem>
+                <SelectItem value="503">Route 503</SelectItem>
               </SelectContent>
             </Select>
           </div>
