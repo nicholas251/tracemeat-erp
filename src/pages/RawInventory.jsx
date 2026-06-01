@@ -225,6 +225,11 @@ export default function RawInventoryPage() {
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["inventory_buckets"] }); setEditBucket(null); },
   });
 
+  const deleteBucket = useMutation({
+    mutationFn: (id) => base44.entities.InventoryBucket.delete(id),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["inventory_buckets"] }); },
+  });
+
   const addTestAmount = useMutation({
     mutationFn: (data) => base44.entities.RawInventory.create(data),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["raw_inventory"] }); setTestBucket(null); },
@@ -326,6 +331,7 @@ export default function RawInventoryPage() {
           onSave={(data) => editBucket ? updateBucket.mutate({ id: editBucket.id, data }) : createBucket.mutate(data)}
           allBuckets={buckets}
           onEdit={(b) => setEditBucket(b)}
+          onDelete={(b) => deleteBucket.mutate(b.id)}
         />
       )}
 

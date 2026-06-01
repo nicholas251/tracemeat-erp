@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Pencil, Beef, FlaskConical, Package } from "lucide-react";
+import { Plus, Pencil, Trash2, Beef, FlaskConical, Package } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 
@@ -14,9 +14,10 @@ const EMPTY = { name: "", code: "", category: "protein", description: "", unit: 
 
 const categoryIcons = { protein: Beef, spice: FlaskConical, packaging: Package, casing: Package };
 
-export default function BucketFormDialog({ open, bucket, onClose, onSave, allBuckets = [], onEdit }) {
+export default function BucketFormDialog({ open, bucket, onClose, onSave, allBuckets = [], onEdit, onDelete }) {
   const [form, setForm] = useState(bucket || EMPTY);
   const [mode, setMode] = useState(bucket ? "edit" : "list"); // "list" | "add" | "edit"
+  const [confirmDelete, setConfirmDelete] = useState(null);
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
@@ -84,9 +85,27 @@ export default function BucketFormDialog({ open, bucket, onClose, onSave, allBuc
                               </Badge>
                             </TableCell>
                             <TableCell>
-                              <Button size="sm" variant="ghost" onClick={() => handleEdit(b)}>
-                                <Pencil className="w-3.5 h-3.5" />
-                              </Button>
+                              <div className="flex items-center gap-1">
+                                <Button size="sm" variant="ghost" onClick={() => handleEdit(b)}>
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </Button>
+                                {onDelete && (
+                                  confirmDelete?.id === b.id ? (
+                                    <div className="flex items-center gap-1">
+                                      <Button size="sm" variant="destructive" onClick={() => { onDelete(b); setConfirmDelete(null); }}>
+                                        Confirm
+                                      </Button>
+                                      <Button size="sm" variant="ghost" onClick={() => setConfirmDelete(null)}>
+                                        Cancel
+                                      </Button>
+                                    </div>
+                                  ) : (
+                                    <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => setConfirmDelete(b)}>
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </Button>
+                                  )
+                                )}
+                              </div>
                             </TableCell>
                           </TableRow>
                         ))}
