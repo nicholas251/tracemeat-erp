@@ -38,10 +38,11 @@ export default function SalesOrders() {
     queryFn: () => base44.entities.SalesOrder.list("-created_date"),
   });
 
-  // Show close-out banner daily at 1pm
+  // Show close-out banner daily at 1pm for today's routes
   const now = new Date();
   const isDailyCloseOutTime = now.getHours() >= 13;
-  const hasActiveRoutes = orders.some(o => o.route && o.status !== "cancelled");
+  const todayStr = now.toISOString().split('T')[0];
+  const hasTodaysRoutes = orders.some(o => o.route && o.route_date === todayStr && o.status !== "cancelled");
 
   const handleView = (o) => { setSelected(o); setDetailOpen(true); };
   const handleNew = () => { setSelected(null); setFormOpen(true); };
@@ -61,7 +62,7 @@ export default function SalesOrders() {
           <p className="text-muted-foreground text-sm mt-1">Create and fulfill customer sales orders</p>
         </div>
         <div className="flex gap-2">
-          {view === "routes" && hasActiveRoutes && (
+          {view === "routes" && hasTodaysRoutes && (
             <Button variant="outline" onClick={() => setCloseOutOpen(true)}>
               <Truck className="w-4 h-4 mr-2" /> Close-Out Routes
             </Button>
@@ -73,7 +74,7 @@ export default function SalesOrders() {
       </div>
 
       {/* Daily Close-Out Banner */}
-      {isDailyCloseOutTime && hasActiveRoutes && (
+      {isDailyCloseOutTime && hasTodaysRoutes && (
         <div className="flex items-center justify-between gap-3 mb-5 p-4 rounded-lg bg-amber-50 border border-amber-300">
           <div className="flex items-center gap-3">
             <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0" />

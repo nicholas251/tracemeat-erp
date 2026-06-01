@@ -7,7 +7,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Calendar } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { format } from "date-fns";
 
 function genOrderNumber() {
   return "SO-" + Date.now().toString().slice(-6);
@@ -18,7 +21,7 @@ export default function SalesOrderFormDialog({ open, onClose, onSaved }) {
     order_number: genOrderNumber(),
     customer_id: "", customer_name: "",
     order_date: new Date().toISOString().slice(0, 10),
-    ship_date: "", route: "", status: "draft", notes: "", line_items: []
+    ship_date: "", route: "", route_date: "", status: "draft", notes: "", line_items: []
   });
 
   const { data: customers = [] } = useQuery({
@@ -156,6 +159,26 @@ export default function SalesOrderFormDialog({ open, onClose, onSaved }) {
               </SelectContent>
             </Select>
           </div>
+          {form.route && (
+            <div>
+              <Label>Route Date</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="w-full justify-start text-left">
+                    <Calendar className="w-4 h-4 mr-2" />
+                    {form.route_date ? format(new Date(form.route_date), "MMM d, yyyy") : "Select date..."}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <CalendarComponent
+                    mode="single"
+                    selected={form.route_date ? new Date(form.route_date) : undefined}
+                    onSelect={(date) => set("route_date", date ? format(date, "yyyy-MM-dd") : "")}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+          )}
           <div>
             <Label>Status</Label>
             <Select value={form.status} onValueChange={v => set("status", v)}>

@@ -13,8 +13,11 @@ export default function DailyCloseOutDialog({ open, onClose, orders, onArchived 
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // Get today's routes only
+  const now = new Date();
+  const todayStr = now.toISOString().split('T')[0];
   const activeRoutes = ROUTES.filter(r =>
-    orders.some(o => o.route === r && o.status !== "cancelled")
+    orders.some(o => o.route === r && o.route_date === todayStr && o.status !== "cancelled")
   );
 
   const allChecked = activeRoutes.length === 0 || activeRoutes.every(r => routeChecks[r]);
@@ -47,17 +50,17 @@ export default function DailyCloseOutDialog({ open, onClose, orders, onArchived 
         <div className="space-y-4 py-2">
           {/* Route Confirmation Checklist */}
           <div>
-            <p className="text-sm font-medium mb-3">Confirm routes dispatched this week:</p>
+            <p className="text-sm font-medium mb-3">Confirm routes dispatched today:</p>
             {activeRoutes.length === 0 ? (
               <div className="text-sm text-muted-foreground py-3 text-center border rounded-lg">
-                No active routes this week.
+                No routes scheduled for today.
               </div>
             ) : (
               <div className="space-y-2">
                 {activeRoutes.map(route => {
-                  const routeOrders = orders.filter(
-                    o => o.route === route && o.status !== "cancelled"
-                  );
+                   const routeOrders = orders.filter(
+                     o => o.route === route && o.route_date === todayStr && o.status !== "cancelled"
+                   );
                   const checked = routeChecks[route];
                   return (
                     <button
@@ -98,7 +101,7 @@ export default function DailyCloseOutDialog({ open, onClose, orders, onArchived 
           {/* Notes */}
           <div>
             <label className="text-sm font-medium block mb-1">
-              Week-end notes <span className="text-muted-foreground font-normal">(optional)</span>
+              Close-out notes <span className="text-muted-foreground font-normal">(optional)</span>
             </label>
             <Textarea
               placeholder="e.g. Route 202 had a late delivery, Route 503 short-shipped 1 case of product X..."

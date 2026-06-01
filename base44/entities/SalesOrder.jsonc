@@ -35,6 +35,11 @@
       ],
       "description": "In-house truck route assigned to this order"
     },
+    "route_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date this route is scheduled to go out"
+    },
     "status": {
       "type": "string",
       "enum": [
