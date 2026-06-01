@@ -166,7 +166,10 @@ export default function SalesOrderFormDialog({ open, onClose, onSaved }) {
                 <PopoverTrigger asChild>
                   <Button variant="outline" className="w-full justify-start text-left">
                     <Calendar className="w-4 h-4 mr-2" />
-                    {form.route_date ? format(new Date(form.route_date), "MMM d, yyyy") : "Select date..."}
+                    {form.route_date ? (() => {
+                      const [y, m, d] = form.route_date.split('-');
+                      return format(new Date(parseInt(y), parseInt(m) - 1, parseInt(d)), "MMM d, yyyy");
+                    })() : "Select date..."}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
