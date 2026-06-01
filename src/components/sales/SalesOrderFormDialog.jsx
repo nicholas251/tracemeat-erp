@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, Trash2, Calendar } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 
 function genOrderNumber() {
   return "SO-" + Date.now().toString().slice(-6);
@@ -172,7 +172,7 @@ export default function SalesOrderFormDialog({ open, onClose, onSaved }) {
                 <PopoverContent className="w-auto p-0" align="start">
                   <CalendarComponent
                     mode="single"
-                    selected={form.route_date ? new Date(form.route_date) : undefined}
+                    selected={form.route_date ? parseISO(form.route_date) : undefined}
                     onSelect={(date) => set("route_date", date ? format(date, "yyyy-MM-dd") : "")}
                   />
                 </PopoverContent>
