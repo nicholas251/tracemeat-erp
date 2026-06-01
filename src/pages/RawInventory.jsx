@@ -84,10 +84,11 @@ function CategoryTab({ category, buckets, allLots, search, isAdmin, onEditBucket
 
   const filtered = buckets
     .filter(b => {
-      if (category === "spice_mix") return b.category === "spice" && b.is_mix === true && b.status === "active";
-      if (category === "spice") return b.category === "spice" && !b.is_mix && b.status === "active";
-      return b.category === category && b.status === "active";
+      if (category === "spice_mix") return b.category === "spice" && b.is_mix === true;
+      if (category === "spice") return b.category === "spice" && b.is_mix !== true;
+      return b.category === category;
     })
+    .filter(b => b.status === "active")
     .filter(b => !search || b.name.toLowerCase().includes(search.toLowerCase()) || b.code?.toLowerCase().includes(search.toLowerCase()));
 
   return (

@@ -115,7 +115,7 @@ export default function BucketFormDialog({ open, bucket, onClose, onSave, allBuc
               </div>
               <div>
                 <Label>Category *</Label>
-                <Select value={form.category} onValueChange={v => set("category", v)}>
+                <Select value={form.category} onValueChange={v => setForm(f => ({ ...f, category: v, is_mix: false }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="protein">Protein</SelectItem>
