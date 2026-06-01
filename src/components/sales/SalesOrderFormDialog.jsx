@@ -112,7 +112,7 @@ export default function SalesOrderFormDialog({ open, onClose, onSaved }) {
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
         <DialogHeader>
           <DialogTitle>New Sales Order</DialogTitle>
         </DialogHeader>
@@ -174,7 +174,7 @@ export default function SalesOrderFormDialog({ open, onClose, onSaved }) {
                     <label className="text-xs text-muted-foreground">Product</label>
                     <Select value={item.product_id} onValueChange={v => handleProductSelect(i, v)}>
                       <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Select..." /></SelectTrigger>
-                      <SelectContent>
+                      <SelectContent position="popper" className="max-h-72 overflow-y-auto">
                         {products.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
                       </SelectContent>
                     </Select>
