@@ -66,6 +66,7 @@ export default function SalesOrders() {
                 <th className="text-left px-4 py-3 font-medium">Customer</th>
                 <th className="text-left px-4 py-3 font-medium">Order Date</th>
                 <th className="text-left px-4 py-3 font-medium">Ship Date</th>
+                <th className="text-left px-4 py-3 font-medium">Route</th>
                 <th className="text-left px-4 py-3 font-medium">Items</th>
                 <th className="text-left px-4 py-3 font-medium">Total</th>
                 <th className="text-left px-4 py-3 font-medium">Status</th>
@@ -79,6 +80,7 @@ export default function SalesOrders() {
                   <td className="px-4 py-3 font-medium">{o.customer_name}</td>
                   <td className="px-4 py-3 text-muted-foreground">{o.order_date}</td>
                   <td className="px-4 py-3 text-muted-foreground">{o.ship_date || "—"}</td>
+                  <td className="px-4 py-3 text-muted-foreground">{o.route ? `Route ${o.route}` : "—"}</td>
                   <td className="px-4 py-3 text-muted-foreground">{(o.line_items || []).length} item(s)</td>
                   <td className="px-4 py-3 font-medium">${totalAmount(o).toFixed(2)}</td>
                   <td className="px-4 py-3">

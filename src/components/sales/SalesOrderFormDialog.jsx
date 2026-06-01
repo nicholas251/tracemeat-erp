@@ -18,7 +18,7 @@ export default function SalesOrderFormDialog({ open, onClose, onSaved }) {
     order_number: genOrderNumber(),
     customer_id: "", customer_name: "",
     order_date: new Date().toISOString().slice(0, 10),
-    ship_date: "", status: "draft", notes: "", line_items: []
+    ship_date: "", route: "", status: "draft", notes: "", line_items: []
   });
 
   const { data: customers = [] } = useQuery({
@@ -140,10 +140,23 @@ export default function SalesOrderFormDialog({ open, onClose, onSaved }) {
             </Select>
           </div>
           <div>
+            <Label>Route</Label>
+            <Select value={form.route} onValueChange={v => set("route", v)}>
+              <SelectTrigger><SelectValue placeholder="Assign route..." /></SelectTrigger>
+              <SelectContent position="popper">
+                <SelectItem value="101">Route 101</SelectItem>
+                <SelectItem value="102">Route 102</SelectItem>
+                <SelectItem value="103">Route 103</SelectItem>
+                <SelectItem value="104">Route 104</SelectItem>
+                <SelectItem value="105">Route 105</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
             <Label>Status</Label>
             <Select value={form.status} onValueChange={v => set("status", v)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
+              <SelectContent position="popper">
                 <SelectItem value="draft">Draft</SelectItem>
                 <SelectItem value="confirmed">Confirmed</SelectItem>
               </SelectContent>

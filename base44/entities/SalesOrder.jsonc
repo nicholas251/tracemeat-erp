@@ -20,6 +20,17 @@
       "type": "string",
       "format": "date"
     },
+    "route": {
+      "type": "string",
+      "enum": [
+        "101",
+        "102",
+        "103",
+        "104",
+        "105"
+      ],
+      "description": "In-house truck route assigned to this order"
+    },
     "status": {
       "type": "string",
       "enum": [
