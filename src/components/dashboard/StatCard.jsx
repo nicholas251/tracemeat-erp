@@ -13,7 +13,7 @@ export default function StatCard({ label, value, icon: Icon, trend, color = "tex
     >
       <div className="flex items-center justify-between gap-3">
         <div className="flex-1 min-w-0">
-          <p className="text-[10px] md:text-xs font-semibold text-slate-500 uppercase tracking-wider truncate">{label}</p>
+          <p className="text-[10px] md:text-xs font-semibold text-slate-500 uppercase tracking-wider leading-tight">{label}</p>
           <p className="text-2xl md:text-3xl font-bold mt-1 text-slate-900 leading-none">{value}</p>
           {trend && (
             <p className={cn("text-xs mt-1 font-semibold", trend > 0 ? "text-green-600" : "text-red-600")}>

@@ -76,7 +76,7 @@ export default function Dashboard() {
       />
 
       {showManagement && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-7 gap-3 mb-6">
           <StatCard label="Active Orders" value={activeOrders} icon={Factory} color="text-blue-600" link="/production-orders" />
           <StatCard label="Pending Orders" value={pendingOrders} icon={Factory} color="text-amber-600" link="/production-orders" />
           <StatCard label="Products" value={totalProducts} icon={Package} color="text-green-600" link="/products" />
