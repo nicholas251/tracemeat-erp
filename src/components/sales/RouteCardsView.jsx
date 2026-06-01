@@ -65,6 +65,7 @@ export default function RouteCardsView({ orders, onViewOrder }) {
                         <div>
                           <span className="font-mono text-xs font-medium">{order.order_number || "—"}</span>
                           <span className="ml-2 text-sm font-medium">{order.customer_name}</span>
+                          {order.ship_date && <div className="text-xs text-muted-foreground mt-1">Ship: {order.ship_date}</div>}
                         </div>
                         <div className="flex items-center gap-2">
                           <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_STYLES[order.status] || ""}`}>
