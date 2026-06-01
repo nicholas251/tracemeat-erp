@@ -7,7 +7,7 @@ import { Plus, Eye, Truck, List, AlertTriangle } from "lucide-react";
 import SalesOrderFormDialog from "@/components/sales/SalesOrderFormDialog";
 import SalesOrderDetailDialog from "@/components/sales/SalesOrderDetailDialog";
 import RouteCardsView from "@/components/sales/RouteCardsView";
-import WeeklyCloseOutDialog from "@/components/sales/WeeklyCloseOutDialog";
+import DailyCloseOutDialog from "@/components/sales/WeeklyCloseOutDialog";
 
 const STATUS_COLORS = {
   draft: "secondary",
@@ -38,9 +38,9 @@ export default function SalesOrders() {
     queryFn: () => base44.entities.SalesOrder.list("-created_date"),
   });
 
-  // Show close-out banner on Fridays between 1pm and end of day
+  // Show close-out banner daily at 1pm
   const now = new Date();
-  const isFridayAfternoon = now.getDay() === 5 && now.getHours() >= 13;
+  const isDailyCloseOutTime = now.getHours() >= 13;
   const hasActiveRoutes = orders.some(o => o.route && o.status !== "cancelled");
 
   const handleView = (o) => { setSelected(o); setDetailOpen(true); };
@@ -72,14 +72,14 @@ export default function SalesOrders() {
         </div>
       </div>
 
-      {/* Friday Close-Out Banner */}
-      {isFridayAfternoon && hasActiveRoutes && (
+      {/* Daily Close-Out Banner */}
+      {isDailyCloseOutTime && hasActiveRoutes && (
         <div className="flex items-center justify-between gap-3 mb-5 p-4 rounded-lg bg-amber-50 border border-amber-300">
           <div className="flex items-center gap-3">
             <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0" />
             <div>
-              <p className="font-semibold text-amber-900 text-sm">End-of-week route close-out</p>
-              <p className="text-amber-700 text-xs mt-0.5">It's Friday afternoon — confirm all trucks went out and archive this week's routes.</p>
+              <p className="font-semibold text-amber-900 text-sm">Daily route close-out</p>
+              <p className="text-amber-700 text-xs mt-0.5">It's 1pm — confirm all trucks went out today and close out the routes.</p>
             </div>
           </div>
           <Button
@@ -165,7 +165,7 @@ export default function SalesOrders() {
         onSaved={() => { queryClient.invalidateQueries({ queryKey: ["salesOrders"] }); setFormOpen(false); }}
       />
 
-      <WeeklyCloseOutDialog
+      <DailyCloseOutDialog
         open={closeOutOpen}
         onClose={() => setCloseOutOpen(false)}
         orders={orders}

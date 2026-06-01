@@ -6,7 +6,7 @@ import { Truck, CheckCircle2, AlertTriangle } from "lucide-react";
 
 const ROUTES = ["101", "102", "202", "203", "303", "402", "403", "502", "503"];
 
-export default function WeeklyCloseOutDialog({ open, onClose, orders, onArchived }) {
+export default function DailyCloseOutDialog({ open, onClose, orders, onArchived }) {
   const [routeChecks, setRouteChecks] = useState(
     ROUTES.reduce((acc, r) => ({ ...acc, [r]: false }), {})
   );
@@ -37,10 +37,10 @@ export default function WeeklyCloseOutDialog({ open, onClose, orders, onArchived
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Truck className="w-5 h-5 text-blue-600" />
-            Weekly Route Close-Out
+            Daily Route Close-Out
           </DialogTitle>
           <p className="text-sm text-muted-foreground mt-1">
-            Confirm all trucks went out correctly, then archive this week's routes to start fresh.
+            Confirm all trucks went out correctly. Cases will be consumed from inventory.
           </p>
         </DialogHeader>
 
@@ -126,7 +126,7 @@ export default function WeeklyCloseOutDialog({ open, onClose, orders, onArchived
             disabled={!allChecked || loading}
             className="bg-green-600 hover:bg-green-700"
           >
-            {loading ? "Archiving..." : "Archive This Week's Routes"}
+            {loading ? "Closing out..." : "Close Out Today's Routes"}
           </Button>
         </DialogFooter>
       </DialogContent>
