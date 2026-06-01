@@ -134,7 +134,7 @@ export default function SalesOrderFormDialog({ open, onClose, onSaved }) {
             <Label>Customer *</Label>
             <Select value={form.customer_id} onValueChange={handleCustomerChange}>
               <SelectTrigger><SelectValue placeholder="Select customer..." /></SelectTrigger>
-              <SelectContent>
+              <SelectContent position="popper" className="max-h-60 overflow-y-auto">
                 {customers.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
               </SelectContent>
             </Select>
