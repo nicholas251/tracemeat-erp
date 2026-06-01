@@ -18,12 +18,7 @@ export default function BucketFormDialog({ open, bucket, onClose, onSave, allBuc
   const [form, setForm] = useState(bucket || EMPTY);
   const [mode, setMode] = useState(bucket ? "edit" : "list"); // "list" | "add" | "edit"
 
-  const set = (k, v) => setForm(f => ({
-    ...f,
-    [k]: v,
-    // Reset is_mix when category changes away from spice
-    ...(k === "category" && v !== "spice" ? { is_mix: false } : {}),
-  }));
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
   const handleSave = () => {
     if (!form.name || !form.category) return;
