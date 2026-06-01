@@ -5,9 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function UserAssignmentDialog({ open, user, workProfiles, onClose, onSave }) {
   const [selectedProfileIds, setSelectedProfileIds] = useState([]);
+  const [role, setRole] = useState("user");
 
   useEffect(() => {
     if (open && user) {
@@ -15,6 +17,7 @@ export default function UserAssignmentDialog({ open, user, workProfiles, onClose
         .filter(p => (p.assigned_user_ids || []).includes(user.id))
         .map(p => p.id);
       setSelectedProfileIds(userProfileIds);
+      setRole(user.role || "user");
     }
   }, [open, user, workProfiles]);
 
@@ -27,8 +30,7 @@ export default function UserAssignmentDialog({ open, user, workProfiles, onClose
   };
 
   const handleSave = () => {
-    // Just pass selected profiles - role update happens in UserManagement
-    onSave(selectedProfileIds);
+    onSave(selectedProfileIds, role);
   };
 
   return (
@@ -42,6 +44,19 @@ export default function UserAssignmentDialog({ open, user, workProfiles, onClose
           <p className="text-sm text-muted-foreground">
             Assign {user?.full_name} to work profiles. They will see jobs for assigned capabilities.
           </p>
+
+          <div className="space-y-1.5">
+            <Label className="text-sm font-semibold">Role</Label>
+            <Select value={role} onValueChange={setRole}>
+              <SelectTrigger className="h-10">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="user">User</SelectItem>
+                <SelectItem value="admin">Admin</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
           {workProfiles.length === 0 ? (
             <Card className="p-4 text-center text-muted-foreground text-sm">

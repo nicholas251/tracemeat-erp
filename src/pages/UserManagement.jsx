@@ -93,6 +93,9 @@ export default function UserManagement() {
                       <h3 className="font-semibold text-foreground">{user.full_name}</h3>
                       <p className="text-sm text-muted-foreground">{user.email}</p>
                       <div className="flex items-center gap-2 mt-2 flex-wrap">
+                        <Badge className={user.role === "admin" ? "bg-amber-100 text-amber-800 border-amber-200" : "bg-muted text-muted-foreground"}>
+                          {user.role === "admin" ? "Admin" : "User"}
+                        </Badge>
                         {userProfiles.length > 0 ? (
                           userProfiles.map(profile => (
                             <Badge key={profile.id} className="bg-primary/10 text-primary">
@@ -126,7 +129,10 @@ export default function UserManagement() {
          user={editing}
          workProfiles={workProfiles}
          onClose={() => setEditing(null)}
-         onSave={(workProfileIds) => {
+         onSave={(workProfileIds, role) => {
+           // Update the user's role
+           base44.entities.User.update(editing.id, { role });
+
            const selectedProfiles = workProfiles.filter(p => workProfileIds.includes(p.id));
            const assignedUserIds = new Set();
            const assignedUserNames = new Set();
