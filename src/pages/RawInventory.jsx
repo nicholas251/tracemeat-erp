@@ -286,9 +286,11 @@ export default function RawInventoryPage() {
               <Input className="pl-9 w-52" placeholder="Search buckets..." value={search} onChange={e => setSearch(e.target.value)} />
             </div>
             {isAdmin && (
-              <Button onClick={() => setShowBucketForm(true)} variant="outline">
-                <Settings className="w-4 h-4 mr-2" /> Manage Buckets
-              </Button>
+              <div className="flex justify-center flex-1">
+                <Button onClick={() => setShowBucketForm(true)} variant="outline">
+                  <Settings className="w-4 h-4 mr-2" /> Manage Buckets
+                </Button>
+              </div>
             )}
           </div>
           <TabsList className="flex flex-wrap h-auto gap-1">
