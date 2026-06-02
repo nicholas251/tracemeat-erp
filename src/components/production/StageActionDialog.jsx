@@ -9,12 +9,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { CheckCircle2, Clock, Play } from "lucide-react";
+import { CheckCircle2, Clock, Play, Wand2 } from "lucide-react";
 import SubBatchManager from "./SubBatchManager";
+import StageWizard from "./StageWizard";
+
+// Stages that have full wizard logic — completion MUST go through StageWizard
+const WIZARD_ONLY_CAPS = ["blending", "chopping", "mixer", "linking", "tumble", "tumbling", "racking", "cooking", "chilling", "packaging"];
 
 export default function StageActionDialog({ stage, open, onClose, onUpdated, allowedCapabilityKeys = null }) {
   const [form, setForm] = useState({});
   const [saving, setSaving] = useState(false);
+  const [wizardOpen, setWizardOpen] = useState(false);
+
+  const isWizardStage = WIZARD_ONLY_CAPS.includes(stage?.capability_key);
 
   useEffect(() => {
     if (stage) setForm({ ...stage });
@@ -50,16 +57,19 @@ export default function StageActionDialog({ stage, open, onClose, onUpdated, all
 
   const unlockNextStage = async (orderId, currentStep, outputQty) => {
     const allStages = await base44.entities.ProductionStage.filter({ order_id: orderId });
-    const nextStage = allStages.find(s => s.step_number === currentStep + 1);
+    // Use sorted next-step lookup rather than fragile step_number+1 arithmetic
+    const sortedStages = [...allStages].sort((a, b) => a.step_number - b.step_number);
+    const nextStage = sortedStages.find(s => s.step_number > currentStep && s.status !== "completed");
     if (nextStage && nextStage.status === "locked") {
       await base44.entities.ProductionStage.update(nextStage.id, {
         status: "available",
         input_qty_lbs: outputQty || 0
       });
     }
-    // Update order status if all completed
-    const allCompleted = allStages.every(s => s.id === nextStage?.id ? true : s.status === "completed");
-    if (allCompleted && !nextStage) {
+    // Re-fetch fresh state to accurately determine order completion
+    const freshStages = await base44.entities.ProductionStage.filter({ order_id: orderId });
+    const allCompleted = freshStages.every(s => s.status === "completed");
+    if (allCompleted) {
       await base44.entities.ProductionOrder.update(orderId, { status: "completed" });
     } else {
       await base44.entities.ProductionOrder.update(orderId, { status: "in_progress" });
@@ -81,6 +91,7 @@ export default function StageActionDialog({ stage, open, onClose, onUpdated, all
   const isReadOnly = allowedCapabilityKeys !== null && !allowedCapabilityKeys.includes(stage?.capability_key);
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
@@ -102,12 +113,19 @@ export default function StageActionDialog({ stage, open, onClose, onUpdated, all
           {/* Status Actions */}
           {!isCompleted && !isReadOnly && (
             <div className="flex gap-2">
-              {isAvailable && (
+              {/* Wizard-capable stages: always open StageWizard for start AND complete */}
+              {isWizardStage && (isAvailable || isInProgress) && (
+                <Button onClick={() => { onClose(); setWizardOpen(true); }} className="gap-2 flex-1" disabled={saving}>
+                  <Wand2 className="w-4 h-4" /> {isInProgress ? "Continue Stage" : "Start Stage"}
+                </Button>
+              )}
+              {/* Non-wizard stages: simple status buttons */}
+              {!isWizardStage && isAvailable && (
                 <Button onClick={() => handleStatusChange("in_progress")} className="gap-2 flex-1" disabled={saving}>
                   <Play className="w-4 h-4" /> Start Stage
                 </Button>
               )}
-              {isInProgress && (
+              {!isWizardStage && isInProgress && (
                 <Button onClick={() => handleStatusChange("completed")} className="gap-2 flex-1 bg-chart-2 hover:bg-chart-2/90" disabled={saving}>
                   <CheckCircle2 className="w-4 h-4" /> Mark Complete
                 </Button>
@@ -209,11 +227,25 @@ export default function StageActionDialog({ stage, open, onClose, onUpdated, all
 
         <DialogFooter className="gap-2 mt-4">
           <Button variant="outline" onClick={onClose}>Close</Button>
-          {!isReadOnly && (isInProgress || isCompleted) && (
+          {!isReadOnly && !isWizardStage && (isInProgress || isCompleted) && (
             <Button onClick={handleSave} disabled={saving}>Save Changes</Button>
           )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    {/* StageWizard handles all completion logic for wizard-capable stages */}
+    {wizardOpen && stage && (
+      <StageWizard
+        stage={stage}
+        open={wizardOpen}
+        onClose={() => setWizardOpen(false)}
+        onCompleted={() => {
+          setWizardOpen(false);
+          onUpdated();
+        }}
+      />
+    )}
+    </>
   );
 }
