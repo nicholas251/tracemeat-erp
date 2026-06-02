@@ -48,7 +48,9 @@ export default function ProductionOrderFormDialog({ open, onClose, onSave, order
     queryFn: () => base44.entities.Product.filter({ id: form.product_id }).then(r => r[0] || null),
     enabled: open && !!form.product_id,
     staleTime: 0,
+    gcTime: 0,
     refetchOnMount: "always",
+    refetchOnWindowFocus: true,
   });
 
   const selectedProduct = freshProductData || products.find(p => p.id === form.product_id);
