@@ -110,8 +110,9 @@ export default function ProductionOrders() {
               }
 
               if (isTumblingStep) {
-                // Split into individual tumble batches (800 lbs each by default, or product.tumble_batch_lbs)
-                const tumblingBatchSize = product?.tumble_batch_lbs || 800;
+                // Split into individual tumble batches only if tumble_batch_lbs is set on the product.
+                // If not set, treat the entire raw input as a single batch.
+                const tumblingBatchSize = product?.tumble_batch_lbs || totalRawInputLbs;
                 const numTumbleBatches = Math.ceil(totalRawInputLbs / tumblingBatchSize);
                 let remaining = totalRawInputLbs;
                 for (let t = 0; t < numTumbleBatches; t++) {
