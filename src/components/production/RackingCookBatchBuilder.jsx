@@ -5,10 +5,10 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { AlertCircle, Trash2 } from "lucide-react";
 
-const LBS_PER_RACK = 640;
-const RACKS_PER_BATCH = 3;
-
-export default function RackingCookBatchBuilder({ totalLbs, cookPlan, onChange }) {
+export default function RackingCookBatchBuilder({ totalLbs, product, cookPlan, onChange }) {
+  // Each tumble batch is 800 lbs; rack count per batch comes from the product (defaults to 3)
+  const LBS_PER_RACK = product?.tumble_lbs_per_rack || 800;
+  const RACKS_PER_BATCH = product?.racks_per_batch || 3;
   const [lotPrefix, setLotPrefix] = useState(cookPlan?.lotPrefix || "RACK");
   const [cookBatches, setCookBatches] = useState(cookPlan?.cookBatches || []);
 
