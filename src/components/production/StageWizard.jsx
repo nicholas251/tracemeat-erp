@@ -426,7 +426,6 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
           );
           const beefLbs = currentBatch.batchLbs - porkLbs;
 
-          const blendOutputLot = form.output_lot_number || `BLEND-${Date.now()}`;
           const porkLotNumber = porkIngredients[0]?.lot_allocations?.[0]?.lot_number || `${blendOutputLot}-PORK`;
 
           if (hasMixerStep && porkLbs > 0 && beefLbs > 0) {
@@ -1034,21 +1033,20 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
               const chopOutputLot = updates.output_lot_number || stage.input_lot_number || "";
               
               if (nextStep.capability_key === "mixer") {
-                // Chopping output becomes binder for mixer
-                await base44.entities.ProductionStage.create({
+                // Find the existing locked mixer stage (created by blending with pork lot)
+                // and update it with binder info + unlock it — do NOT create a new one
+                const existingMixerStages = await base44.entities.ProductionStage.filter({
                   order_id: stage.order_id,
-                  order_number: stage.order_number,
-                  product_name: stage.product_name,
-                  step_number: nextStep.step_number,
-                  capability_id: nextStep.capability_id,
-                  capability_key: nextStep.capability_key,
-                  capability_name: nextStep.capability_name,
-                  work_profile_id: nextStep.work_profile_id || "",
-                  work_profile_name: nextStep.work_profile_name || "",
-                  status: "locked", // stays locked until pork arrives
-                  binder_lot_number: chopOutputLot,
-                  binder_qty_lbs: chopOutputQty,
+                  capability_key: "mixer",
                 });
+                const lockedMixerStage = existingMixerStages.find(s => s.status === "locked");
+                if (lockedMixerStage) {
+                  await base44.entities.ProductionStage.update(lockedMixerStage.id, {
+                    binder_lot_number: chopOutputLot,
+                    binder_qty_lbs: chopOutputQty,
+                    status: "available",
+                  });
+                }
               } else {
                 // Standard: create independent linking/next stage
                 await base44.entities.ProductionStage.create({
