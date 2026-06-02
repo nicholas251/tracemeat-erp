@@ -75,14 +75,13 @@ export default function ProductionOrders() {
             let totalRawInputLbs = data.quantity_to_produce; // fallback
             const firstStepKey = sorted[0]?.capability_key;
             const yieldPct = product?.yield_percent;
-            // Raw input = finished ÷ yield% (exact gross-up so expected output equals target)
-            const rawFromLoss = yieldPct ? Math.ceil(data.quantity_to_produce / (yieldPct / 100)) : data.quantity_to_produce;
+            // Raw input = finished ÷ yield% (exact, partial final batch allowed so output = target)
+            const rawNeeded = yieldPct ? data.quantity_to_produce / (yieldPct / 100) : data.quantity_to_produce;
 
             if (firstStepKey === "blending" && product?.blend_batch_lbs && yieldPct) {
-              const numBatches = Math.ceil(rawFromLoss / product.blend_batch_lbs);
-              totalRawInputLbs = product.blend_batch_lbs * numBatches;
+              totalRawInputLbs = rawNeeded;
             } else if (firstStepKey === "tumble" || firstStepKey === "tumbling" || firstStepKey === "mixer") {
-              totalRawInputLbs = rawFromLoss;
+              totalRawInputLbs = rawNeeded;
             }
 
             // Detect flow type

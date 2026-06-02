@@ -71,7 +71,8 @@ export default function ProductionOrderFormDialog({ open, onClose, onSave, order
   // Raw input = finished ÷ yield% (exact gross-up so expected output equals target)
   // ── TUMBLE FLOW MATH ──
   const tumbleBatchSize = selectedProduct?.tumble_batch_lbs || 800;
-  const tumbleRawInputLbs = yieldPct && finishedLbs > 0 ? Math.ceil(finishedLbs / (yieldPct / 100)) : finishedLbs;
+  // Exact raw needed (partial final batch allowed) so expected output equals target
+  const tumbleRawInputLbs = yieldPct && finishedLbs > 0 ? finishedLbs / (yieldPct / 100) : finishedLbs;
   const numTumbleBatches = tumbleRawInputLbs > 0 ? Math.ceil(tumbleRawInputLbs / tumbleBatchSize) : null;
   const tumbleExpectedFinished = tumbleRawInputLbs * (yieldPct / 100);
 
@@ -80,10 +81,11 @@ export default function ProductionOrderFormDialog({ open, onClose, onSave, order
   const waterPerBatch = selectedProduct?.chop_water_lbs || 0;
   const spicePerBatch = selectedProduct?.chop_spice_qty_lbs || 0;
   const curePerBatch = selectedProduct?.chop_cure_lbs || 0;
-  // For blending: back-calculate protein needed, then determine batches
-  const blendRawInputLbs = yieldPct && finishedLbs > 0 ? Math.ceil(finishedLbs / (yieldPct / 100)) : finishedLbs;
+  // For blending: back-calculate exact protein needed (partial final batch allowed)
+  const blendRawInputLbs = yieldPct && finishedLbs > 0 ? finishedLbs / (yieldPct / 100) : finishedLbs;
   const numBlendBatches = blendBatchLbs > 0 && blendRawInputLbs > 0 ? Math.ceil(blendRawInputLbs / blendBatchLbs) : null;
-  const rawInputLbs = blendBatchLbs > 0 && numBlendBatches ? blendBatchLbs * numBlendBatches : blendRawInputLbs;
+  // Raw input is the exact amount needed, not padded up to full batches
+  const rawInputLbs = blendRawInputLbs;
   const totalWater = waterPerBatch * (numBlendBatches || 0);
   const totalSpice = spicePerBatch * (numBlendBatches || 0);
   const totalCure = curePerBatch * (numBlendBatches || 0);
