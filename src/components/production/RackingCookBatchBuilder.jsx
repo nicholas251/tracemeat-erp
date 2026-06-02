@@ -5,29 +5,24 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { AlertCircle, Trash2 } from "lucide-react";
 
-export default function RackingCookBatchBuilder({ totalLbs, product, cookPlan, onChange }) {
-  // 800 lbs fills 2.5 racks → 320 lbs per rack. Every 3 racks = one smokehouse cook batch.
-  const LBS_PER_RACK = product?.tumble_lbs_per_rack || 320;
-  const RACKS_PER_BATCH = product?.racks_per_batch || 3;
+const LBS_PER_RACK = 640;
+const RACKS_PER_BATCH = 3;
+
+export default function RackingCookBatchBuilder({ totalLbs, cookPlan, onChange }) {
   const [lotPrefix, setLotPrefix] = useState(cookPlan?.lotPrefix || "RACK");
   const [cookBatches, setCookBatches] = useState(cookPlan?.cookBatches || []);
 
   useEffect(() => {
     if (!cookPlan) {
-      // Total racks needed, then group every 3 racks into a cook batch
+      // Initialize cook plan from total lbs
       const racksNeeded = Math.ceil(totalLbs / LBS_PER_RACK);
-      const batchesNeeded = Math.max(1, Math.ceil(racksNeeded / RACKS_PER_BATCH));
+      const batchesNeeded = Math.ceil(racksNeeded / RACKS_PER_BATCH);
       const newBatches = [];
 
       let racksRemaining = racksNeeded;
-      let lbsRemaining = totalLbs;
       for (let i = 0; i < batchesNeeded; i++) {
         const racksInThisBatch = Math.min(RACKS_PER_BATCH, racksRemaining);
-        const isLast = i === batchesNeeded - 1;
-        // Last batch carries the remaining lbs so the plan totals exactly to input
-        const lbsInThisBatch = isLast
-          ? parseFloat(lbsRemaining.toFixed(2))
-          : parseFloat((racksInThisBatch * LBS_PER_RACK).toFixed(2));
+        const lbsInThisBatch = racksInThisBatch * LBS_PER_RACK;
         newBatches.push({
           batchNumber: i + 1,
           racks: racksInThisBatch,
@@ -35,7 +30,6 @@ export default function RackingCookBatchBuilder({ totalLbs, product, cookPlan, o
           lotNumber: `${lotPrefix}-${i + 1}`,
         });
         racksRemaining -= racksInThisBatch;
-        lbsRemaining -= lbsInThisBatch;
       }
       setCookBatches(newBatches);
       onChange({

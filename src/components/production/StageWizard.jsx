@@ -18,7 +18,6 @@ import {
 import LinkingCookBatchBuilder from "./LinkingCookBatchBuilder";
 import TumbleCookBatchBuilder from "./TumbleCookBatchBuilder";
 import RackingCookBatchBuilder from "./RackingCookBatchBuilder";
-import { routeRackingToCooking } from "./routeRackingToCooking";
 import SpiceMixLotPicker from "./SpiceMixLotPicker";
 import ProductSplitAllocator from "./ProductSplitAllocator";
 
@@ -1092,15 +1091,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
 
         // For mixer: linking stages are already updated above — skip generic next-stage unlock
         // For chopping: create independent linking stage instead of updating one
-        let rackingHandled = false;
-        if (capKey === "racking" && cookPlan?.cookBatches?.length > 0) {
-          // Racking: split into one cooking stage per cook batch, carrying rack counts
-          rackingHandled = await routeRackingToCooking({ stage, cookPlan, nextStage });
-        }
-
-        if (rackingHandled) {
-          // Per-cook-batch cooking stages already created above
-        } else if (capKey === "mixer") {
+        if (capKey === "mixer") {
           // Already handled above — no further stage routing needed
         } else if (capKey === "chopping") {
           const choppingOrder = await base44.entities.ProductionOrder.filter({ id: stage.order_id }).then(r => r?.[0]);
@@ -1420,7 +1411,7 @@ function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form, setFor
   }, [stepDef.id]);
   const isLinking = capKey === "linking" && stepDef.id === "linking";
   const isTumble = (capKey === "tumble" || capKey === "tumbling") && stepDef.id === "tumble";
-  const isRacking = capKey === "racking" && stepDef.id === "racking";
+  const isRacking = capKey === "racking" && stepDef.id === "racking" && stage?.flow_name === "Tumbling Protein Flow (Large)";
   const isPackaging = capKey === "packaging" && stepDef.id === "packaging" && product?.varied_weights;
   const isMixerInputs = capKey === "mixer" && stepDef.id === "mixer_inputs";
 
@@ -1551,7 +1542,6 @@ function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form, setFor
       {isRacking && (
         <RackingCookBatchBuilder
           totalLbs={form.output_qty_lbs || stage?.input_qty_lbs || 0}
-          product={product}
           cookPlan={cookPlan}
           onChange={setCookPlan}
         />
@@ -1741,7 +1731,7 @@ function FieldInput({ field, value, onChange, casingBuckets = [], cureInventory 
 function FinalStep({ stage, capKey, stageLabel, resolvedBatches, form, cookBatch, cookPlan, saving, onBack, onComplete }) {
   const isLinking = capKey === "linking";
   const isTumble = capKey === "tumble" || capKey === "tumbling";
-  const isRacking = capKey === "racking";
+  const isRacking = capKey === "racking" && stage?.flow_name === "Tumbling Protein Flow (Large)";
   const isPackaging = capKey === "packaging" && form.case_weights;
 
   const outputLbs = resolvedBatches
