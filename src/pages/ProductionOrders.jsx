@@ -75,9 +75,8 @@ export default function ProductionOrders() {
             let totalRawInputLbs = data.quantity_to_produce; // fallback
             const firstStepKey = sorted[0]?.capability_key;
             const yieldPct = product?.yield_percent;
-            // Raw input = finished × (1 + loss%) where loss% = (100 - yield%) / 100
-            const lossPct = yieldPct ? (100 - yieldPct) / 100 : 0;
-            const rawFromLoss = yieldPct ? Math.ceil(data.quantity_to_produce * (1 + lossPct)) : data.quantity_to_produce;
+            // Raw input = finished ÷ yield% (exact gross-up so expected output equals target)
+            const rawFromLoss = yieldPct ? Math.ceil(data.quantity_to_produce / (yieldPct / 100)) : data.quantity_to_produce;
 
             if (firstStepKey === "blending" && product?.blend_batch_lbs && yieldPct) {
               const numBatches = Math.ceil(rawFromLoss / product.blend_batch_lbs);
