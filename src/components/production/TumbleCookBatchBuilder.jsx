@@ -16,28 +16,21 @@ const RACKS_PER_COOK_BATCH = 3;
 function calcCookBatches(totalLbs, lbsPerBatch, lbsPerRack) {
   if (!lbsPerBatch || !lbsPerRack || lbsPerBatch <= 0 || lbsPerRack <= 0) return [];
 
-  const tumbleBatches = Math.ceil(totalLbs / lbsPerBatch);
+  // Total racks across the whole run, kept fractional (e.g. 800 lbs / 320 = 2.5 racks per tumble batch).
+  let remainingRacks = totalLbs / lbsPerRack;
   const batches = [];
-  let remaining = totalLbs;
 
-  for (let t = 0; t < tumbleBatches; t++) {
-    const thisBatchLbs = Math.min(lbsPerBatch, remaining);
-    const thisRacks = Math.ceil(thisBatchLbs / lbsPerRack);
-    const thisCookBatches = Math.max(1, Math.floor(thisRacks / RACKS_PER_COOK_BATCH));
-
-    for (let c = 0; c < thisCookBatches; c++) {
-      const racksInThis = c < thisCookBatches - 1 ? RACKS_PER_COOK_BATCH : (thisRacks - c * RACKS_PER_COOK_BATCH);
-      const lbsInThis = Math.min(racksInThis * lbsPerRack, thisBatchLbs);
-      batches.push({
-        cookBatchNum: batches.length + 1,
-        tumbleBatchNum: t + 1,
-        racks: Math.min(racksInThis, RACKS_PER_COOK_BATCH),
-        lbs: parseFloat(lbsInThis.toFixed(2)),
-        isPartial: false,
-        actualLbs: null, // null means use full lbs
-      });
-    }
-    remaining -= thisBatchLbs;
+  // Fill 3 racks per smokehouse cook batch, carrying fractional racks across tumble batches.
+  while (remainingRacks > 0.0001) {
+    const racksInThis = Math.min(RACKS_PER_COOK_BATCH, remainingRacks);
+    batches.push({
+      cookBatchNum: batches.length + 1,
+      racks: parseFloat(racksInThis.toFixed(2)),
+      lbs: parseFloat((racksInThis * lbsPerRack).toFixed(2)),
+      isPartial: false,
+      actualLbs: null, // null means use full lbs
+    });
+    remainingRacks -= racksInThis;
   }
 
   return batches;
@@ -184,8 +177,8 @@ function CookBatchRow({ batch, lotPrefix, index, product, onChange }) {
  *   onChange   – (cookPlan | null) => void
  */
 export default function TumbleCookBatchBuilder({ totalLbs, product, cookPlan, onChange }) {
-  const [lbsPerBatch, setLbsPerBatch] = useState(cookPlan?.lbsPerBatch || product?.tumble_batch_lbs || "");
-  const [lbsPerRack, setLbsPerRack] = useState(cookPlan?.lbsPerRack || product?.tumble_lbs_per_rack || "");
+  const [lbsPerBatch, setLbsPerBatch] = useState(cookPlan?.lbsPerBatch || product?.tumble_batch_lbs || 800);
+  const [lbsPerRack, setLbsPerRack] = useState(cookPlan?.lbsPerRack || product?.tumble_lbs_per_rack || 320);
   const [lotPrefix, setLotPrefix] = useState(cookPlan?.lotPrefix || "");
   const [batchRows, setBatchRows] = useState(null); // null = not yet built
 
@@ -284,7 +277,7 @@ export default function TumbleCookBatchBuilder({ totalLbs, product, cookPlan, on
                 step="0.1"
                 value={lbsPerBatch}
                 onChange={e => setLbsPerBatch(e.target.value)}
-                placeholder="e.g. 300"
+                placeholder="e.g. 800"
                 className="h-10 text-sm"
               />
             </div>
@@ -295,7 +288,7 @@ export default function TumbleCookBatchBuilder({ totalLbs, product, cookPlan, on
                 step="0.1"
                 value={lbsPerRack}
                 onChange={e => setLbsPerRack(e.target.value)}
-                placeholder="e.g. 100"
+                placeholder="e.g. 320"
                 className="h-10 text-sm"
               />
             </div>
