@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import StatusBadge from "@/components/shared/StatusBadge";
 import POFormDialog from "@/components/po/POFormDialog";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/components/ui/use-toast";
 import {
@@ -133,8 +133,8 @@ export default function PurchaseOrders() {
                    <TableRow key={po.id}>
                      <TableCell className="font-medium">{po.po_number}</TableCell>
                      <TableCell>{po.supplier}</TableCell>
-                     <TableCell>{po.order_date ? format(new Date(po.order_date), 'MMM dd, yyyy') : '-'}</TableCell>
-                     <TableCell>{po.expected_delivery_date ? format(new Date(po.expected_delivery_date), 'MMM dd, yyyy') : '-'}</TableCell>
+                     <TableCell>{po.order_date ? format(parseISO(po.order_date), 'MMM dd, yyyy') : '-'}</TableCell>
+                     <TableCell>{po.expected_delivery_date ? format(parseISO(po.expected_delivery_date), 'MMM dd, yyyy') : '-'}</TableCell>
                      <TableCell>{(po.line_items?.reduce((sum, item) => sum + (item.quantity_lbs || 0), 0) || 0).toFixed(2)} lbs</TableCell>
                      <TableCell><StatusBadge status={po.status} /></TableCell>
                      <TableCell>
