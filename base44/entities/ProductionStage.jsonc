@@ -76,6 +76,10 @@
       "type": "string",
       "description": "Cook batch lot number"
     },
+    "batch_tag": {
+      "type": "string",
+      "description": "Stable per-blend-batch tag (e.g. blend-batch-1) used to pair chopping/mixer/linking stages across steps in the kielbasa flow"
+    },
     "pork_lot_number": {
       "type": "string",
       "description": "Pork batch lot (kielbasa flow) / active lot JSON store (sous vide)"

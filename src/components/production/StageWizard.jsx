@@ -427,7 +427,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
 
           const porkLotNumber = porkIngredients[0]?.lot_allocations?.[0]?.lot_number || `${blendOutputLot}-PORK`;
 
-          if (hasMixerStep && porkLbs > 0 && beefLbs > 0) {
+          if (hasMixerStep) {
             // ── Kielbasa flow: route beef to chopping, pork to mixer ──
             // Use a stable per-batch tag so chopping completion can find its paired mixer
             const batchTag = `blend-batch-${currentBatch.batchNumber}`;
@@ -452,7 +452,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
                 input_qty_lbs: parseFloat(beefLbs.toFixed(2)),
                 input_lot_number: beefLotNumber,
                 // Tag so chopping completion can find this batch's paired mixer
-                notes: batchTag,
+                batch_tag: batchTag,
               });
             }
 
@@ -473,13 +473,17 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
                 input_qty_lbs: parseFloat(porkLbs.toFixed(2)),
                 input_lot_number: porkLotNumber,
                 // Tag so chopping can find this exact mixer when unlocking it
-                notes: batchTag,
+                batch_tag: batchTag,
               });
             }
 
-            // Create the linking stage for this batch (locked — unlocked by mixer output)
+            // Create the linking stage for this batch (locked — unlocked by mixer output).
+            // input_qty_lbs is set to 0 here; the mixer completion fills in the real combined qty.
+            // If there is no mixer for this batch (all-beef, no pork), the linking stage is
+            // unlocked directly with the beef qty so the flow doesn't stall.
             const linkingStep = nextFlow?.steps?.find(s => s.capability_key === "linking");
             if (linkingStep) {
+              const hasMixer = porkLbs > 0;
               await base44.entities.ProductionStage.create({
                 order_id: stage.order_id,
                 order_number: stage.order_number,
@@ -490,11 +494,11 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
                 capability_name: linkingStep.capability_name,
                 work_profile_id: linkingStep.work_profile_id || "",
                 work_profile_name: linkingStep.work_profile_name || "",
-                status: "locked", // unlocked by mixer completion
-                input_qty_lbs: parseFloat((porkLbs + beefLbs).toFixed(2)),
-                input_lot_number: porkLotNumber, // will be replaced by mixer output lot
+                status: hasMixer ? "locked" : "available", // unlocked by mixer, or immediately if no mixer
+                input_qty_lbs: hasMixer ? 0 : parseFloat(beefLbs.toFixed(2)),
+                input_lot_number: hasMixer ? "" : beefLotNumber, // replaced by mixer output lot when mixer runs
                 // Tag so mixer completion can find this stage to update
-                notes: batchTag,
+                batch_tag: batchTag,
               });
             }
           } else {
@@ -646,6 +650,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
         const order = await base44.entities.ProductionOrder.filter({ id: stage.order_id }).then(r => r?.[0]);
         if (order) {
           const nextFlow = await base44.entities.ProductFlow.filter({ id: order.flow_id }).then(r => r?.[0]);
+          const linkingStep = nextFlow?.steps?.find(s => s.capability_key === "linking");
           const cookStep = nextFlow?.steps?.find(s => s.capability_key === "cooking");
           if (cookStep) {
             // Check if a cooking stage already exists for this cook batch lot
@@ -669,6 +674,8 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
                 input_qty_lbs: cookBatch.totalQty,
                 input_lot_number: cookBatch.lotNumber,
                 cook_batch_lot: cookBatch.lotNumber,
+                // Carry rack count from the linking step config (racks_per_batch)
+                racks_count: linkingStep?.racks_per_batch || 0,
               });
             }
           }
@@ -913,14 +920,14 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
               capability_key: "linking",
             });
             // Match by batch tag if available, else fall back to all unassigned linking stages
-            const batchTagFromNotes = stage.notes?.match(/blend-batch-\d+/)?.[0] || null;
+            const batchTagFromNotes = stage.batch_tag || stage.notes?.match(/blend-batch-\d+/)?.[0] || null;
             // Linking stages are "locked" when created by blending; mixer unlocks them
             const targetLinking = linkingStages.filter(s =>
               (s.status === "locked" || s.status === "available" || s.status === "in_progress") &&
               !s.cook_batch_lot
             );
             const pairedLinking = batchTagFromNotes
-              ? targetLinking.filter(s => s.notes?.includes(batchTagFromNotes))
+              ? targetLinking.filter(s => (s.batch_tag || s.notes || "").includes(batchTagFromNotes))
               : targetLinking;
             // If tag match found, update those; otherwise update all unassigned (single-batch flow)
             const stagesToUpdate = pairedLinking.length > 0 ? pairedLinking : targetLinking;
@@ -1101,9 +1108,9 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
                 order_id: stage.order_id,
                 capability_key: "mixer",
               });
-              const batchTagFromNotes = stage.notes?.match(/blend-batch-\d+/)?.[0] || null;
+              const batchTagFromNotes = stage.batch_tag || stage.notes?.match(/blend-batch-\d+/)?.[0] || null;
               const lockedMixerStage = batchTagFromNotes
-                ? existingMixerStages.find(s => s.status === "locked" && s.notes?.includes(batchTagFromNotes))
+                ? existingMixerStages.find(s => s.status === "locked" && (s.batch_tag || s.notes || "").includes(batchTagFromNotes))
                 : existingMixerStages.find(s => s.status === "locked");
               if (lockedMixerStage) {
                 await base44.entities.ProductionStage.update(lockedMixerStage.id, {
