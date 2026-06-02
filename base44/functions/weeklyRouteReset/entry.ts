@@ -10,9 +10,6 @@ Deno.serve(async (req) => {
     const orders = await base44.asServiceRole.entities.SalesOrder.list();
     const routedOrders = orders.filter(o => o.route && o.status !== "cancelled");
 
-    // Fetch finished goods buckets for inventory deduction
-    const buckets = await base44.asServiceRole.entities.FinishedGoodsBucket.list();
-
     let archivedCount = 0;
     const timestamp = new Date().toLocaleDateString();
 
@@ -31,7 +28,7 @@ Deno.serve(async (req) => {
 
     return Response.json({
       success: true,
-      message: `Daily route close-out complete. ${archivedCount} order(s) archived, inventory consumed.`,
+      message: `Daily route close-out complete. ${archivedCount} order(s) route cleared.`,
       count: archivedCount,
     });
   } catch (error) {

@@ -25,12 +25,13 @@ Deno.serve(async (req) => {
       const { bucket_id, actual_lbs, bucket_name } = ing;
       if (!bucket_id || !actual_lbs) continue;
 
-      // FIFO: fetch oldest available lots in this bucket
-      const lots = await base44.asServiceRole.entities.RawInventory.filter(
-        { bucket_id, status: 'available' },
+      // FIFO: fetch oldest available AND in_use lots (in_use means partially consumed but has remaining qty)
+      const allLots = await base44.asServiceRole.entities.RawInventory.filter(
+        { bucket_id },
         'received_date',
         100
       );
+      const lots = allLots.filter(l => (l.status === 'available' || l.status === 'in_use') && (l.available_qty || 0) > 0);
 
       let remaining = actual_lbs;
 

@@ -34,6 +34,11 @@ export default function FulfillmentDialog({ open, order, onClose, onFulfilled })
     queryFn: () => base44.entities.InventoryItem.filter({ status: "available" }),
   });
 
+  const { data: fgBuckets = [] } = useQuery({
+    queryKey: ["fgBuckets-all"],
+    queryFn: () => base44.entities.FinishedGoodsBucket.list(),
+  });
+
   // Auto-pick FIFO on load
   useEffect(() => {
     if (!open || !inventory.length) return;
@@ -88,18 +93,46 @@ export default function FulfillmentDialog({ open, order, onClose, onFulfilled })
         return { ...item, fulfilled_lots: alloc?.picks || [] };
       });
 
-      // Deduct inventory
+      // Deduct from InventoryItem (lot-level) + FinishedGoodsBucket (cases/lbs on hand)
       for (const alloc of lineAllocations) {
         for (const pick of alloc.picks) {
           if (!pick.inventory_item_id || !pick.qty_lbs_taken) continue;
           const invItem = inventory.find(i => i.id === pick.inventory_item_id);
           if (!invItem) continue;
+
+          // 1. Deduct InventoryItem
           const newQty = (invItem.quantity_lbs || 0) - pick.qty_lbs_taken;
           const newStatus = newQty <= 0 ? "shipped" : "available";
           await base44.entities.InventoryItem.update(pick.inventory_item_id, {
             quantity_lbs: Math.max(0, newQty),
             status: newStatus,
           });
+
+          // 2. Deduct matching lot in FinishedGoodsBucket (FIFO — find bucket by product_id)
+          const bucket = fgBuckets.find(b => b.product_id === invItem.product_id);
+          if (bucket) {
+            const lbsToDeduct = pick.qty_lbs_taken;
+            const caseWeight = bucket.case_weight_lbs || 0;
+            const casesToDeduct = caseWeight > 0 ? Math.round(lbsToDeduct / caseWeight) : 0;
+            const updatedLots = (bucket.lots || []).map(lot => {
+              if (lot.lot_number === invItem.lot_number && lot.status === "available") {
+                const newLotQty = Math.max(0, (lot.quantity_lbs || 0) - lbsToDeduct);
+                const newLotCases = Math.max(0, (lot.cases || 0) - casesToDeduct);
+                return {
+                  ...lot,
+                  quantity_lbs: parseFloat(newLotQty.toFixed(2)),
+                  cases: newLotCases,
+                  status: newLotQty <= 0 ? "shipped" : "available",
+                };
+              }
+              return lot;
+            });
+            await base44.entities.FinishedGoodsBucket.update(bucket.id, {
+              quantity_lbs: parseFloat(Math.max(0, (bucket.quantity_lbs || 0) - lbsToDeduct).toFixed(2)),
+              cases_on_hand: Math.max(0, (bucket.cases_on_hand || 0) - casesToDeduct),
+              lots: updatedLots,
+            });
+          }
         }
       }
 
@@ -113,6 +146,8 @@ export default function FulfillmentDialog({ open, order, onClose, onFulfilled })
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["inventoryItems-available"] });
+      queryClient.invalidateQueries({ queryKey: ["fgBuckets-all"] });
+      queryClient.invalidateQueries({ queryKey: ["fg_buckets"] });
       onFulfilled();
     },
   });
