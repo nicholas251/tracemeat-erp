@@ -1,25 +1,9 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import IngredientLotPicker from "../blending/IngredientLotPicker";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
-import {
-  CheckCircle2, ChevronRight, ChevronLeft, Play,
-  Package, Thermometer, Clock, Layers, AlertCircle, FlaskConical
-} from "lucide-react";
-import LinkingCookBatchBuilder from "./LinkingCookBatchBuilder";
-import TumbleCookBatchBuilder from "./TumbleCookBatchBuilder";
-import RackingCookBatchBuilder from "./RackingCookBatchBuilder";
-import SpiceMixLotPicker from "./SpiceMixLotPicker";
-import ProductSplitAllocator from "./ProductSplitAllocator";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Package, Thermometer, Layers, FlaskConical } from "lucide-react";
+import { IntroStep, BatchConfirmStep, MeasureStep, FinalStep } from "./StageWizardSteps";
 
 // ─── Stage icon map ───────────────────────────────────────────────────────────
 const STAGE_ICONS = {
@@ -27,6 +11,7 @@ const STAGE_ICONS = {
   chopping: FlaskConical,
   linking: Layers,
   racking: Layers,
+  racking_product: Layers,
   tumble: Thermometer,
   tumbling: Thermometer,
   mixer: Package,
@@ -66,7 +51,7 @@ function buildIngredientBatchesMultiple(stage, product, capKey, numBatches) {
 }
 
 // ─── Build measurement steps for cooking / chilling / linking / packaging ────
-function buildMeasurementSteps(stage, product, capKey, casingBuckets = []) {
+function buildMeasurementSteps(stage, product, capKey, casingBuckets = [], rackingFollows = false) {
   const steps = [];
 
   if (capKey === "chopping") {
@@ -101,16 +86,20 @@ function buildMeasurementSteps(stage, product, capKey, casingBuckets = []) {
 
   if (capKey === "tumble" || capKey === "tumbling") {
     const spiceQty = stage?.spice_mix_qty_lbs || product?.tumble_spice_qty_lbs || 0;
-    steps.push({
-      id: "tumble",
-      label: "Tumbling",
-      fields: [
-        { key: "spice_mix", label: "Spice Mix Added", type: "spice_mix_picker", requiredLbs: spiceQty, filterSpiceMixId: product?.chop_spice_mix_id },
-        { key: "duration_minutes", label: "Tumble Duration (minutes)", type: "number" },
-        { key: "notes", label: "Notes / Observations", type: "textarea" },
-        // output qty / lot / cook batch plan handled by TumbleCookBatchBuilder embedded in MeasureStep
-      ],
-    });
+    // When racking follows tumbling, tumbling is a simple seasoning step (racking controls
+    // cook batch splitting). Otherwise the TumbleCookBatchBuilder handles output/lot/racks.
+    const fields = [
+      { key: "spice_mix", label: "Spice Mix Added", type: "spice_mix_picker", requiredLbs: spiceQty, filterSpiceMixId: product?.chop_spice_mix_id },
+      { key: "duration_minutes", label: "Tumble Duration (minutes)", type: "number" },
+    ];
+    if (rackingFollows) {
+      fields.push(
+        { key: "output_qty_lbs", label: "Output Qty (lbs)", type: "number", defaultValue: stage?.input_qty_lbs },
+        { key: "output_lot_number", label: "Tumbled Lot #", type: "text", placeholder: "e.g. TUMBLE-2024-001" },
+      );
+    }
+    fields.push({ key: "notes", label: "Notes / Observations", type: "textarea" });
+    steps.push({ id: "tumble", label: "Tumbling", fields });
   }
 
   if (capKey === "mixer") {
@@ -138,7 +127,7 @@ function buildMeasurementSteps(stage, product, capKey, casingBuckets = []) {
     });
   }
 
-  if (capKey === "racking") {
+  if (capKey === "racking" || capKey === "racking_product") {
     steps.push({
       id: "racking",
       label: "Racking",
@@ -210,7 +199,7 @@ function buildMeasurementSteps(stage, product, capKey, casingBuckets = []) {
     }
 
   // Generic fallback for any capability not explicitly handled above
-  const knownKeys = ["chopping", "linking", "cooking", "chilling", "packaging", "racking", "tumble", "tumbling", "mixer"];
+  const knownKeys = ["chopping", "linking", "cooking", "chilling", "packaging", "racking", "racking_product", "tumble", "tumbling", "mixer"];
   if (!knownKeys.includes(capKey)) {
     steps.push({
       id: "generic",
@@ -257,6 +246,26 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
     queryFn: () => base44.entities.InventoryBucket.filter({ category: "casing" }),
     enabled: open && capKey === "linking",
   });
+
+  // For tumble stages: detect whether a racking step immediately follows (so tumbling
+  // becomes a simple seasoning step and racking controls cook-batch splitting).
+  const { data: wizardFlow = null } = useQuery({
+    queryKey: ["wizardFlow", stage?.order_id],
+    queryFn: async () => {
+      const orders = await base44.entities.ProductionOrder.filter({ id: stage.order_id });
+      const order = orders[0];
+      if (!order?.flow_id) return null;
+      const flows = await base44.entities.ProductFlow.filter({ id: order.flow_id });
+      return flows[0] || null;
+    },
+    enabled: open && !!stage && (capKey === "tumble" || capKey === "tumbling"),
+  });
+  const rackingFollows = (() => {
+    if (!wizardFlow?.steps) return false;
+    const sorted = [...wizardFlow.steps].sort((a, b) => a.step_number - b.step_number);
+    const next = sorted.find(s => s.step_number > stage.step_number);
+    return next?.capability_key === "racking" || next?.capability_key === "racking_product";
+  })();
 
   const { data: cureBucket = null } = useQuery({
     queryKey: ["cureBucket", product?.cure_bucket_id],
@@ -306,7 +315,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
 
   // For measurement stages
   const measureSteps = !usesIngredientBatches
-    ? buildMeasurementSteps(stage, product, capKey, casingBuckets)
+    ? buildMeasurementSteps(stage, product, capKey, casingBuckets, rackingFollows)
     : [];
 
   // ── Navigation boundaries ──
@@ -543,6 +552,71 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
           // Advance to the next batch step
           setStep(s => s + 1);
         }
+      } else if ((capKey === "tumble" || capKey === "tumbling") && rackingFollows) {
+        // ── Tumble (seasoning only): racking controls cook batches. Create ONE racking stage ──
+        const tumbledQty = form.output_qty_lbs || stage.input_qty_lbs || 0;
+        const tumbledLot = form.output_lot_number || `TUMBLE-${new Date().toISOString().slice(0,10).replace(/-/g,"")}`;
+        await base44.entities.ProductionStage.update(stage.id, {
+          status: "completed",
+          completed_at: new Date().toISOString(),
+          output_qty_lbs: tumbledQty,
+          output_lot_number: tumbledLot,
+          spice_mix_id: form.spice_mix_id || "",
+          spice_mix_name: form.spice_mix_name || "",
+          spice_mix_lot_number: form.spice_mix_lot_number || "",
+          spice_mix_qty_lbs: form.spice_mix_qty_lbs || 0,
+          duration_minutes: form.duration_minutes || null,
+        });
+
+        // Deduct spice FIFO if allocated
+        if (form.spice_mix?.lots?.length) {
+          base44.functions.invoke("deductRawInventoryOnBatchComplete", {
+            stage_id: stage.id,
+            ingredients: [{
+              bucket_name: "Spice",
+              actual_lbs: form.spice_mix_qty_lbs || 0,
+              lot_allocations: form.spice_mix.lots,
+            }],
+          }).catch(err => console.warn("Inventory deduction failed:", err));
+        }
+
+        // Create / unlock the racking stage with the full tumbled quantity
+        const sorted = [...(wizardFlow?.steps || [])].sort((a, b) => a.step_number - b.step_number);
+        const rackingStep = sorted.find(s => s.step_number > stage.step_number);
+        if (rackingStep) {
+          const existing = await base44.entities.ProductionStage.filter({
+            order_id: stage.order_id,
+            capability_key: rackingStep.capability_key,
+          });
+          const lockedNext = existing.find(s => s.status === "locked");
+          if (lockedNext) {
+            await base44.entities.ProductionStage.update(lockedNext.id, {
+              status: "available",
+              input_qty_lbs: tumbledQty,
+              input_lot_number: tumbledLot,
+            });
+          } else {
+            await base44.entities.ProductionStage.create({
+              order_id: stage.order_id,
+              order_number: stage.order_number,
+              product_name: stage.product_name,
+              step_number: rackingStep.step_number,
+              capability_id: rackingStep.capability_id,
+              capability_key: rackingStep.capability_key,
+              capability_name: rackingStep.capability_name,
+              work_profile_id: rackingStep.work_profile_id || "",
+              work_profile_name: rackingStep.work_profile_name || "",
+              status: "available",
+              input_qty_lbs: tumbledQty,
+              input_lot_number: tumbledLot,
+            });
+          }
+        }
+
+        queryClient.invalidateQueries({ queryKey: ["allStages"] });
+        queryClient.invalidateQueries({ queryKey: ["productionOrders"] });
+        onCompleted?.();
+        onClose();
       } else if ((capKey === "tumble" || capKey === "tumbling") && cookPlan) {
         // ── Tumble: complete stage, then create one cooking stage per cook batch ──
         const totalOutputLbs = cookPlan.cookBatches.reduce((s, b) => s + b.lbs, 0);
@@ -1141,17 +1215,39 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
               }
             }
           }
-        } else if (capKey === "racking" && nextStage?.status === "locked") {
-          // Racking → Cooking: pass quantity, lot, and total rack count from the cook plan
-          const rackedQty = updates.output_qty_lbs || stage.input_qty_lbs || 0;
-          const rackedLot = updates.output_lot_number || stage.cook_batch_lot || stage.input_lot_number || "";
-          const totalRacks = cookPlan?.cookBatches?.reduce((s, b) => s + (Number(b.racks) || 0), 0) || 0;
-          await base44.entities.ProductionStage.update(nextStage.id, {
-            status: "available",
-            input_qty_lbs: rackedQty,
-            input_lot_number: rackedLot,
-            racks_count: totalRacks,
-          });
+        } else if ((capKey === "racking" || capKey === "racking_product") && cookPlan?.cookBatches?.length) {
+          // Racking → Cooking: create one cooking stage per cook batch (320 lbs/rack, 3 racks/batch).
+          // Each cook batch carries its own lot + rack count all the way to cooking.
+          const rackOrder = await base44.entities.ProductionOrder.filter({ id: stage.order_id }).then(r => r?.[0]);
+          const rackFlow = rackOrder?.flow_id
+            ? await base44.entities.ProductFlow.filter({ id: rackOrder.flow_id }).then(r => r?.[0])
+            : null;
+          const cookStep = rackFlow?.steps?.find(s => s.capability_key === "cooking");
+          if (cookStep) {
+            const existingCook = await base44.entities.ProductionStage.filter({
+              order_id: stage.order_id,
+              capability_key: "cooking",
+            });
+            for (const cb of cookPlan.cookBatches) {
+              if (existingCook.some(s => s.cook_batch_lot === cb.lotNumber)) continue;
+              await base44.entities.ProductionStage.create({
+                order_id: stage.order_id,
+                order_number: stage.order_number,
+                product_name: stage.product_name,
+                step_number: cookStep.step_number,
+                capability_id: cookStep.capability_id,
+                capability_key: cookStep.capability_key,
+                capability_name: cookStep.capability_name,
+                work_profile_id: cookStep.work_profile_id || "",
+                work_profile_name: cookStep.work_profile_name || "",
+                status: "available",
+                input_qty_lbs: cb.lbs,
+                input_lot_number: cb.lotNumber,
+                cook_batch_lot: cb.lotNumber,
+                racks_count: cb.racks,
+              });
+            }
+          }
         } else if (nextStage?.status === "locked") {
           // For other stages: update existing locked stage
           const rawQty = updates.output_qty_lbs || stage.input_qty_lbs || 0;
@@ -1291,674 +1387,4 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
   );
 }
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
-
-function IntroStep({ stage, capKey, stageLabel, resolvedBatches, measureSteps, product, saving, onStart, usesIngredientBatches }) {
-  const isAlreadyStarted = stage?.status === "in_progress";
-  return (
-    <div className="space-y-5">
-      <div className="rounded-xl bg-chart-1/10 border border-chart-1/20 p-5 space-y-4">
-        <div>
-          <p className="font-bold text-chart-1 text-base">
-            {isAlreadyStarted ? `Continue ${stageLabel}` : `Ready to start ${stageLabel}`}
-          </p>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            <span className="font-semibold text-foreground">{stage?.input_qty_lbs} lbs</span> entering this stage
-          </p>
-        </div>
-
-        {usesIngredientBatches && resolvedBatches && (
-          <div className="space-y-2">
-            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Batches to Complete</p>
-            {resolvedBatches.map(b => (
-              <div key={b.batchNumber} className="flex items-center gap-3 bg-white/50 rounded-lg px-3 py-2.5">
-                <span className="w-7 h-7 rounded-full bg-chart-1/20 text-chart-1 text-sm flex items-center justify-center font-bold shrink-0">{b.batchNumber}</span>
-                <span className="font-semibold text-sm">{b.batchLbs} lbs</span>
-                <span className="text-muted-foreground text-sm">· {b.ingredients.length} ingredient{b.ingredients.length !== 1 ? "s" : ""}</span>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {!usesIngredientBatches && measureSteps.length > 0 && (
-          <div className="space-y-2">
-            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Steps in this stage</p>
-            {measureSteps.map((s, i) => (
-              <div key={s.id} className="flex items-center gap-3 bg-white/50 rounded-lg px-3 py-2.5">
-                <span className="w-7 h-7 rounded-full bg-chart-1/20 text-chart-1 text-sm flex items-center justify-center font-bold shrink-0">{i + 1}</span>
-                <span className="text-sm font-medium">{s.label}</span>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {usesIngredientBatches && !resolvedBatches && (
-          <p className="text-sm text-muted-foreground">Loading batch plan...</p>
-        )}
-      </div>
-
-      <Button
-        className="w-full h-12 text-base gap-2 font-semibold"
-        onClick={onStart}
-        disabled={saving || (usesIngredientBatches && !resolvedBatches)}
-      >
-        <Play className="w-5 h-5" />
-        {isAlreadyStarted ? `Continue ${stageLabel}` : `Start ${stageLabel}`}
-      </Button>
-    </div>
-  );
-}
-
-function BatchConfirmStep({ batch, batchIdx, totalBatches, progressPct, onUpdateIngredient, onConfirmIngredient, allConfirmed, onBack, onComplete, saving }) {
-  return (
-    <div className="space-y-5">
-      <ProgressBar current={batch.batchNumber} total={totalBatches} pct={progressPct} label="Batch" />
-
-      <div className="rounded-xl bg-muted/40 border px-4 py-3 flex items-center justify-between">
-        <div>
-          <p className="font-bold text-base">Blend Batch #{batch.batchNumber}</p>
-          <p className="text-sm text-muted-foreground">{batch.batchLbs} lbs</p>
-        </div>
-        {allConfirmed && (
-          <CheckCircle2 className="w-5 h-5 text-chart-2" />
-        )}
-      </div>
-
-      {batch.ingredients.length > 0 && (
-        <div className="space-y-3">
-          <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Confirm each ingredient</p>
-          {batch.ingredients.map((ing, ingIdx) => (
-            <Card key={ingIdx} className={`border-2 transition-colors ${ing.confirmed ? "border-chart-2/40 bg-chart-2/5" : "border-border"}`}>
-              <CardContent className="p-4">
-                <IngredientLotPicker
-                  ing={ing}
-                  disabled={ing.confirmed}
-                  onChange={(field, value) => onUpdateIngredient(batchIdx, ingIdx, field, value)}
-                  onConfirm={() => onConfirmIngredient(batchIdx, ingIdx)}
-                />
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
-
-      <div className="flex gap-3 pt-1">
-        <Button variant="outline" className="gap-2 h-11 px-5" onClick={onBack} disabled={saving}>
-          <ChevronLeft className="w-4 h-4" /> Back
-        </Button>
-        <Button
-          className="flex-1 gap-2 h-11 text-base font-semibold bg-chart-2 hover:bg-chart-2/90"
-          disabled={!allConfirmed || saving}
-          onClick={onComplete}
-        >
-          <CheckCircle2 className="w-4 h-4" />
-          {saving ? "Saving…" : `Complete Batch #${batch.batchNumber}`}
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form, setForm, casingBuckets, cureInventory = [], compatibleHotdogProducts = [], capKey, stage, product, cookBatch, setCookBatch, cookPlan, setCookPlan, onBack, onNext, isLast, autoCalculatedCases = 0 }) {
-  const [spiceShortNotes, setSpiceShortNotes] = React.useState("");
-  const [caseWeights, setCaseWeights] = React.useState(form.case_weights || []);
-
-  // Auto-populate fields with defaultValue when first entering this step
-  // Also handle temperature conversion from Celsius to Fahrenheit for cooking/chilling
-  React.useEffect(() => {
-    const defaults = {};
-    for (const field of stepDef.fields) {
-      if (field.defaultValue !== undefined && (form[field.key] === undefined || form[field.key] === "")) {
-        defaults[field.key] = field.defaultValue;
-      }
-      // Convert Celsius to Fahrenheit for display in cooking/chilling stages
-      if (field.key === "temperature_f" && stage?.temperature_c && !form.temperature_f) {
-        defaults[field.key] = parseFloat(((stage.temperature_c * 9/5) + 32).toFixed(2));
-      }
-    }
-    if (Object.keys(defaults).length > 0) {
-      setForm(f => ({ ...defaults, ...f }));
-    }
-  }, [stepDef.id]);
-  const isLinking = capKey === "linking" && stepDef.id === "linking";
-  const isTumble = (capKey === "tumble" || capKey === "tumbling") && stepDef.id === "tumble";
-  const isRacking = capKey === "racking" && stepDef.id === "racking";
-  const isPackaging = capKey === "packaging" && stepDef.id === "packaging" && product?.varied_weights;
-  const isMixerInputs = capKey === "mixer" && stepDef.id === "mixer_inputs";
-
-  // Check if spice is short and notes are required
-  const spiceField = stepDef.fields.find(f => f.type === "spice_mix_picker");
-  const spiceValue = spiceField ? form[spiceField.key] : null;
-  const spiceTotalAllocated = spiceValue?.lots
-    ? spiceValue.lots.reduce((s, l) => s + (Number(l.spice_mix_qty_lbs) || 0), 0)
-    : (Number(spiceValue?.spice_mix_qty_lbs) || 0);
-  const spiceRequired = spiceField?.requiredLbs || 0;
-  const spiceIsShort = spiceRequired > 0 && spiceTotalAllocated > 0 && spiceTotalAllocated < spiceRequired - 0.001;
-  const spiceBlocksNext = spiceIsShort && !spiceShortNotes?.trim();
-
-  // Check if low temperature requires notes (cooking stage)
-  const isCookStage = capKey === "cooking" && stepDef.id === "cook";
-  const tempTooLow = isCookStage && form.temperature_f !== undefined && form.temperature_f !== "" && Number(form.temperature_f) < 165;
-  const lowTempBlocksNext = tempTooLow && !form.notes?.trim();
-
-  const canProceed = isLinking ? !!cookBatch
-     : isTumble ? !!cookPlan
-     : isRacking ? !!cookPlan
-     : isPackaging ? (form.case_count > 0 && caseWeights.length === parseInt(form.case_count))
-     : isMixerInputs ? (!!form.pork_lot_confirmed && (stage?.binder_lot_number ? !!form.binder_lot_confirmed : false))
-     : isCookStage ? !lowTempBlocksNext
-     : !spiceBlocksNext;
-
-  return (
-    <div className="space-y-5">
-      <ProgressBar current={stepIndex + 1} total={totalSteps} pct={progressPct} label="Step" />
-
-      <div className="rounded-xl bg-muted/40 border px-4 py-3">
-        <p className="font-bold text-base">{stepDef.label}</p>
-        <p className="text-xs text-muted-foreground mt-0.5">Step {stepIndex + 1} of {totalSteps}</p>
-      </div>
-
-      {stepDef.fields.length > 0 && (
-        <div className="space-y-4">
-          {stepDef.fields.map(field => (
-           <FieldInput
-             key={field.key}
-             field={field}
-             value={form[field.key]}
-             casingBuckets={casingBuckets}
-             cureInventory={cureInventory}
-             compatibleHotdogProducts={compatibleHotdogProducts}
-             totalLbs={form.output_qty_lbs || stage?.input_qty_lbs || 0}
-             remainingCases={capKey === "packaging" ? autoCalculatedCases - (Number(form.packages_produced) || 0) : 0}
-             spiceShortNotes={spiceShortNotes}
-             onSpiceShortNotesChange={setSpiceShortNotes}
-             onChange={val => {
-                if (field.type === "spice_mix_picker") {
-                  // Spread spice mix sub-fields onto form for easy saving
-                  setForm(f => ({
-                    ...f,
-                    spice_mix: val,
-                    spice_mix_id: val.spice_mix_id || "",
-                    spice_mix_name: val.spice_mix_name || "",
-                    spice_mix_lot_number: val.spice_mix_lot_number || "",
-                    spice_mix_qty_lbs: val.spice_mix_qty_lbs || 0,
-                  }));
-                } else {
-                  setForm(f => ({ ...f, [field.key]: val }));
-                }
-              }}
-              onCasingSelect={(id, name) => setForm(f => ({ ...f, casing_bucket_id: id, casing_bucket_name: name }))}
-            />
-          ))}
-        </div>
-      )}
-
-      {/* Low temperature warning for cooking stage */}
-      {isCookStage && tempTooLow && (
-        <div className="rounded-lg border-2 border-amber-400 bg-amber-50 p-3 space-y-2">
-          <div className="flex items-start gap-2">
-            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-            <div>
-              <p className="text-sm font-semibold text-amber-900">Temperature Below 165°F</p>
-              <p className="text-xs text-amber-800 mt-0.5">Notes are required for temperatures below 165°F safety threshold.</p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Mixer batch merge summary */}
-      {isMixerInputs && (
-        <div className="rounded-xl border border-chart-1/30 bg-chart-1/5 p-4 space-y-3">
-          <p className="text-xs font-bold text-chart-1 uppercase tracking-wider">Batches Being Combined</p>
-          <div className="space-y-2">
-            <div className="flex items-center justify-between bg-white/60 rounded-lg px-3 py-2 text-sm">
-              <div>
-                <span className="font-semibold">Pork Batch</span>
-                <span className="text-muted-foreground text-xs ml-2">from Blending</span>
-              </div>
-              <span className="font-mono text-xs font-bold">{stage?.pork_lot_number || stage?.input_lot_number || "—"}</span>
-            </div>
-            <div className="flex items-center justify-between bg-white/60 rounded-lg px-3 py-2 text-sm">
-              <div>
-                <span className="font-semibold">Binder Batch</span>
-                <span className="text-muted-foreground text-xs ml-2">from Bowl Chopper</span>
-              </div>
-              <span className="font-mono text-xs font-bold">{stage?.binder_lot_number || "awaiting chopper"}</span>
-            </div>
-          </div>
-          <p className="text-xs text-muted-foreground">Both batches must be confirmed before proceeding to mix.</p>
-        </div>
-      )}
-
-      {/* Cook batch builder — linking step */}
-      {isLinking && (
-        <LinkingCookBatchBuilder
-          stage={stage}
-          cookBatch={cookBatch}
-          onChange={setCookBatch}
-        />
-      )}
-
-      {/* Cook batch builder — tumble step */}
-      {isTumble && (
-        <TumbleCookBatchBuilder
-          totalLbs={stage?.input_qty_lbs || 0}
-          product={product}
-          cookPlan={cookPlan}
-          onChange={setCookPlan}
-        />
-      )}
-
-      {/* Cook batch builder — racking step */}
-      {isRacking && (
-        <RackingCookBatchBuilder
-          totalLbs={form.output_qty_lbs || stage?.input_qty_lbs || 0}
-          product={product}
-          cookPlan={cookPlan}
-          onChange={setCookPlan}
-        />
-      )}
-
-      {/* Case weights for varied weights products */}
-      {isPackaging && (
-        <div className="space-y-3 rounded-lg border border-border p-4 bg-muted/20">
-          <div>
-            <p className="font-semibold text-sm">Individual Case Weights</p>
-            <p className="text-xs text-muted-foreground">Enter weight for each case ({form.case_count} total)</p>
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-            {Array.from({ length: parseInt(form.case_count) || 0 }).map((_, i) => (
-              <div key={i} className="space-y-1">
-                <label className="text-xs font-medium">Case {i + 1}</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={caseWeights[i]?.weight_lbs || ""}
-                  onChange={(e) => {
-                    const updated = [...caseWeights];
-                    if (!updated[i]) updated[i] = {};
-                    updated[i].weight_lbs = e.target.value ? Number(e.target.value) : 0;
-                    updated[i].case_number = i + 1;
-                    setCaseWeights(updated);
-                    setForm(prev => ({ ...prev, case_weights: updated }));
-                  }}
-                  className="h-8 px-2 border border-input rounded text-sm"
-                  placeholder="lbs"
-                />
-              </div>
-            ))}
-          </div>
-          {caseWeights.length > 0 && (
-            <div className="pt-2 border-t border-border text-xs space-y-1">
-              <p className="text-muted-foreground">Total: <span className="font-semibold text-foreground">{caseWeights.reduce((s, c) => s + (c.weight_lbs || 0), 0).toFixed(2)} lbs</span></p>
-              <p className="text-muted-foreground">Average: <span className="font-semibold text-foreground">{(caseWeights.reduce((s, c) => s + (c.weight_lbs || 0), 0) / caseWeights.length).toFixed(2)} lbs</span></p>
-            </div>
-          )}
-        </div>
-      )}
-
-      <NavButtons
-        onBack={onBack}
-        onNext={onNext}
-        nextDisabled={!canProceed}
-        nextLabel={isLast ? "Review & Complete" : "Next Step"}
-      />
-    </div>
-  );
-}
-
-function FieldInput({ field, value, onChange, casingBuckets = [], cureInventory = [], compatibleHotdogProducts = [], totalLbs = 0, remainingCases = 0, onCasingSelect, spiceShortNotes, onSpiceShortNotesChange }) {
-  if (field.type === "finished_product_split") {
-    return (
-      <ProductSplitAllocator
-        compatibleProducts={compatibleHotdogProducts}
-        splits={value || []}
-        onChange={onChange}
-        totalLbs={totalLbs}
-        remainingCases={remainingCases}
-      />
-    );
-  }
-  if (field.type === "finished_product_select") {
-    return (
-      <div className="space-y-1.5">
-        <Label className="text-sm font-semibold">{field.label}</Label>
-        <Select value={value || ""} onValueChange={onChange}>
-          <SelectTrigger className="h-11">
-            <SelectValue placeholder="Same as original product (default)" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={null}>Same as original product (default)</SelectItem>
-            {compatibleHotdogProducts.map(p => (
-              <SelectItem key={p.id} value={p.id}>
-                {p.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-    );
-  }
-  if (field.type === "spice_mix_picker") {
-    return (
-      <SpiceMixLotPicker
-        label={field.label}
-        requiredLbs={field.requiredLbs || 0}
-        value={value || {}}
-        onChange={onChange}
-        filterSpiceMixId={field.filterSpiceMixId}
-        shortNotes={spiceShortNotes}
-        onShortNotesChange={onSpiceShortNotesChange}
-      />
-    );
-  }
-  if (field.type === "casing_select") {
-    return (
-      <div className="space-y-1.5">
-        <Label className="text-sm font-semibold">{field.label}</Label>
-        <Select value={value || ""} onValueChange={v => {
-          const bucket = (field.options || casingBuckets).find(b => b.id === v);
-          onCasingSelect(v, bucket?.name || "");
-        }}>
-          <SelectTrigger className="h-11"><SelectValue placeholder="Select casings..." /></SelectTrigger>
-          <SelectContent>
-            {(field.options || casingBuckets).map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
-          </SelectContent>
-        </Select>
-      </div>
-    );
-  }
-  if (field.type === "cure_select") {
-    return (
-      <div className="space-y-1.5">
-        <Label className="text-sm font-semibold">{field.label}</Label>
-        <Select value={value || ""} onValueChange={onChange}>
-          <SelectTrigger className="h-11">
-            <SelectValue placeholder={cureInventory.length === 0 ? "No cure inventory" : "Select cure lot..."} />
-          </SelectTrigger>
-          <SelectContent>
-            {cureInventory.length === 0 ? (
-              <div className="px-3 py-2 text-xs text-muted-foreground">No cure inventory available</div>
-            ) : (
-              cureInventory
-                .filter(c => (c.available_qty || 0) > 0)
-                .sort((a, b) => (a.received_date || "") < (b.received_date || "") ? -1 : 1)
-                .map(c => (
-                  <SelectItem key={c.id} value={c.lot_number}>
-                    {c.lot_number} <span className="text-muted-foreground text-xs ml-1">({c.available_qty} lbs)</span>
-                  </SelectItem>
-                ))
-            )}
-          </SelectContent>
-        </Select>
-      </div>
-    );
-  }
-  if (field.type === "spice_select") {
-    // Legacy fallback — replaced by spice_mix_picker; skip gracefully
-    return null;
-  }
-  if (field.type === "boolean") {
-    return (
-      <div className="flex items-center gap-4 rounded-xl border bg-muted/30 px-4 py-3">
-        <Switch checked={!!value} onCheckedChange={onChange} className="scale-125" />
-        <Label className="text-sm font-medium cursor-pointer select-none">{field.label}</Label>
-      </div>
-    );
-  }
-  if (field.type === "textarea") {
-    return (
-      <div className="space-y-1.5">
-        <Label className="text-sm font-semibold">{field.label}</Label>
-        <Textarea
-          value={value || ""}
-          onChange={e => onChange(e.target.value)}
-          className="h-24 text-base"
-          placeholder={field.placeholder || "Any observations..."}
-          disabled={field.disabled}
-        />
-      </div>
-    );
-  }
-  return (
-    <div className="space-y-1.5">
-      <Label className="text-sm font-semibold">{field.label}</Label>
-      <Input
-        type={field.type === "number" ? "number" : "text"}
-        step={field.type === "number" ? "0.1" : undefined}
-        value={value ?? field.defaultValue ?? ""}
-        onChange={e => {
-          let val = field.type === "number" ? Number(e.target.value) : e.target.value;
-          onChange(val);
-        }}
-        placeholder={field.placeholder || ""}
-        className="h-11 text-base"
-        disabled={field.disabled}
-      />
-      {field.hint && <p className="text-xs text-muted-foreground">{field.hint}</p>}
-    </div>
-  );
-}
-
-function FinalStep({ stage, capKey, stageLabel, resolvedBatches, form, cookBatch, cookPlan, saving, onBack, onComplete }) {
-  const isLinking = capKey === "linking";
-  const isTumble = capKey === "tumble" || capKey === "tumbling";
-  const isRacking = capKey === "racking";
-  const isPackaging = capKey === "packaging" && form.case_weights;
-
-  const outputLbs = resolvedBatches
-    ? resolvedBatches.reduce((s, b) => s + b.batchLbs, 0)
-    : isTumble && cookPlan
-      ? cookPlan.cookBatches.reduce((s, b) => s + b.lbs, 0)
-      : form.output_qty_lbs || stage?.input_qty_lbs || 0;
-
-  const canComplete = isLinking ? !!cookBatch : (isTumble || isRacking) ? !!cookPlan : isPackaging ? form.case_weights?.length > 0 : true;
-
-  return (
-    <div className="space-y-5">
-      {/* Summary card */}
-      <div className={`rounded-xl border-2 p-4 space-y-3 ${canComplete ? "border-chart-2/30 bg-chart-2/8" : "border-destructive/30 bg-destructive/5"}`}>
-        <div className="flex items-center gap-2">
-          <CheckCircle2 className={`w-5 h-5 ${canComplete ? "text-chart-2" : "text-muted-foreground"}`} />
-          <p className={`font-bold text-base ${canComplete ? "text-chart-2" : "text-muted-foreground"}`}>
-            {canComplete ? `Ready to complete ${stageLabel}` : `Review required`}
-          </p>
-        </div>
-
-        <div className="flex items-center justify-between bg-white/60 rounded-lg px-3 py-2">
-          <span className="text-sm text-muted-foreground">Output quantity</span>
-          <span className="font-bold text-lg">{outputLbs} lbs</span>
-        </div>
-
-        {isLinking && cookBatch && (
-          <div className="space-y-1.5 pt-1">
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Cook Batch Lot</span>
-              <span className="font-mono font-bold">{cookBatch.lotNumber}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Batch Qty</span>
-              <span className="font-semibold">{cookBatch.totalQty} lbs</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Linking Batches</span>
-              <span className="font-semibold">{cookBatch.selectedStageIds?.length || 1}</span>
-            </div>
-          </div>
-        )}
-        {isLinking && !cookBatch && (
-          <p className="text-sm text-destructive font-medium flex items-center gap-1.5">
-            <AlertCircle className="w-4 h-4" /> No cook batch assembled — go back to build one.
-          </p>
-        )}
-        {capKey === "packaging" && (
-          <div className="space-y-1.5 pt-1">
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Cases (Finished Product)</span>
-              <span className="font-semibold">{form.packages_produced || 0}</span>
-            </div>
-            {form.finished_product_splits && Array.isArray(form.finished_product_splits) && form.finished_product_splits.length > 0 && (
-              <div className="space-y-1 pt-1">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Split Into Products</p>
-                {form.finished_product_splits.map((split, i) => {
-                  const splitData = typeof split === 'string' ? JSON.parse(split) : split;
-                  return (
-                    <div key={i} className="flex items-center justify-between bg-white/60 rounded px-2.5 py-1.5 text-xs">
-                      <span className="font-semibold">{splitData?.product_name || 'Unknown'}</span>
-                      <span className="text-muted-foreground">{splitData?.quantity_cases || 0} cases</span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
-        {isTumble && cookPlan && (
-          <div className="space-y-1.5 pt-1">
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Cook Batches</span>
-              <span className="font-semibold">{cookPlan.cookBatches.length}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Total Racks</span>
-              <span className="font-semibold">{cookPlan.cookBatches.reduce((s, b) => s + b.racks, 0)}</span>
-            </div>
-            <div className="space-y-1 pt-1">
-              {cookPlan.cookBatches.map((b, i) => (
-                <div key={i} className="flex items-center justify-between bg-white/60 rounded px-2.5 py-1.5 text-xs">
-                  <span className="font-mono font-semibold">{b.lotNumber}</span>
-                  <div className="flex gap-2 text-muted-foreground">
-                    <span>{b.racks} racks</span>
-                    <span>·</span>
-                    <span>{b.lbs} lbs</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-        {isTumble && !cookPlan && (
-          <p className="text-sm text-destructive font-medium flex items-center gap-1.5">
-            <AlertCircle className="w-4 h-4" /> No cook batches configured — go back to build them.
-          </p>
-        )}
-        {isRacking && cookPlan && (
-          <div className="space-y-1.5 pt-1">
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Cook Batches</span>
-              <span className="font-semibold">{cookPlan.cookBatches.length}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Total Racks</span>
-              <span className="font-semibold">{cookPlan.cookBatches.reduce((s, b) => s + b.racks, 0)}</span>
-            </div>
-            <div className="space-y-1 pt-1">
-              {cookPlan.cookBatches.map((b, i) => (
-                <div key={i} className="flex items-center justify-between bg-white/60 rounded px-2.5 py-1.5 text-xs">
-                  <span className="font-mono font-semibold">{b.lotNumber}</span>
-                  <div className="flex gap-2 text-muted-foreground">
-                    <span>{b.racks} racks</span>
-                    <span>·</span>
-                    <span>{b.lbs} lbs</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-        {isRacking && !cookPlan && (
-          <p className="text-sm text-destructive font-medium flex items-center gap-1.5">
-            <AlertCircle className="w-4 h-4" /> No cook batches configured — go back to build them.
-          </p>
-        )}
-      </div>
-
-      {/* Batch summary (blending) */}
-      {resolvedBatches && resolvedBatches.map(b => (
-        <div key={b.batchNumber} className="space-y-1.5">
-          <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-            Batch #{b.batchNumber} — {b.batchLbs} lbs
-          </p>
-          <div className="rounded-xl border divide-y text-sm overflow-hidden">
-            {b.ingredients.map((ing, i) => (
-              <div key={i} className="px-3 py-2.5">
-                <div className="flex items-center justify-between">
-                  <span className="font-semibold">{ing.bucket_name}</span>
-                  <span className="text-muted-foreground text-xs font-medium">
-                    {(ing.lot_allocations?.reduce((s, a) => s + (Number(a.actual_lbs) || 0), 0) || 0).toFixed(2)} lbs
-                  </span>
-                </div>
-                {ing.lot_allocations?.map((a, ai) => (
-                  <div key={ai} className="flex justify-between text-xs text-muted-foreground mt-0.5 pl-2">
-                    <span className="font-mono">{a.lot_number}</span>
-                    <span>{a.actual_lbs} lbs</span>
-                  </div>
-                ))}
-              </div>
-            ))}
-          </div>
-        </div>
-      ))}
-
-      {/* Measurement summary */}
-       {!resolvedBatches && Object.keys(form).length > 0 && (
-         <div className="rounded-xl border divide-y text-sm overflow-hidden">
-           {Object.entries(form).filter(([, v]) => v !== "" && v !== null && v !== undefined).map(([k, v]) => {
-             // Skip finished_product_splits as it's already displayed above in packaging section
-             if (k === 'finished_product_splits') return null;
-             // Handle arrays and objects safely
-             if (Array.isArray(v)) return null;
-             if (typeof v === 'object') return null;
-             return (
-               <div key={k} className="flex items-center justify-between px-3 py-2.5">
-                 <span className="text-muted-foreground capitalize">{k.replace(/_/g, " ")}</span>
-                 <span className="font-semibold">{typeof v === "boolean" ? (v ? "Yes" : "No") : String(v)}</span>
-               </div>
-             );
-           })}
-         </div>
-       )}
-
-      <div className="flex gap-3 pt-1">
-        <Button variant="outline" className="gap-2 h-11 px-5" onClick={onBack}>
-          <ChevronLeft className="w-4 h-4" /> Back
-        </Button>
-        <Button
-          className="flex-1 gap-2 h-12 text-base font-bold bg-chart-2 hover:bg-chart-2/90"
-          onClick={onComplete}
-          disabled={saving || !canComplete}
-        >
-          <CheckCircle2 className="w-5 h-5" />
-          {saving ? "Completing…" : `Complete ${stageLabel}`}
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-function ProgressBar({ current, total, pct, label }) {
-  return (
-    <div className="space-y-1.5">
-      <div className="flex justify-between text-xs font-semibold text-muted-foreground">
-        <span>{label} {current} of {total}</span>
-        <span>{pct}%</span>
-      </div>
-      <div className="h-2 rounded-full bg-muted overflow-hidden">
-        <div className="h-full bg-chart-1 rounded-full transition-all duration-300" style={{ width: `${pct}%` }} />
-      </div>
-    </div>
-  );
-}
-
-function NavButtons({ onBack, onNext, nextDisabled, nextLabel }) {
-  return (
-    <div className="flex gap-3 pt-1">
-      <Button variant="outline" className="gap-2 h-11 px-5" onClick={onBack}>
-        <ChevronLeft className="w-4 h-4" /> Back
-      </Button>
-      <Button className="flex-1 gap-2 h-11 font-semibold" disabled={nextDisabled} onClick={onNext}>
-        {nextLabel} <ChevronRight className="w-4 h-4" />
-      </Button>
-    </div>
-  );
-}
+// Sub-components moved to ./StageWizardSteps.jsx
