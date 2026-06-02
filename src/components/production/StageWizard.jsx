@@ -499,19 +499,19 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
             }
           } else {
             // ── Standard flow: create independent stage per batch ──
-            const nextStepNum = (stage.step_number || 1) + 1;
-            const nextStep = nextFlow?.steps?.find(s => s.step_number === nextStepNum);
+            const sortedFlowSteps = [...(nextFlow?.steps || [])].sort((a, b) => a.step_number - b.step_number);
+            const nextStep = sortedFlowSteps.find(s => s.step_number > stage.step_number);
             if (nextStep) {
               await base44.entities.ProductionStage.create({
                 order_id: stage.order_id,
                 order_number: stage.order_number,
                 product_name: stage.product_name,
-                step_number: nextStepNum,
+                step_number: nextStep.step_number,
                 capability_id: nextStep.capability_id,
                 capability_key: nextStep.capability_key,
                 capability_name: nextStep.capability_name,
-                work_profile_id: nextStep.work_profile_id,
-                work_profile_name: nextStep.work_profile_name,
+                work_profile_id: nextStep.work_profile_id || "",
+                work_profile_name: nextStep.work_profile_name || "",
                 status: "available",
                 input_qty_lbs: currentBatch.batchLbs,
                 input_lot_number: blendOutputLot,
@@ -1420,14 +1420,14 @@ function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form, setFor
 
   // Check if low temperature requires notes (cooking stage)
   const isCookStage = capKey === "cooking" && stepDef.id === "cook";
-  const tempTooLow = isCookStage && form.temperature_f < 165;
+  const tempTooLow = isCookStage && form.temperature_f !== undefined && form.temperature_f !== "" && Number(form.temperature_f) < 165;
   const lowTempBlocksNext = tempTooLow && !form.notes?.trim();
 
   const canProceed = isLinking ? !!cookBatch
      : isTumble ? !!cookPlan
      : isRacking ? !!cookPlan
      : isPackaging ? (form.case_count > 0 && caseWeights.length === parseInt(form.case_count))
-     : isMixerInputs ? (!!form.pork_lot_confirmed && !!form.binder_lot_confirmed)
+     : isMixerInputs ? (!!form.pork_lot_confirmed && (stage?.binder_lot_number ? !!form.binder_lot_confirmed : false))
      : isCookStage ? !lowTempBlocksNext
      : !spiceBlocksNext;
 
