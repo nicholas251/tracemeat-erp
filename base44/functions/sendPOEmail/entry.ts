@@ -270,56 +270,35 @@ Best regards,
 Purchase Order System
     `.trim();
 
-    // Get Gmail access token
-    const { accessToken } = await base44.asServiceRole.connectors.getConnection('gmail');
+    // Send via Resend API with PDF attachment
+    const resendApiKey = Deno.env.get('RESEND_API_KEY');
+    if (!resendApiKey) {
+      return Response.json({ error: 'RESEND_API_KEY not configured' }, { status: 500 });
+    }
 
-    // Create MIME multipart message with attachment
-    const boundary = '----boundary_' + Date.now();
-    const message = `From: ${user.email}
-To: ${po.supplier_email}
-Subject: Purchase Order ${po.po_number}
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="${boundary}"
-
---${boundary}
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-
-${emailBody}
-
---${boundary}
-Content-Type: application/pdf; name="PO-${po.po_number}.pdf"
-Content-Disposition: attachment; filename="PO-${po.po_number}.pdf"
-Content-Transfer-Encoding: base64
-
-${pdfBase64}
-
---${boundary}--`;
-
-    // Encode message in base64url (Gmail API requirement)
-    const encodedMessage = btoa(message)
-      .replace(/\+/g, '-')
-      .replace(/\//g, '_')
-      .replace(/=/g, '');
-
-    // Send via Gmail API using gmail.compose scope
-    const response = await fetch(
-      'https://www.googleapis.com/gmail/v1/users/me/messages/send',
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          raw: encodedMessage,
-        }),
-      }
-    );
+    const response = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${resendApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: 'Purchase Orders <orders@mittysfood.com>',
+        to: [po.supplier_email],
+        subject: `Purchase Order ${po.po_number}`,
+        text: emailBody,
+        attachments: [
+          {
+            filename: `PO-${po.po_number}.pdf`,
+            content: pdfBase64,
+          }
+        ],
+      }),
+    });
 
     if (!response.ok) {
       const errorData = await response.json();
-      const errorMessage = errorData.error?.message || 'Failed to send email';
+      const errorMessage = errorData.message || 'Failed to send email';
       return Response.json({ error: errorMessage }, { status: 500 });
     }
 
@@ -327,7 +306,7 @@ ${pdfBase64}
 
     return Response.json({
       success: true,
-      message: 'PO email sent successfully via Gmail',
+      message: 'PO email sent successfully',
       po_number: po.po_number,
       sent_to: po.supplier_email,
       message_id: result.id,
