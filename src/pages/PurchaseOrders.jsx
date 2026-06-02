@@ -160,6 +160,7 @@ export default function PurchaseOrders() {
         onClose={() => { setShowForm(false); setEditingPO(null); }}
         onSave={handleSave}
         po={editingPO}
+        isSaving={createMutation.isPending || updateMutation.isPending}
       />
 
       <AlertDialog open={!!deletingPO} onOpenChange={(open) => !open && setDeletingPO(null)}>

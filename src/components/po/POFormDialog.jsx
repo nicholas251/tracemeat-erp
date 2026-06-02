@@ -13,7 +13,7 @@ import { jsPDF } from "jspdf";
 
 const CATEGORIES = ["beef", "pork", "poultry", "lamb", "seasoning", "casing", "packaging", "additive", "other"];
 
-export default function POFormDialog({ open, onClose, onSave, po }) {
+export default function POFormDialog({ open, onClose, onSave, po, isSaving }) {
   const [suppliers, setSuppliers] = useState([]);
   const [showSaveSupplier, setShowSaveSupplier] = useState(false);
   const [newSupplierName, setNewSupplierName] = useState("");
@@ -35,7 +35,7 @@ export default function POFormDialog({ open, onClose, onSave, po }) {
     ship_to_contact_name: po.ship_to_contact_name || "",
     ship_to_contact_phone: po.ship_to_contact_phone || "",
   } : {
-    po_number: `PO-${Math.floor(Math.random() * 1000000)}`,
+    po_number: "",
     supplier: "",
     supplier_email: "",
     order_date: format(new Date(), 'yyyy-MM-dd'),
@@ -74,9 +74,18 @@ export default function POFormDialog({ open, onClose, onSave, po }) {
           ship_to_contact_phone: po.ship_to_contact_phone || "",
         });
       } else {
-        // Reset form for new PO
+        // Reset form for new PO — assign next sequential PO number
+        base44.entities.PurchaseOrder.list("-created_date", 1000).then(existing => {
+          let maxNum = 0;
+          existing.forEach(p => {
+            const m = (p.po_number || "").match(/PO-(\d+)/);
+            if (m) maxNum = Math.max(maxNum, parseInt(m[1], 10));
+          });
+          const next = `PO-${String(maxNum + 1).padStart(6, "0")}`;
+          setForm(prev => ({ ...prev, po_number: next }));
+        });
         setForm({
-          po_number: `PO-${Math.floor(Math.random() * 1000000)}`,
+          po_number: "",
           supplier: "",
           supplier_email: "",
           order_date: format(new Date(), 'yyyy-MM-dd'),
@@ -125,6 +134,7 @@ export default function POFormDialog({ open, onClose, onSave, po }) {
   };
 
   const handleSave = () => {
+    if (isSaving) return;
     if (!form.po_number || !form.supplier) {
       alert("PO Number and Supplier are required");
       return;
@@ -690,7 +700,7 @@ export default function POFormDialog({ open, onClose, onSave, po }) {
           </div>
 
         <DialogFooter className="flex gap-2">
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button variant="outline" onClick={onClose} disabled={isSaving}>Cancel</Button>
           {po && form.line_items?.length > 0 && (
             <Button
               variant="outline"
@@ -701,7 +711,9 @@ export default function POFormDialog({ open, onClose, onSave, po }) {
               Generate PDF
             </Button>
           )}
-          <Button onClick={handleSave}>{po ? "Update" : "Create"} PO</Button>
+          <Button onClick={handleSave} disabled={isSaving}>
+            {isSaving ? "Saving..." : `${po ? "Update" : "Create"} PO`}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
