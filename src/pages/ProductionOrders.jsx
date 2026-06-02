@@ -112,10 +112,13 @@ export default function ProductionOrders() {
                 // If not set, treat the entire raw input as a single batch.
                 const tumblingBatchSize = product?.tumble_batch_lbs || totalRawInputLbs;
                 const numTumbleBatches = Math.ceil(totalRawInputLbs / tumblingBatchSize);
-                let remaining = totalRawInputLbs;
-                for (let t = 0; t < numTumbleBatches; t++) {
-                  const batchLbs = Math.min(tumblingBatchSize, remaining);
-                  remaining -= batchLbs;
+                // Build batch sizes with full batches first and the smaller (partial) batch at the end
+                const numFullBatches = Math.floor(totalRawInputLbs / tumblingBatchSize);
+                const remainder = parseFloat((totalRawInputLbs - numFullBatches * tumblingBatchSize).toFixed(2));
+                const batchSizes = Array(numFullBatches).fill(tumblingBatchSize);
+                if (remainder > 0) batchSizes.push(remainder);
+                for (let t = 0; t < batchSizes.length; t++) {
+                  const batchLbs = batchSizes[t];
                   await base44.entities.ProductionStage.create({
                     order_id: order.id,
                     order_number: order.order_number,
