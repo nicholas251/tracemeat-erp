@@ -1141,6 +1141,17 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
               }
             }
           }
+        } else if (capKey === "racking" && nextStage?.status === "locked") {
+          // Racking → Cooking: pass quantity, lot, and total rack count from the cook plan
+          const rackedQty = updates.output_qty_lbs || stage.input_qty_lbs || 0;
+          const rackedLot = updates.output_lot_number || stage.cook_batch_lot || stage.input_lot_number || "";
+          const totalRacks = cookPlan?.cookBatches?.reduce((s, b) => s + (Number(b.racks) || 0), 0) || 0;
+          await base44.entities.ProductionStage.update(nextStage.id, {
+            status: "available",
+            input_qty_lbs: rackedQty,
+            input_lot_number: rackedLot,
+            racks_count: totalRacks,
+          });
         } else if (nextStage?.status === "locked") {
           // For other stages: update existing locked stage
           const rawQty = updates.output_qty_lbs || stage.input_qty_lbs || 0;
@@ -1411,7 +1422,7 @@ function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form, setFor
   }, [stepDef.id]);
   const isLinking = capKey === "linking" && stepDef.id === "linking";
   const isTumble = (capKey === "tumble" || capKey === "tumbling") && stepDef.id === "tumble";
-  const isRacking = capKey === "racking" && stepDef.id === "racking" && stage?.flow_name === "Tumbling Protein Flow (Large)";
+  const isRacking = capKey === "racking" && stepDef.id === "racking";
   const isPackaging = capKey === "packaging" && stepDef.id === "packaging" && product?.varied_weights;
   const isMixerInputs = capKey === "mixer" && stepDef.id === "mixer_inputs";
 
@@ -1542,6 +1553,7 @@ function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form, setFor
       {isRacking && (
         <RackingCookBatchBuilder
           totalLbs={form.output_qty_lbs || stage?.input_qty_lbs || 0}
+          product={product}
           cookPlan={cookPlan}
           onChange={setCookPlan}
         />
@@ -1731,7 +1743,7 @@ function FieldInput({ field, value, onChange, casingBuckets = [], cureInventory 
 function FinalStep({ stage, capKey, stageLabel, resolvedBatches, form, cookBatch, cookPlan, saving, onBack, onComplete }) {
   const isLinking = capKey === "linking";
   const isTumble = capKey === "tumble" || capKey === "tumbling";
-  const isRacking = capKey === "racking" && stage?.flow_name === "Tumbling Protein Flow (Large)";
+  const isRacking = capKey === "racking";
   const isPackaging = capKey === "packaging" && form.case_weights;
 
   const outputLbs = resolvedBatches
