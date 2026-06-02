@@ -90,15 +90,22 @@ export default function ProductionOrders() {
             const isSousVideFlow = sorted.some(s => s.capability_key === "sous_vide_pack");
             const hasTumblingStep = sorted.some(s => s.capability_key === "tumbling" || s.capability_key === "tumble");
 
-            // Create stages — tumbling steps get split into individual 800 lb batch stages
+            // Create stages — tumbling steps get split into individual 800 lb batch stages.
+            // For tumbling flows: only create the tumbling stages upfront; cooking/chilling/packaging
+            // are created dynamically by the wizard as each tumble batch completes (same pattern as sous vide).
             for (let i = 0; i < sorted.length; i++) {
               const step = sorted[i];
               const isTumblingStep = step.capability_key === "tumbling" || step.capability_key === "tumble";
               const isSousVidePackStep = step.capability_key === "sous_vide_pack";
 
               // For sous vide flows: only create the sous_vide_pack stage upfront.
-              // Cooking/chilling/packaging stages are created dynamically by the wizard as cook batches complete.
               if (isSousVideFlow && !isSousVidePackStep) {
+                continue;
+              }
+
+              // For tumbling flows: only create the tumbling stages upfront.
+              // Downstream stages (cooking, chilling, packaging) are created by the wizard per cook batch.
+              if (hasTumblingStep && !isTumblingStep) {
                 continue;
               }
 
@@ -130,10 +137,8 @@ export default function ProductionOrders() {
                   });
                 }
               } else {
-                // Non-tumbling stages: create once as locked (they get unlocked per-batch as tumbling completes)
-                // Exception: if there is no tumbling step at all, the first step should be available immediately
+                // Non-tumbling, non-sous-vide flows (e.g. blending): first step available, rest locked
                 const isFirstStep = i === 0;
-                const shouldBeAvailable = isFirstStep && !hasTumblingStep;
                 await base44.entities.ProductionStage.create({
                   order_id: order.id,
                   order_number: order.order_number,
@@ -144,8 +149,8 @@ export default function ProductionOrders() {
                   capability_name: step.capability_name,
                   work_profile_id: step.work_profile_id || "",
                   work_profile_name: step.work_profile_name || "",
-                  status: shouldBeAvailable ? "available" : "locked",
-                  input_qty_lbs: shouldBeAvailable ? totalRawInputLbs : 0,
+                  status: isFirstStep ? "available" : "locked",
+                  input_qty_lbs: isFirstStep ? totalRawInputLbs : 0,
                   sub_batches: [],
                 });
               }
