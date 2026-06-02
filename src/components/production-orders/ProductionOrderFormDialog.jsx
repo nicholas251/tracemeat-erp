@@ -52,8 +52,10 @@ export default function ProductionOrderFormDialog({ open, onClose, onSave, order
   });
 
   const selectedProduct = freshProductData || products.find(p => p.id === form.product_id);
-  const caseWeightLbs = selectedProduct?.case_weight_lbs;
   const unitLabel = selectedProduct?.finished_product_unit || "cases";
+  // Only show case-based conversion if the product's unit is cases/packs/gaylords (not lbs)
+  const isCaseUnit = unitLabel !== "lbs";
+  const caseWeightLbs = isCaseUnit ? selectedProduct?.case_weight_lbs : null;
   const yieldPct = selectedProduct?.yield_percent;
 
   // Detect flow type
