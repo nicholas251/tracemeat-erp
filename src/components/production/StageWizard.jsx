@@ -407,7 +407,6 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
         // Route blending outputs: beef → chopping (step 2), pork → mixer (step 3) directly
         const order = await base44.entities.ProductionOrder.filter({ id: stage.order_id }).then(r => r?.[0]);
         if (order) {
-          const allStages = await base44.entities.ProductionStage.filter({ order_id: stage.order_id });
           const nextFlow = await base44.entities.ProductFlow.filter({ id: order.flow_id }).then(r => r?.[0]);
 
           // Detect if this is a kielbasa-style flow with a mixer step
@@ -915,8 +914,9 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
             });
             // Match by batch tag if available, else fall back to all unassigned linking stages
             const batchTagFromNotes = stage.notes?.match(/blend-batch-\d+/)?.[0] || null;
+            // Linking stages are "locked" when created by blending; mixer unlocks them
             const targetLinking = linkingStages.filter(s =>
-              (s.status === "available" || s.status === "in_progress") &&
+              (s.status === "locked" || s.status === "available" || s.status === "in_progress") &&
               !s.cook_batch_lot
             );
             const pairedLinking = batchTagFromNotes
@@ -1090,33 +1090,33 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
           const choppingOrder = await base44.entities.ProductionOrder.filter({ id: stage.order_id }).then(r => r?.[0]);
           if (choppingOrder?.flow_id) {
             const choppingFlow = await base44.entities.ProductFlow.filter({ id: choppingOrder.flow_id }).then(r => r?.[0]);
-            const nextStep = choppingFlow?.steps?.find(s => s.step_number === stage.step_number + 1);
-            if (nextStep) {
-              const chopOutputQty = updates.output_qty_lbs || stage.input_qty_lbs || 0;
-              const chopOutputLot = updates.output_lot_number || stage.input_lot_number || "";
-              
-              if (nextStep.capability_key === "mixer") {
-                // Find the exact locked mixer stage that was paired with THIS chopping stage
-                // by matching the batch tag stored in notes (set during blending)
-                const existingMixerStages = await base44.entities.ProductionStage.filter({
-                  order_id: stage.order_id,
-                  capability_key: "mixer",
+            const chopOutputQty = updates.output_qty_lbs || stage.input_qty_lbs || 0;
+            const chopOutputLot = updates.output_lot_number || stage.input_lot_number || "";
+
+            // Kielbasa flow: chopping output goes to the mixer as binder
+            const mixerFlowStep = choppingFlow?.steps?.find(s => s.capability_key === "mixer");
+            if (mixerFlowStep) {
+              // Find the exact locked mixer stage paired with THIS chopping batch via batch tag
+              const existingMixerStages = await base44.entities.ProductionStage.filter({
+                order_id: stage.order_id,
+                capability_key: "mixer",
+              });
+              const batchTagFromNotes = stage.notes?.match(/blend-batch-\d+/)?.[0] || null;
+              const lockedMixerStage = batchTagFromNotes
+                ? existingMixerStages.find(s => s.status === "locked" && s.notes?.includes(batchTagFromNotes))
+                : existingMixerStages.find(s => s.status === "locked");
+              if (lockedMixerStage) {
+                await base44.entities.ProductionStage.update(lockedMixerStage.id, {
+                  binder_lot_number: chopOutputLot,
+                  binder_qty_lbs: chopOutputQty,
+                  status: "available",
                 });
-                // Primary: match by batch tag in notes (multi-batch kielbasa flows)
-                // Fallback: any locked mixer for this order (single-batch flows)
-                const batchTagFromNotes = stage.notes?.match(/blend-batch-\d+/)?.[0] || null;
-                const lockedMixerStage = batchTagFromNotes
-                  ? existingMixerStages.find(s => s.status === "locked" && s.notes?.includes(batchTagFromNotes))
-                  : existingMixerStages.find(s => s.status === "locked");
-                if (lockedMixerStage) {
-                  await base44.entities.ProductionStage.update(lockedMixerStage.id, {
-                    binder_lot_number: chopOutputLot,
-                    binder_qty_lbs: chopOutputQty,
-                    status: "available",
-                  });
-                }
-              } else {
-                // Standard: create independent linking/next stage
+              }
+            } else {
+              // Standard non-kielbasa chopping: create the next stage (e.g. linking directly)
+              const sortedSteps = [...(choppingFlow?.steps || [])].sort((a, b) => a.step_number - b.step_number);
+              const nextStep = sortedSteps.find(s => s.step_number > stage.step_number);
+              if (nextStep) {
                 await base44.entities.ProductionStage.create({
                   order_id: stage.order_id,
                   order_number: stage.order_number,
