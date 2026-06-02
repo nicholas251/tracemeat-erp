@@ -414,12 +414,12 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
           const hasMixerStep = nextFlow?.steps?.some(s => s.capability_key === "mixer");
 
           // Separate pork and beef ingredients from this batch
-          const porkIngredients = currentBatch.ingredients.filter(ing =>
-            ing.bucket_name?.toLowerCase().includes("pork")
-          );
-          const beefIngredients = currentBatch.ingredients.filter(ing =>
-            !ing.bucket_name?.toLowerCase().includes("pork")
-          );
+          // Pork detection: name contains "pork", or category is "pork"
+          const isPorkIngredient = (ing) =>
+            ing.bucket_name?.toLowerCase().includes("pork") ||
+            ing.category?.toLowerCase() === "pork";
+          const porkIngredients = currentBatch.ingredients.filter(isPorkIngredient);
+          const beefIngredients = currentBatch.ingredients.filter(ing => !isPorkIngredient(ing));
 
           const porkLbs = porkIngredients.reduce((s, ing) =>
             s + (ing.lot_allocations?.reduce((ss, a) => ss + (Number(a.actual_lbs) || 0), 0) || ing.required_lbs || 0), 0
@@ -430,12 +430,15 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
 
           if (hasMixerStep && porkLbs > 0 && beefLbs > 0) {
             // ── Kielbasa flow: route beef to chopping, pork to mixer ──
-            const nextStepNum = (stage.step_number || 1) + 1; // chopping
+            // Use a stable per-batch tag so chopping completion can find its paired mixer
+            const batchTag = `blend-batch-${currentBatch.batchNumber}`;
             const mixerStep = nextFlow?.steps?.find(s => s.capability_key === "mixer");
             const choppingStep = nextFlow?.steps?.find(s => s.capability_key === "chopping");
 
+            const beefLotNumber = `${blendOutputLot}-BEEF`;
+
             // Create independent chopping stage for this batch's beef
-             if (choppingStep && beefLbs > 0) {
+            if (choppingStep && beefLbs > 0) {
               await base44.entities.ProductionStage.create({
                 order_id: stage.order_id,
                 order_number: stage.order_number,
@@ -448,12 +451,14 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
                 work_profile_name: choppingStep.work_profile_name || "",
                 status: "available",
                 input_qty_lbs: parseFloat(beefLbs.toFixed(2)),
-                input_lot_number: `${blendOutputLot}-BEEF`,
+                input_lot_number: beefLotNumber,
+                // Tag so chopping completion can find this batch's paired mixer
+                notes: batchTag,
               });
             }
 
-            // Create independent mixer stage for this batch's pork (stays locked until binder arrives)
-             if (mixerStep && porkLbs > 0) {
+            // Create independent mixer stage for this batch's pork (locked until binder arrives)
+            if (mixerStep && porkLbs > 0) {
               await base44.entities.ProductionStage.create({
                 order_id: stage.order_id,
                 order_number: stage.order_number,
@@ -468,6 +473,29 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
                 pork_lot_number: porkLotNumber,
                 input_qty_lbs: parseFloat(porkLbs.toFixed(2)),
                 input_lot_number: porkLotNumber,
+                // Tag so chopping can find this exact mixer when unlocking it
+                notes: batchTag,
+              });
+            }
+
+            // Create the linking stage for this batch (locked — unlocked by mixer output)
+            const linkingStep = nextFlow?.steps?.find(s => s.capability_key === "linking");
+            if (linkingStep) {
+              await base44.entities.ProductionStage.create({
+                order_id: stage.order_id,
+                order_number: stage.order_number,
+                product_name: stage.product_name,
+                step_number: linkingStep.step_number,
+                capability_id: linkingStep.capability_id,
+                capability_key: linkingStep.capability_key,
+                capability_name: linkingStep.capability_name,
+                work_profile_id: linkingStep.work_profile_id || "",
+                work_profile_name: linkingStep.work_profile_name || "",
+                status: "locked", // unlocked by mixer completion
+                input_qty_lbs: parseFloat((porkLbs + beefLbs).toFixed(2)),
+                input_lot_number: porkLotNumber, // will be replaced by mixer output lot
+                // Tag so mixer completion can find this stage to update
+                notes: batchTag,
               });
             }
           } else {
@@ -874,6 +902,38 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
             }
          }
 
+        // ── Mixer special case: update paired linking stages with mixer output lot ──
+        if (capKey === "mixer") {
+          const mixerOutputLot = updates.output_lot_number || "";
+          const mixerOutputQty = updates.output_qty_lbs || stage.input_qty_lbs || 0;
+          if (mixerOutputLot) {
+            // Find the linking stages for this order that are available/in_progress and not yet
+            // assigned to a cook batch — update their input_lot_number to the mixer combined output
+            const linkingStages = await base44.entities.ProductionStage.filter({
+              order_id: stage.order_id,
+              capability_key: "linking",
+            });
+            // Match by batch tag if available, else fall back to all unassigned linking stages
+            const batchTagFromNotes = stage.notes?.match(/blend-batch-\d+/)?.[0] || null;
+            const targetLinking = linkingStages.filter(s =>
+              (s.status === "available" || s.status === "in_progress") &&
+              !s.cook_batch_lot
+            );
+            const pairedLinking = batchTagFromNotes
+              ? targetLinking.filter(s => s.notes?.includes(batchTagFromNotes))
+              : targetLinking;
+            // If tag match found, update those; otherwise update all unassigned (single-batch flow)
+            const stagesToUpdate = pairedLinking.length > 0 ? pairedLinking : targetLinking;
+            for (const ls of stagesToUpdate) {
+              await base44.entities.ProductionStage.update(ls.id, {
+                status: "available",
+                input_lot_number: mixerOutputLot,
+                input_qty_lbs: parseFloat(mixerOutputQty.toFixed ? mixerOutputQty.toFixed(2) : mixerOutputQty),
+              });
+            }
+          }
+        }
+
         // Unlock next stage and pass lot traceability (or create it if it doesn't exist)
         const allStages = await base44.entities.ProductionStage.filter({ order_id: stage.order_id });
         let nextStage = allStages.find(s => s.step_number === stage.step_number + 1 && s.status !== "completed" && s.id !== stage.id);
@@ -1022,8 +1082,11 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
            }
          }
 
+        // For mixer: linking stages are already updated above — skip generic next-stage unlock
         // For chopping: create independent linking stage instead of updating one
-        if (capKey === "chopping") {
+        if (capKey === "mixer") {
+          // Already handled above — no further stage routing needed
+        } else if (capKey === "chopping") {
           const choppingOrder = await base44.entities.ProductionOrder.filter({ id: stage.order_id }).then(r => r?.[0]);
           if (choppingOrder?.flow_id) {
             const choppingFlow = await base44.entities.ProductFlow.filter({ id: choppingOrder.flow_id }).then(r => r?.[0]);
@@ -1033,13 +1096,18 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
               const chopOutputLot = updates.output_lot_number || stage.input_lot_number || "";
               
               if (nextStep.capability_key === "mixer") {
-                // Find the existing locked mixer stage (created by blending with pork lot)
-                // and update it with binder info + unlock it — do NOT create a new one
+                // Find the exact locked mixer stage that was paired with THIS chopping stage
+                // by matching the batch tag stored in notes (set during blending)
                 const existingMixerStages = await base44.entities.ProductionStage.filter({
                   order_id: stage.order_id,
                   capability_key: "mixer",
                 });
-                const lockedMixerStage = existingMixerStages.find(s => s.status === "locked");
+                // Primary: match by batch tag in notes (multi-batch kielbasa flows)
+                // Fallback: any locked mixer for this order (single-batch flows)
+                const batchTagFromNotes = stage.notes?.match(/blend-batch-\d+/)?.[0] || null;
+                const lockedMixerStage = batchTagFromNotes
+                  ? existingMixerStages.find(s => s.status === "locked" && s.notes?.includes(batchTagFromNotes))
+                  : existingMixerStages.find(s => s.status === "locked");
                 if (lockedMixerStage) {
                   await base44.entities.ProductionStage.update(lockedMixerStage.id, {
                     binder_lot_number: chopOutputLot,
