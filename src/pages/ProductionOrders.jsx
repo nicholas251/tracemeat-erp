@@ -108,10 +108,9 @@ export default function ProductionOrders() {
               }
 
               if (isTumblingStep) {
-                // Split into individual tumble batches only if tumble_batch_lbs is set on the product.
-                // If not set, treat the entire raw input as a single batch.
-                // Cook batch = 3 racks × 320 lbs/rack = 960 lbs
-                const tumblingBatchSize = 960;
+                // Tumbling = simple seasoning batches of 800 lbs.
+                // Racks (320 lbs/rack) and cook batches (3 racks) are assembled later at the racking stage.
+                const tumblingBatchSize = 800;
                 const numTumbleBatches = Math.ceil(totalRawInputLbs / tumblingBatchSize);
                 // Build batch sizes with full batches first and the smaller (partial) batch at the end
                 const numFullBatches = Math.floor(totalRawInputLbs / tumblingBatchSize);

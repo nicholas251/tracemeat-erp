@@ -71,8 +71,8 @@ export default function ProductionOrderFormDialog({ open, onClose, onSave, order
   // Raw input = finished + loss added back (loss% = 100 − yield%)
   const lossPct = yieldPct ? 100 - yieldPct : 0;
   // ── TUMBLE FLOW MATH ──
-  // Cook batch = 3 racks × 320 lbs/rack = 960 lbs
-  const tumbleBatchSize = 960;
+  // Tumbling = simple seasoning batches of 800 lbs (racks/cook batches assembled at racking stage)
+  const tumbleBatchSize = 800;
   // Raw needed = finished goods + the loss added back on top
   const tumbleRawInputLbs = yieldPct && finishedLbs > 0 ? finishedLbs * (1 + lossPct / 100) : finishedLbs;
   const numTumbleBatches = tumbleRawInputLbs > 0 ? Math.ceil(tumbleRawInputLbs / tumbleBatchSize) : null;
