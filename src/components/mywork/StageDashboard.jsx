@@ -71,6 +71,8 @@ export default function StageDashboard({ user, profile, onBack, singleProfile = 
               ? "bg-red-50 hover:bg-red-100 border-red-200" 
               : stage.capability_key === "chilling" 
               ? "bg-blue-50 hover:bg-blue-100 border-blue-200" 
+              : stage.capability_key === "racking" 
+              ? "bg-amber-50 hover:bg-amber-100 border-amber-200" 
               : "bg-card hover:bg-muted/50";
 
             return (
@@ -83,6 +85,7 @@ export default function StageDashboard({ user, profile, onBack, singleProfile = 
                 <div>
                   <p className="font-semibold text-sm">{stage.product_name}</p>
                   <p className="text-xs text-muted-foreground">Order #{stage.order_number} · {stage.input_qty_lbs} lbs</p>
+                  <span className="inline-block mt-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{(stage.capability_name || stage.capability_key || "").replace(/_/g, " ")}</span>
                 </div>
                 {stage.status === "in_progress" && <Badge className="bg-accent/15 text-accent border-accent/30 border text-xs">In Progress</Badge>}
                 {stage.status === "available" && <Badge className="bg-chart-1/15 text-chart-1 border-chart-1/30 border text-xs">Ready</Badge>}
