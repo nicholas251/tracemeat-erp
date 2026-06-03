@@ -14,15 +14,19 @@ export default function RackingCookBatchBuilder({ totalLbs, product, cookPlan, o
 
   useEffect(() => {
     if (!cookPlan) {
-      // Initialize cook plan from total lbs
-      const racksNeeded = Math.ceil(totalLbs / LBS_PER_RACK);
+      // Initialize cook plan from total lbs.
+      // Racks are full 320 lbs except the very last rack, which holds the remainder.
+      const racksNeeded = Math.max(1, Math.ceil(totalLbs / LBS_PER_RACK));
       const batchesNeeded = Math.ceil(racksNeeded / RACKS_PER_BATCH);
       const newBatches = [];
 
+      let lbsRemaining = totalLbs;
       let racksRemaining = racksNeeded;
       for (let i = 0; i < batchesNeeded; i++) {
         const racksInThisBatch = Math.min(RACKS_PER_BATCH, racksRemaining);
-        const lbsInThisBatch = racksInThisBatch * LBS_PER_RACK;
+        // This batch holds at most racksInThisBatch full racks, but never more than the
+        // actual product left — so a trailing partial rack carries its real weight.
+        const lbsInThisBatch = parseFloat(Math.min(racksInThisBatch * LBS_PER_RACK, lbsRemaining).toFixed(2));
         newBatches.push({
           batchNumber: i + 1,
           racks: racksInThisBatch,
@@ -30,6 +34,7 @@ export default function RackingCookBatchBuilder({ totalLbs, product, cookPlan, o
           lotNumber: `${lotPrefix}-${i + 1}`,
         });
         racksRemaining -= racksInThisBatch;
+        lbsRemaining = parseFloat((lbsRemaining - lbsInThisBatch).toFixed(2));
       }
       setCookBatches(newBatches);
       onChange({
@@ -93,7 +98,7 @@ export default function RackingCookBatchBuilder({ totalLbs, product, cookPlan, o
                   <div className="flex items-start justify-between gap-3 mb-2">
                     <div className="flex-1">
                       <p className="font-semibold text-sm">Batch #{batch.batchNumber}</p>
-                      <p className="text-xs text-muted-foreground">{batch.racks} racks × {LBS_PER_RACK} lbs = {batch.lbs} lbs</p>
+                      <p className="text-xs text-muted-foreground">{batch.racks} rack{batch.racks !== 1 ? "s" : ""} · {batch.lbs} lbs{batch.lbs < batch.racks * LBS_PER_RACK ? " (partial)" : ""}</p>
                     </div>
                     {cookBatches.length > 1 && (
                       <Button
@@ -124,8 +129,10 @@ export default function RackingCookBatchBuilder({ totalLbs, product, cookPlan, o
                           value={batch.racks}
                           onChange={(e) => {
                             const racks = parseInt(e.target.value) || 1;
-                            updateBatch(idx, "racks", racks);
-                            updateBatch(idx, "lbs", racks * LBS_PER_RACK);
+                            const updated = [...cookBatches];
+                            updated[idx] = { ...updated[idx], racks, lbs: racks * LBS_PER_RACK };
+                            setCookBatches(updated);
+                            onChange({ lotPrefix, cookBatches: updated });
                           }}
                           className="h-9 text-sm"
                         />
@@ -134,9 +141,10 @@ export default function RackingCookBatchBuilder({ totalLbs, product, cookPlan, o
                         <Label className="text-xs font-medium">Total Lbs</Label>
                         <Input
                           type="number"
+                          step="0.01"
                           value={batch.lbs}
-                          disabled
-                          className="h-9 text-sm bg-muted/50"
+                          onChange={(e) => updateBatch(idx, "lbs", parseFloat(e.target.value) || 0)}
+                          className="h-9 text-sm"
                         />
                       </div>
                     </div>
