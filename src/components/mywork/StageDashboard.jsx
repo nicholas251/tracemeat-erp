@@ -37,8 +37,14 @@ export default function StageDashboard({ user, profile, onBack, singleProfile = 
   // Completed stages are locked and not editable
   // If profile has cooking capability, also show chilling (auto-created from cooking)
   const showChilling = capKeys.includes("cooking");
+  // Tumbling and racking always belong to the same operator, so a tumble operator
+  // should also see the racking stage that gets auto-created after tumbling completes.
+  const showRacking = capKeys.includes("tumble") || capKeys.includes("tumbling");
   const myStages = allStages.filter(s => {
-    const isAssigned = capKeys.includes(s.capability_key) || (showChilling && s.capability_key === "chilling");
+    const isAssigned =
+      capKeys.includes(s.capability_key) ||
+      (showChilling && s.capability_key === "chilling") ||
+      (showRacking && (s.capability_key === "racking" || s.capability_key === "racking_product"));
     return isAssigned && (s.status === "in_progress" || s.status === "available");
   });
 
