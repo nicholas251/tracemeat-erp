@@ -572,16 +572,27 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
         const spiceAddedLbs = Number(form.spice_mix_qty_lbs) || 0;
         const tumbledQty = parseFloat(((stage.input_qty_lbs || 0) + spiceAddedLbs).toFixed(2));
         const tumbledLotBase = form.output_lot_number || `TUMBLE-${new Date().toISOString().slice(0,10).replace(/-/g,"")}`;
+        const proteinLotRefs = (form.protein_lots || []).filter(l => l.lot_number).map(l => l.lot_number);
         await base44.entities.ProductionStage.update(stage.id, {
           status: "completed",
           completed_at: new Date().toISOString(),
           output_qty_lbs: tumbledQty,
           output_lot_number: tumbledLotBase,
+          input_lot_number: proteinLotRefs.length ? proteinLotRefs.join(", ") : stage.input_lot_number,
           spice_mix_id: form.spice_mix_id || "",
           spice_mix_name: form.spice_mix_name || "",
           spice_mix_lot_number: form.spice_mix_lot_number || "",
           spice_mix_qty_lbs: form.spice_mix_qty_lbs || 0,
           duration_minutes: form.duration_minutes || null,
+          sub_batches: form.protein_lots?.length ? [{
+            sub_batch_id: `tumble-${Date.now()}`,
+            label: "Tumble Protein Lots",
+            qty_lbs: tumbledQty,
+            lot_number: tumbledLotBase,
+            lot_allocations: form.protein_lots,
+            raw_lots: proteinLotRefs,
+            status: "completed",
+          }] : stage.sub_batches,
         });
 
         // Deduct from the assigned SpiceMix inventory (not raw inventory)
@@ -590,6 +601,19 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
             stage_id: stage.id,
             lots: form.spice_mix.lots,
           }).catch(err => console.warn("Spice mix deduction failed:", err));
+        }
+
+        // Deduct the picked protein FIFO lots from raw inventory (full traceability)
+        if (form.protein_lots?.length && form.protein_bucket_id) {
+          base44.functions.invoke("deductRawInventoryOnBatchComplete", {
+            stage_id: stage.id,
+            ingredients: [{
+              bucket_id: form.protein_bucket_id,
+              bucket_name: form.protein_bucket_name || "Protein",
+              actual_lbs: form.protein_lots.reduce((s, a) => s + (Number(a.actual_lbs) || 0), 0),
+              lot_allocations: form.protein_lots,
+            }],
+          }).catch(err => console.warn("Protein inventory deduction failed:", err));
         }
 
         // Build per-racking-card list. Use the internal tumble batches if present (each

@@ -13,7 +13,7 @@ import TumbleCookBatchBuilder from "./TumbleCookBatchBuilder";
 import RackReleaseBuilder from "./RackReleaseBuilder";
 import SmokehouseCookBatchBuilder from "./SmokehouseCookBatchBuilder";
 import SpiceMixLotPicker from "./SpiceMixLotPicker";
-import TumbleBatchSeasoning from "./TumbleBatchSeasoning";
+import TumbleLotTracking from "./TumbleLotTracking";
 import ProductSplitAllocator from "./ProductSplitAllocator";
 
 export function IntroStep({ stage, capKey, stageLabel, resolvedBatches, measureSteps, product, saving, onStart, usesIngredientBatches }) {
@@ -167,7 +167,10 @@ export function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form,
 
   const canProceed = isLinking ? !!cookBatch
      : isTumble ? !!cookPlan
-     : isSimpleTumble ? (Number(form.spice_mix_qty_lbs) > 0 || !product?.chop_spice_mix_id)
+     : isSimpleTumble ? (
+          !!form.protein_confirmed &&
+          (Number(form.spice_mix_qty_lbs) > 0 || !product?.chop_spice_mix_id)
+        )
      : isRacking ? (cookPlan?.racks?.some(r => r.released))
      : isPackaging ? (form.case_count > 0 && caseWeights.length === parseInt(form.case_count))
      : isMixerInputs ? (!!form.pork_lot_confirmed && (stage?.binder_lot_number ? !!form.binder_lot_confirmed : false))
@@ -270,15 +273,20 @@ export function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form,
       )}
 
       {isSimpleTumble && (
-        <TumbleBatchSeasoning
+        <TumbleLotTracking
           totalLbs={stage?.input_qty_lbs || 0}
           product={product}
-          value={form.spice_mix || {}}
+          value={form.tumble_tracking || {}}
           notes={form.notes}
           onNotesChange={val => setForm(f => ({ ...f, notes: val }))}
           onChange={val => setForm(f => ({
             ...f,
-            spice_mix: val,
+            tumble_tracking: val,
+            protein_lots: val.proteinLots || null,
+            protein_confirmed: val.proteinConfirmed || false,
+            protein_bucket_id: val.proteinBucketId || "",
+            protein_bucket_name: val.proteinBucketName || "",
+            spice_mix: val.spice_mix || {},
             spice_mix_id: val.spice_mix_id || "",
             spice_mix_name: val.spice_mix_name || "",
             spice_mix_lot_number: val.spice_mix_lot_number || "",

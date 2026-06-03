@@ -1,0 +1,178 @@
+import React, { useMemo, useEffect } from "react";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
+import { Layers, AlertCircle } from "lucide-react";
+import IngredientLotPicker from "../blending/IngredientLotPicker";
+import SpiceMixLotPicker from "./SpiceMixLotPicker";
+
+/**
+ * TumbleLotTracking
+ *
+ * Full lot traceability for the tumbling stage (when racking follows).
+ * Splits the incoming raw weight into batches sized by the product's CHOPPING batch
+ * size (blend_batch_lbs) to derive the required seasoning, then lets the operator:
+ *   1. Pick the ACTUAL protein FIFO lots going into the tumbler (raw inventory).
+ *   2. Pick the ACTUAL SpiceMix production lots used.
+ *
+ * Emits (via onChange):
+ *   {
+ *     proteinLots: [{ lot_number, raw_inventory_id, actual_lbs, ... }],
+ *     proteinBucketId, proteinBucketName,
+ *     spice_mix: { lots: [...], spice_mix_id, spice_mix_name, spice_mix_lot_number, spice_mix_qty_lbs },
+ *     spice_mix_id, spice_mix_name, spice_mix_lot_number, spice_mix_qty_lbs,
+ *     batches: [{ batch_number, batch_lbs, spice_lbs, is_partial }],
+ *     totalSpiceLbs,
+ *   }
+ *
+ * Props:
+ *   totalLbs   – incoming raw protein weight (stage.input_qty_lbs)
+ *   product    – Product record (chopping config + blend_ingredients)
+ *   value      – current value
+ *   onChange   – (value) => void
+ *   notes / onNotesChange – optional notes passthrough
+ */
+export default function TumbleLotTracking({ totalLbs = 0, product, value = {}, onChange, notes, onNotesChange }) {
+  const batchSize = Number(product?.blend_batch_lbs) || 0;
+  const spicePerBatch = Number(product?.chop_spice_qty_lbs) || 0;
+  const spicePct = batchSize > 0 ? spicePerBatch / batchSize : 0;
+
+  const proteinBucketId = product?.blend_ingredients?.[0]?.bucket_id || null;
+  const proteinBucketName = product?.blend_ingredients?.[0]?.bucket_name || "Protein";
+
+  // Split raw weight into chopping-sized batches to derive total seasoning required
+  const batches = useMemo(() => {
+    if (!batchSize || batchSize <= 0 || !totalLbs) return [];
+    const count = Math.ceil(totalLbs / batchSize);
+    const rows = [];
+    let remaining = totalLbs;
+    for (let i = 0; i < count; i++) {
+      const thisLbs = Math.min(batchSize, remaining);
+      const isPartial = thisLbs < batchSize - 0.001;
+      rows.push({
+        batch_number: i + 1,
+        batch_lbs: parseFloat(thisLbs.toFixed(2)),
+        spice_lbs: parseFloat((thisLbs * spicePct).toFixed(2)),
+        is_partial: isPartial,
+      });
+      remaining -= thisLbs;
+    }
+    return rows;
+  }, [totalLbs, batchSize, spicePct]);
+
+  const totalSpiceLbs = useMemo(
+    () => parseFloat(batches.reduce((s, b) => s + b.spice_lbs, 0).toFixed(2)),
+    [batches]
+  );
+
+  const proteinLots = value.proteinLots || null;
+  const proteinConfirmed = value.proteinConfirmed || false;
+  const spiceValue = value.spice_mix || {};
+
+  const proteinIng = {
+    bucket_id: proteinBucketId,
+    bucket_name: proteinBucketName,
+    required_lbs: parseFloat((totalLbs || 0).toFixed(2)),
+    lot_allocations: proteinLots,
+    confirmed: proteinConfirmed,
+    notes: value.proteinNotes || "",
+  };
+
+  const emit = (patch) => onChange({ ...value, ...patch });
+
+  // Keep derived batch + spice totals in the emitted value
+  useEffect(() => {
+    if (batches.length === 0) return;
+    const spiceTotal = spiceValue?.lots
+      ? spiceValue.lots.reduce((s, l) => s + (Number(l.spice_mix_qty_lbs) || 0), 0)
+      : (Number(spiceValue?.spice_mix_qty_lbs) || 0);
+    onChange({
+      ...value,
+      batches,
+      totalSpiceLbs,
+      proteinBucketId,
+      proteinBucketName,
+      spice_mix_id: spiceValue.spice_mix_id || "",
+      spice_mix_name: spiceValue.spice_mix_name || "",
+      spice_mix_lot_number: spiceValue.spice_mix_lot_number || "",
+      spice_mix_qty_lbs: spiceTotal,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [batches.length, totalSpiceLbs, spiceValue?.spice_mix_id, JSON.stringify(spiceValue?.lots || [])]);
+
+  if (!batchSize) {
+    return (
+      <div className="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5">
+        <AlertCircle className="w-4 h-4 shrink-0" />
+        No chopping batch size set on this product — set "Total Batch Size" under the Chopping tab to auto-calc seasoning.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Seasoning requirement summary */}
+      <div className="space-y-2 rounded-xl border bg-muted/20 p-4">
+        <div className="flex items-center gap-2">
+          <Layers className="w-4 h-4 text-chart-1 shrink-0" />
+          <Label className="font-semibold text-sm">Tumbling Batches</Label>
+          <Badge variant="outline" className="text-xs ml-auto">{batches.length} batch{batches.length !== 1 ? "es" : ""}</Badge>
+        </div>
+        <div className="rounded-lg bg-background border px-3 py-2 text-xs space-y-1">
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Incoming protein</span>
+            <span className="font-semibold">{parseFloat((totalLbs || 0).toFixed(2))} lbs</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Seasoning per batch</span>
+            <span className="font-semibold">{spicePerBatch} lbs ({(spicePct * 100).toFixed(2)}%)</span>
+          </div>
+          <div className="flex justify-between border-t pt-1 mt-1">
+            <span className="text-muted-foreground">Total seasoning required</span>
+            <span className="font-bold text-chart-1">{totalSpiceLbs} lbs</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Protein FIFO lots */}
+      <div className="rounded-xl border bg-background p-4">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Protein — FIFO Lots</p>
+        {proteinBucketId ? (
+          <IngredientLotPicker
+            ing={proteinIng}
+            disabled={proteinConfirmed}
+            onChange={(field, val) => {
+              if (field === "lot_allocations") emit({ proteinLots: val });
+              else if (field === "notes") emit({ proteinNotes: val });
+            }}
+            onConfirm={() => emit({ proteinConfirmed: true })}
+          />
+        ) : (
+          <p className="text-xs text-amber-700">No protein bucket configured on this product (set blend ingredients).</p>
+        )}
+      </div>
+
+      {/* Spice mix production lots */}
+      <SpiceMixLotPicker
+        label="Spice Mix Used"
+        requiredLbs={totalSpiceLbs}
+        value={spiceValue}
+        filterSpiceMixId={product?.chop_spice_mix_id}
+        shortNotes={value.spiceShortNotes}
+        onShortNotesChange={(v) => emit({ spiceShortNotes: v })}
+        onChange={(val) => emit({ spice_mix: val })}
+      />
+
+      {/* Notes */}
+      <div className="space-y-1.5">
+        <Label className="text-xs font-semibold text-muted-foreground">Notes / Observations</Label>
+        <Textarea
+          value={notes || ""}
+          onChange={e => onNotesChange?.(e.target.value)}
+          placeholder="Any observations..."
+          className="h-16 text-sm"
+        />
+      </div>
+    </div>
+  );
+}
