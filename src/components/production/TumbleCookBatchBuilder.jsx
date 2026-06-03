@@ -40,6 +40,10 @@ function calcCookBatches(totalLbs, lbsPerBatch, lbsPerRack) {
     remaining -= thisBatchLbs;
   }
 
+  // Order largest → smallest so the small remainder batch is always made last.
+  batches.sort((a, b) => b.lbs - a.lbs);
+  batches.forEach((b, i) => { b.cookBatchNum = i + 1; });
+
   return batches;
 }
 
