@@ -131,12 +131,12 @@ function buildMeasurementSteps(stage, product, capKey, casingBuckets = [], racki
   }
 
   if (capKey === "racking" || capKey === "racking_product") {
+    // Output qty + lot are driven entirely by the cook batch builder below — no manual
+    // fields here (each cook batch carries its own lot/qty/rack count to cooking).
     steps.push({
       id: "racking",
       label: "Racking",
       fields: [
-        { key: "output_qty_lbs", label: "Output Qty (lbs)", type: "number" },
-        { key: "output_lot_number", label: "Racked Lot #", type: "text", placeholder: "e.g. RACK-2024-001" },
         { key: "notes", label: "Notes / Observations", type: "textarea" },
       ],
     });
