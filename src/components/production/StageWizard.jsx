@@ -567,16 +567,18 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
           setStep(s => s + 1);
         }
       } else if ((capKey === "tumble" || capKey === "tumbling") && rackingFollows) {
-        // ── Tumble (seasoning only): racking controls cook batches. Create ONE racking stage ──
-        // Output = protein in + seasoning added (spice mix gets absorbed into the batch weight)
+        // ── Tumble (seasoning only): each tumble card produces racking card(s) ──
+        // This single tumble card may internally split into batches (TumbleBatchSeasoning).
+        // We create ONE separate racking card per internal batch, each carrying ONLY that
+        // batch's own tumbled lbs — never the full order total.
         const spiceAddedLbs = Number(form.spice_mix_qty_lbs) || 0;
         const tumbledQty = parseFloat(((stage.input_qty_lbs || 0) + spiceAddedLbs).toFixed(2));
-        const tumbledLot = form.output_lot_number || `TUMBLE-${new Date().toISOString().slice(0,10).replace(/-/g,"")}`;
+        const tumbledLotBase = form.output_lot_number || `TUMBLE-${new Date().toISOString().slice(0,10).replace(/-/g,"")}`;
         await base44.entities.ProductionStage.update(stage.id, {
           status: "completed",
           completed_at: new Date().toISOString(),
           output_qty_lbs: tumbledQty,
-          output_lot_number: tumbledLot,
+          output_lot_number: tumbledLotBase,
           spice_mix_id: form.spice_mix_id || "",
           spice_mix_name: form.spice_mix_name || "",
           spice_mix_lot_number: form.spice_mix_lot_number || "",
@@ -592,7 +594,17 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
           }).catch(err => console.warn("Spice mix deduction failed:", err));
         }
 
-        // Create / unlock the racking stage with the full tumbled quantity
+        // Build per-racking-card list. Use the internal tumble batches if present (each
+        // carries its own batch_lbs + spice_lbs); otherwise fall back to a single card
+        // with this tumble card's own quantity.
+        const tumbleBatches = form.spice_mix?.batches?.length ? form.spice_mix.batches : null;
+        const rackingCards = tumbleBatches
+          ? tumbleBatches.map(b => ({
+              qty: parseFloat(((b.batch_lbs || 0) + (b.spice_lbs || 0)).toFixed(2)),
+              lot: `${tumbledLotBase}-B${b.batch_number}`,
+            }))
+          : [{ qty: tumbledQty, lot: tumbledLotBase }];
+
         const sorted = [...(wizardFlow?.steps || [])].sort((a, b) => a.step_number - b.step_number);
         const rackingStep = sorted.find(s => s.step_number > stage.step_number);
         if (rackingStep) {
@@ -600,28 +612,35 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
             order_id: stage.order_id,
             capability_key: rackingStep.capability_key,
           });
-          const lockedNext = existing.find(s => s.status === "locked");
-          if (lockedNext) {
-            await base44.entities.ProductionStage.update(lockedNext.id, {
-              status: "available",
-              input_qty_lbs: tumbledQty,
-              input_lot_number: tumbledLot,
-            });
-          } else {
-            await base44.entities.ProductionStage.create({
-              order_id: stage.order_id,
-              order_number: stage.order_number,
-              product_name: stage.product_name,
-              step_number: rackingStep.step_number,
-              capability_id: rackingStep.capability_id,
-              capability_key: rackingStep.capability_key,
-              capability_name: rackingStep.capability_name,
-              work_profile_id: rackingStep.work_profile_id || "",
-              work_profile_name: rackingStep.work_profile_name || "",
-              status: "available",
-              input_qty_lbs: tumbledQty,
-              input_lot_number: tumbledLot,
-            });
+          // Reuse a pre-seeded, still-unclaimed locked racking stage for the FIRST card only;
+          // all other cards are always created fresh so batches never overwrite each other.
+          let unclaimedLocked = existing.find(
+            s => s.status === "locked" && !s.input_lot_number && !(s.input_qty_lbs > 0)
+          );
+          for (const card of rackingCards) {
+            if (unclaimedLocked) {
+              await base44.entities.ProductionStage.update(unclaimedLocked.id, {
+                status: "available",
+                input_qty_lbs: card.qty,
+                input_lot_number: card.lot,
+              });
+              unclaimedLocked = null;
+            } else {
+              await base44.entities.ProductionStage.create({
+                order_id: stage.order_id,
+                order_number: stage.order_number,
+                product_name: stage.product_name,
+                step_number: rackingStep.step_number,
+                capability_id: rackingStep.capability_id,
+                capability_key: rackingStep.capability_key,
+                capability_name: rackingStep.capability_name,
+                work_profile_id: rackingStep.work_profile_id || "",
+                work_profile_name: rackingStep.work_profile_name || "",
+                status: "available",
+                input_qty_lbs: card.qty,
+                input_lot_number: card.lot,
+              });
+            }
           }
         }
 
