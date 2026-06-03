@@ -621,7 +621,8 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
       } else if ((capKey === "tumble" || capKey === "tumbling") && cookPlan) {
         // ── Tumble: complete stage, then create one cooking stage per cook batch ──
         const spiceAddedLbs = Number(form.spice_mix_qty_lbs) || 0;
-        const totalOutputLbs = parseFloat((cookPlan.cookBatches.reduce((s, b) => s + b.lbs, 0)).toFixed(2));
+        // Output = cook-batch protein total + seasoning added (spice absorbs into batch weight)
+        const totalOutputLbs = parseFloat((cookPlan.cookBatches.reduce((s, b) => s + b.lbs, 0) + spiceAddedLbs).toFixed(2));
         const tumbleOutputLot = cookPlan.lotPrefix || `TUMBLE-${new Date().toISOString().slice(0,10).replace(/-/g,"")}`;
 
         // Deduct from the assigned SpiceMix inventory (separate from the FIFO cook-batch spice lots)

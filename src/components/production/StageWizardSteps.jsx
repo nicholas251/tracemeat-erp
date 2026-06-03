@@ -454,11 +454,15 @@ export function FinalStep({ stage, capKey, stageLabel, resolvedBatches, form, co
   const isRacking = capKey === "racking" || capKey === "racking_product";
   const isPackaging = capKey === "packaging" && form.case_weights;
 
+  // Tumbling absorbs the added seasoning into the batch weight, so output = protein in + spice.
+  const tumbleSpiceLbs = isTumble ? (Number(form.spice_mix_qty_lbs) || 0) : 0;
   const outputLbs = resolvedBatches
     ? resolvedBatches.reduce((s, b) => s + b.batchLbs, 0)
     : isTumble && cookPlan
-      ? cookPlan.cookBatches.reduce((s, b) => s + b.lbs, 0)
-      : form.output_qty_lbs || stage?.input_qty_lbs || 0;
+      ? parseFloat((cookPlan.cookBatches.reduce((s, b) => s + b.lbs, 0) + tumbleSpiceLbs).toFixed(2))
+      : isTumble
+        ? parseFloat(((stage?.input_qty_lbs || 0) + tumbleSpiceLbs).toFixed(2))
+        : form.output_qty_lbs || stage?.input_qty_lbs || 0;
 
   const canComplete = isLinking ? !!cookBatch : isRacking ? !!cookPlan : (isTumble && cookPlan ? !!cookPlan : isTumble ? true : isPackaging ? form.case_weights?.length > 0 : true);
 
