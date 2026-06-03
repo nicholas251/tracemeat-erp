@@ -571,16 +571,12 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
           duration_minutes: form.duration_minutes || null,
         });
 
-        // Deduct spice FIFO if allocated
+        // Deduct from the assigned SpiceMix inventory (not raw inventory)
         if (form.spice_mix?.lots?.length) {
-          base44.functions.invoke("deductRawInventoryOnBatchComplete", {
+          base44.functions.invoke("deductSpiceMixOnComplete", {
             stage_id: stage.id,
-            ingredients: [{
-              bucket_name: "Spice",
-              actual_lbs: form.spice_mix_qty_lbs || 0,
-              lot_allocations: form.spice_mix.lots,
-            }],
-          }).catch(err => console.warn("Inventory deduction failed:", err));
+            lots: form.spice_mix.lots,
+          }).catch(err => console.warn("Spice mix deduction failed:", err));
         }
 
         // Create / unlock the racking stage with the full tumbled quantity
