@@ -10,13 +10,15 @@ import { CheckCircle2, ChevronRight, ChevronLeft, Play, AlertCircle } from "luci
 import IngredientLotPicker from "../blending/IngredientLotPicker";
 import LinkingCookBatchBuilder from "./LinkingCookBatchBuilder";
 import TumbleCookBatchBuilder from "./TumbleCookBatchBuilder";
-import RackingCookBatchBuilder from "./RackingCookBatchBuilder";
+import RackReleaseBuilder from "./RackReleaseBuilder";
+import SmokehouseCookBatchBuilder from "./SmokehouseCookBatchBuilder";
 import SpiceMixLotPicker from "./SpiceMixLotPicker";
 import TumbleBatchSeasoning from "./TumbleBatchSeasoning";
 import ProductSplitAllocator from "./ProductSplitAllocator";
 
 export function IntroStep({ stage, capKey, stageLabel, resolvedBatches, measureSteps, product, saving, onStart, usesIngredientBatches }) {
   const isAlreadyStarted = stage?.status === "in_progress";
+  const isCooking = capKey === "cooking";
   return (
     <div className="space-y-5">
       <div className="rounded-xl bg-chart-1/10 border border-chart-1/20 p-5 space-y-4">
@@ -25,7 +27,9 @@ export function IntroStep({ stage, capKey, stageLabel, resolvedBatches, measureS
             {isAlreadyStarted ? `Continue ${stageLabel}` : `Ready to start ${stageLabel}`}
           </p>
           <p className="text-sm text-muted-foreground mt-0.5">
-            <span className="font-semibold text-foreground">{stage?.input_qty_lbs} lbs</span> entering this stage
+            {isCooking
+              ? "Select released racks to load into an oven and build a cook batch."
+              : <><span className="font-semibold text-foreground">{stage?.input_qty_lbs} lbs</span> entering this stage</>}
           </p>
         </div>
 
@@ -158,14 +162,16 @@ export function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form,
   const isCookStage = capKey === "cooking" && stepDef.id === "cook";
   const tempTooLow = isCookStage && form.temperature_f !== undefined && form.temperature_f !== "" && Number(form.temperature_f) < 165;
   const lowTempBlocksNext = tempTooLow && !form.notes?.trim();
+  // Cooking now requires the operator to assemble a cook batch from released racks first.
+  const cookNeedsBatch = isCookStage && !cookBatch;
 
   const canProceed = isLinking ? !!cookBatch
      : isTumble ? !!cookPlan
      : isSimpleTumble ? (Number(form.spice_mix_qty_lbs) > 0 || !product?.chop_spice_mix_id)
-     : isRacking ? !!cookPlan
+     : isRacking ? (cookPlan?.racks?.some(r => r.released))
      : isPackaging ? (form.case_count > 0 && caseWeights.length === parseInt(form.case_count))
      : isMixerInputs ? (!!form.pork_lot_confirmed && (stage?.binder_lot_number ? !!form.binder_lot_confirmed : false))
-     : isCookStage ? !lowTempBlocksNext
+     : isCookStage ? (!lowTempBlocksNext && !cookNeedsBatch)
      : !spiceBlocksNext;
 
   return (
@@ -283,11 +289,18 @@ export function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form,
       )}
 
       {isRacking && (
-        <RackingCookBatchBuilder
+        <RackReleaseBuilder
           totalLbs={form.output_qty_lbs || stage?.input_qty_lbs || 0}
-          product={product}
-          cookPlan={cookPlan}
+          plan={cookPlan}
           onChange={setCookPlan}
+        />
+      )}
+
+      {isCookStage && (
+        <SmokehouseCookBatchBuilder
+          stage={stage}
+          cookBatch={cookBatch}
+          onChange={setCookBatch}
         />
       )}
 
@@ -474,19 +487,30 @@ export function FinalStep({ stage, capKey, stageLabel, resolvedBatches, form, co
   const isLinking = capKey === "linking";
   const isTumble = capKey === "tumble" || capKey === "tumbling";
   const isRacking = capKey === "racking" || capKey === "racking_product";
+  const isCooking = capKey === "cooking";
   const isPackaging = capKey === "packaging" && form.case_weights;
+
+  const releasedRacks = isRacking && cookPlan?.racks ? cookPlan.racks.filter(r => r.released) : [];
+  const releasedLbs = parseFloat(releasedRacks.reduce((s, r) => s + (r.lbs || 0), 0).toFixed(2));
 
   // Tumbling absorbs the added seasoning into the batch weight, so output = protein in + spice.
   const tumbleSpiceLbs = isTumble ? (Number(form.spice_mix_qty_lbs) || 0) : 0;
   const outputLbs = resolvedBatches
     ? resolvedBatches.reduce((s, b) => s + b.batchLbs, 0)
-    : isTumble && cookPlan
-      ? parseFloat((cookPlan.cookBatches.reduce((s, b) => s + b.lbs, 0) + tumbleSpiceLbs).toFixed(2))
-      : isTumble
-        ? parseFloat(((stage?.input_qty_lbs || 0) + tumbleSpiceLbs).toFixed(2))
-        : form.output_qty_lbs || stage?.input_qty_lbs || 0;
+    : isRacking
+      ? releasedLbs
+      : isCooking && cookBatch
+        ? cookBatch.totalLbs
+        : isTumble && cookPlan
+          ? parseFloat((cookPlan.cookBatches.reduce((s, b) => s + b.lbs, 0) + tumbleSpiceLbs).toFixed(2))
+          : isTumble
+            ? parseFloat(((stage?.input_qty_lbs || 0) + tumbleSpiceLbs).toFixed(2))
+            : form.output_qty_lbs || stage?.input_qty_lbs || 0;
 
-  const canComplete = isLinking ? !!cookBatch : isRacking ? !!cookPlan : (isTumble && cookPlan ? !!cookPlan : isTumble ? true : isPackaging ? form.case_weights?.length > 0 : true);
+  const canComplete = isLinking ? !!cookBatch
+    : isRacking ? releasedRacks.length > 0
+    : isCooking ? !!cookBatch
+    : (isTumble && cookPlan ? !!cookPlan : isTumble ? true : isPackaging ? form.case_weights?.length > 0 : true);
 
   return (
     <div className="space-y-5">
@@ -546,7 +570,7 @@ export function FinalStep({ stage, capKey, stageLabel, resolvedBatches, form, co
             )}
           </div>
         )}
-        {((isTumble && cookPlan) || isRacking) && cookPlan && (
+        {isTumble && cookPlan?.cookBatches && (
           <div className="space-y-1.5 pt-1">
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Cook Batches</span>
@@ -570,10 +594,60 @@ export function FinalStep({ stage, capKey, stageLabel, resolvedBatches, form, co
             </div>
           </div>
         )}
-        {isRacking && !cookPlan && (
-          <p className="text-sm text-destructive font-medium flex items-center gap-1.5">
-            <AlertCircle className="w-4 h-4" /> No cook batches configured — go back to build them.
-          </p>
+
+        {/* Racking: list released racks (each goes individually to the smokehouse) */}
+        {isRacking && (
+          releasedRacks.length > 0 ? (
+            <div className="space-y-1.5 pt-1">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Racks Released</span>
+                <span className="font-semibold">{releasedRacks.length}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Racking Lot</span>
+                <span className="font-mono font-semibold">{cookPlan?.lotNumber || "—"}</span>
+              </div>
+              <div className="space-y-1 pt-1">
+                {releasedRacks.map((r) => (
+                  <div key={r.rackNumber} className="flex items-center justify-between bg-white/60 rounded px-2.5 py-1.5 text-xs">
+                    <span className="font-semibold">Rack #{r.rackNumber}</span>
+                    <span className="text-muted-foreground">{r.lbs} lbs</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-destructive font-medium flex items-center gap-1.5">
+              <AlertCircle className="w-4 h-4" /> No racks released — go back and release at least one rack.
+            </p>
+          )
+        )}
+
+        {/* Cooking: cook batch assembled from released racks */}
+        {isCooking && cookBatch && (
+          <div className="space-y-1.5 pt-1">
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Cook Batch Lot</span>
+              <span className="font-mono font-semibold">{cookBatch.lotNumber}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Racks in Oven</span>
+              <span className="font-semibold">{cookBatch.rackIds.length}</span>
+            </div>
+            <div className="space-y-1 pt-1">
+              {cookBatch.racks.map((r) => (
+                <div key={r.id} className="flex items-center justify-between bg-white/60 rounded px-2.5 py-1.5 text-xs">
+                  <span className="font-semibold">Rack #{r.rack_number} <span className="font-mono text-muted-foreground ml-1">{r.lot_number}</span></span>
+                  <span className="text-muted-foreground">{r.lbs} lbs</span>
+                </div>
+              ))}
+            </div>
+            {cookBatch.isMixedLot && (
+              <p className="text-[11px] text-amber-700 flex items-center gap-1.5 pt-0.5">
+                <AlertCircle className="w-3.5 h-3.5" /> Mixed-lot batch — {cookBatch.sourceLots.length} lots combined.
+              </p>
+            )}
+          </div>
         )}
       </div>
 

@@ -158,15 +158,13 @@ function buildMeasurementSteps(stage, product, capKey, casingBuckets = [], racki
       const cookLotDefault = stage?.cook_batch_lot
         ? `${stage.cook_batch_lot}-${today}`
         : `COOK-${today}`;
-      // Auto-calculate rack count from stage's racks_count if available
-      const racksCount = stage?.racks_count || 0;
+      // Racks are now selected from released racks in the SmokehouseCookBatchBuilder.
       steps.push({
         id: "cook",
         label: "Cook Parameters",
         fields: [
           { key: "temperature_f", label: "Cook End Temperature (°F)", type: "number" },
           { key: "duration_minutes", label: "Cook Time (minutes)", type: "number" },
-          { key: "racks_count", label: "Rack Count", type: "number", defaultValue: racksCount, disabled: true },
           { key: "output_lot_number", label: "Cooked Lot #", type: "text", placeholder: "e.g. COOK-2024-001", defaultValue: cookLotDefault },
           { key: "notes", label: "Notes / Observations", type: "textarea" },
         ],
@@ -801,6 +799,73 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
         queryClient.invalidateQueries({ queryKey: ["productionOrders"] });
         onCompleted?.();
         onClose();
+      } else if ((capKey === "racking" || capKey === "racking_product") && cookPlan?.racks) {
+        // ── Racking: release each rack individually to the smokehouse ──
+        // Each released rack becomes a RackUnit (status "released"). No cook-batch grouping here.
+        const released = cookPlan.racks.filter(r => r.released);
+        const releasedLbs = parseFloat(released.reduce((s, r) => s + (r.lbs || 0), 0).toFixed(2));
+
+        const order = await base44.entities.ProductionOrder.filter({ id: stage.order_id }).then(r => r?.[0]);
+
+        // Create a RackUnit per released rack.
+        for (const r of released) {
+          await base44.entities.RackUnit.create({
+            order_id: stage.order_id,
+            order_number: stage.order_number,
+            product_id: order?.product_id || "",
+            product_name: stage.product_name,
+            racking_stage_id: stage.id,
+            rack_number: r.rackNumber,
+            lbs: parseFloat((r.lbs || 0).toFixed(2)),
+            lot_number: cookPlan.lotNumber || stage.input_lot_number || "",
+            status: "released",
+            released_at: new Date().toISOString(),
+          });
+        }
+
+        await base44.entities.ProductionStage.update(stage.id, {
+          status: "completed",
+          completed_at: new Date().toISOString(),
+          output_qty_lbs: releasedLbs,
+          output_lot_number: cookPlan.lotNumber || stage.input_lot_number || "",
+          racks_count: released.length,
+          notes: form.notes || stage.notes || "",
+        });
+
+        // Ensure ONE smokehouse cooking stage exists for this order so the operator has a
+        // card to open and build cook batches from released racks.
+        if (order?.flow_id) {
+          const rackFlow = await base44.entities.ProductFlow.filter({ id: order.flow_id }).then(r => r?.[0]);
+          const cookStep = rackFlow?.steps?.find(s => s.capability_key === "cooking");
+          if (cookStep) {
+            const existingCook = await base44.entities.ProductionStage.filter({
+              order_id: stage.order_id,
+              capability_key: "cooking",
+            });
+            const openCook = existingCook.find(s => s.status === "available" || s.status === "in_progress");
+            if (!openCook) {
+              await base44.entities.ProductionStage.create({
+                order_id: stage.order_id,
+                order_number: stage.order_number,
+                product_name: stage.product_name,
+                step_number: cookStep.step_number,
+                capability_id: cookStep.capability_id,
+                capability_key: cookStep.capability_key,
+                capability_name: cookStep.capability_name,
+                work_profile_id: cookStep.work_profile_id || "",
+                work_profile_name: cookStep.work_profile_name || "",
+                status: "available",
+                input_qty_lbs: 0,
+              });
+            }
+          }
+        }
+
+        queryClient.invalidateQueries({ queryKey: ["allStages"] });
+        queryClient.invalidateQueries({ queryKey: ["releasedRacks"] });
+        queryClient.invalidateQueries({ queryKey: ["productionOrders"] });
+        onCompleted?.();
+        onClose();
       } else {
         // For non-blending/non-linking stages: complete the whole stage
         const today = new Date();
@@ -810,6 +875,23 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
           completed_at: new Date().toISOString(),
           ...form,
         };
+
+        // ── Cooking: assemble cook batch from the racks the operator selected ──
+        if (capKey === "cooking" && cookBatch) {
+          updates.cook_batch_lot = cookBatch.lotNumber;
+          updates.input_lot_number = cookBatch.sourceLots?.join(", ") || stage.input_lot_number || "";
+          updates.input_qty_lbs = cookBatch.totalLbs;
+          updates.output_qty_lbs = updates.output_qty_lbs || cookBatch.totalLbs;
+          updates.racks_count = cookBatch.rackIds.length;
+          // Mark each selected rack as cooked + tie it to this cook batch / stage.
+          for (const rackId of cookBatch.rackIds) {
+            await base44.entities.RackUnit.update(rackId, {
+              status: "cooked",
+              cook_batch_lot: cookBatch.lotNumber,
+              cooking_stage_id: stage.id,
+            });
+          }
+        }
         // Convert temperature from Fahrenheit to Celsius for storage if present
         if (capKey === "cooking" && updates.temperature_f) {
           updates.temperature_c = parseFloat(((updates.temperature_f - 32) * 5/9).toFixed(2));
@@ -1256,39 +1338,38 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
               }
             }
           }
-        } else if ((capKey === "racking" || capKey === "racking_product") && cookPlan?.cookBatches?.length) {
-          // Racking → Cooking: create one cooking stage per cook batch (320 lbs/rack, 3 racks/batch).
-          // Each cook batch carries its own lot + rack count all the way to cooking.
-          const rackOrder = await base44.entities.ProductionOrder.filter({ id: stage.order_id }).then(r => r?.[0]);
-          const rackFlow = rackOrder?.flow_id
-            ? await base44.entities.ProductFlow.filter({ id: rackOrder.flow_id }).then(r => r?.[0])
-            : null;
-          const cookStep = rackFlow?.steps?.find(s => s.capability_key === "cooking");
-          if (cookStep) {
+        } else if (capKey === "cooking" && cookBatch) {
+          // Smokehouse: after cooking this batch, if any released racks remain for the order
+          // (or any order of the same product), re-spawn a fresh cooking card so the operator
+          // can build the next cook batch.
+          // Check if any released racks remain for this product.
+          const remaining = await base44.entities.RackUnit.filter({
+            product_name: stage.product_name,
+            status: "released",
+          });
+          if (remaining.length > 0) {
             const existingCook = await base44.entities.ProductionStage.filter({
               order_id: stage.order_id,
               capability_key: "cooking",
             });
-            for (const cb of cookPlan.cookBatches) {
-              if (existingCook.some(s => s.cook_batch_lot === cb.lotNumber)) continue;
+            const openCook = existingCook.find(s => s.status === "available" || s.status === "in_progress");
+            if (!openCook) {
               await base44.entities.ProductionStage.create({
                 order_id: stage.order_id,
                 order_number: stage.order_number,
                 product_name: stage.product_name,
-                step_number: cookStep.step_number,
-                capability_id: cookStep.capability_id,
-                capability_key: cookStep.capability_key,
-                capability_name: cookStep.capability_name,
-                work_profile_id: cookStep.work_profile_id || "",
-                work_profile_name: cookStep.work_profile_name || "",
+                step_number: stage.step_number,
+                capability_id: stage.capability_id,
+                capability_key: stage.capability_key,
+                capability_name: stage.capability_name,
+                work_profile_id: stage.work_profile_id || "",
+                work_profile_name: stage.work_profile_name || "",
                 status: "available",
-                input_qty_lbs: cb.lbs,
-                input_lot_number: cb.lotNumber,
-                cook_batch_lot: cb.lotNumber,
-                racks_count: cb.racks,
+                input_qty_lbs: 0,
               });
             }
           }
+          queryClient.invalidateQueries({ queryKey: ["releasedRacks"] });
         } else if (nextStage?.status === "locked") {
           // For other stages: update existing locked stage
           const rawQty = updates.output_qty_lbs || stage.input_qty_lbs || 0;

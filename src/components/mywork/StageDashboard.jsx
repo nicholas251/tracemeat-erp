@@ -19,6 +19,20 @@ export default function StageDashboard({ user, profile, onBack, singleProfile = 
     queryFn: () => base44.entities.ProductionStage.list("created_date", 500),
   });
 
+  // Count of released racks per product so smokehouse cards show how many are waiting.
+  const { data: releasedRacks = [] } = useQuery({
+    queryKey: ["releasedRacks"],
+    queryFn: () => base44.entities.RackUnit.filter({ status: "released" }, "released_at", 500),
+    enabled: capKeys.includes("cooking"),
+  });
+  const releasedByProduct = React.useMemo(() => {
+    const map = {};
+    for (const r of releasedRacks) {
+      map[r.product_name] = (map[r.product_name] || 0) + 1;
+    }
+    return map;
+  }, [releasedRacks]);
+
   const handleUpdated = () => {
     queryClient.invalidateQueries({ queryKey: ["allStages"] });
     queryClient.invalidateQueries({ queryKey: ["blendingStages"] });
@@ -90,7 +104,13 @@ export default function StageDashboard({ user, profile, onBack, singleProfile = 
               <div className="flex items-center justify-between">
                 <div>
                   <p className="font-semibold text-sm">{stage.product_name}</p>
-                  <p className="text-xs text-muted-foreground">Order #{stage.order_number} · {stage.input_qty_lbs} lbs</p>
+                  {stage.capability_key === "cooking" ? (
+                    <p className="text-xs text-muted-foreground">
+                      Order #{stage.order_number} · {releasedByProduct[stage.product_name] || 0} rack(s) released
+                    </p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">Order #{stage.order_number} · {stage.input_qty_lbs} lbs</p>
+                  )}
                   <span className="inline-block mt-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{(stage.capability_name || stage.capability_key || "").replace(/_/g, " ")}</span>
                 </div>
                 {stage.status === "in_progress" && <Badge className="bg-accent/15 text-accent border-accent/30 border text-xs">In Progress</Badge>}
