@@ -136,7 +136,12 @@ export default function TumbleLotTracking({ totalLbs = 0, product, value = {}, o
 
       {/* Protein FIFO lots */}
       <div className="rounded-xl border bg-background p-4">
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Protein — FIFO Lots</p>
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Protein — FIFO Lots</p>
+          {proteinBucketId && (
+            <Badge variant="secondary" className="text-xs">{proteinBucketName}</Badge>
+          )}
+        </div>
         {proteinBucketId ? (
           <IngredientLotPicker
             ing={proteinIng}
@@ -153,15 +158,23 @@ export default function TumbleLotTracking({ totalLbs = 0, product, value = {}, o
       </div>
 
       {/* Spice mix production lots */}
-      <SpiceMixLotPicker
-        label="Spice Mix Used"
-        requiredLbs={totalSpiceLbs}
-        value={spiceValue}
-        filterSpiceMixId={product?.chop_spice_mix_id}
-        shortNotes={value.spiceShortNotes}
-        onShortNotesChange={(v) => emit({ spiceShortNotes: v })}
-        onChange={(val) => emit({ spice_mix: val })}
-      />
+      <div className="rounded-xl border bg-background p-4">
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Spice Mix Used</p>
+          {product?.chop_spice_mix_name && (
+            <Badge variant="secondary" className="text-xs">{product.chop_spice_mix_name}</Badge>
+          )}
+        </div>
+        <SpiceMixLotPicker
+          label=""
+          requiredLbs={totalSpiceLbs}
+          value={spiceValue}
+          filterSpiceMixId={product?.chop_spice_mix_id}
+          shortNotes={value.spiceShortNotes}
+          onShortNotesChange={(v) => emit({ spiceShortNotes: v })}
+          onChange={(val) => emit({ spice_mix: val })}
+        />
+      </div>
 
       {/* Notes */}
       <div className="space-y-1.5">
