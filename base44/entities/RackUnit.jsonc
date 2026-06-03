@@ -1,0 +1,63 @@
+{
+  "name": "RackUnit",
+  "type": "object",
+  "properties": {
+    "order_id": {
+      "type": "string",
+      "description": "Parent ProductionOrder ID"
+    },
+    "order_number": {
+      "type": "string"
+    },
+    "product_id": {
+      "type": "string",
+      "description": "Product ID \u2014 used to group racks that can be cooked together"
+    },
+    "product_name": {
+      "type": "string"
+    },
+    "racking_stage_id": {
+      "type": "string",
+      "description": "The racking ProductionStage that released this rack"
+    },
+    "rack_number": {
+      "type": "number",
+      "description": "Sequential rack number within the racking stage"
+    },
+    "lbs": {
+      "type": "number",
+      "description": "Weight on this rack in lbs"
+    },
+    "lot_number": {
+      "type": "string",
+      "description": "Tumble/racking lot number this rack came from (for traceability)"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "released",
+        "assigned",
+        "cooked"
+      ],
+      "default": "released",
+      "description": "released = available to smokehouse; assigned = placed in a cook batch; cooked = cook completed"
+    },
+    "cook_batch_lot": {
+      "type": "string",
+      "description": "Cook batch lot once assigned to an oven by the smokehouse operator"
+    },
+    "cooking_stage_id": {
+      "type": "string",
+      "description": "The cooking ProductionStage this rack was assigned to"
+    },
+    "released_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "order_id",
+    "product_id",
+    "lbs"
+  ]
+}
