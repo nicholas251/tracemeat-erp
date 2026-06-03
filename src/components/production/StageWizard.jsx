@@ -93,9 +93,10 @@ function buildMeasurementSteps(stage, product, capKey, casingBuckets = [], racki
       { key: "duration_minutes", label: "Tumble Duration (minutes)", type: "number" },
     ];
     if (rackingFollows) {
+      const tumbleLotDefault = `TUMBLE-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}`;
       fields.push(
-        { key: "output_qty_lbs", label: "Output Qty (lbs)", type: "number", defaultValue: stage?.input_qty_lbs },
-        { key: "output_lot_number", label: "Tumbled Lot #", type: "text", placeholder: "e.g. TUMBLE-2024-001" },
+        { key: "output_qty_lbs", label: "Output Qty (lbs) — auto-calculated", type: "number", defaultValue: stage?.input_qty_lbs, disabled: true },
+        { key: "output_lot_number", label: "Tumbled Lot # (auto-assigned, editable)", type: "text", placeholder: "e.g. TUMBLE-2024-001", defaultValue: tumbleLotDefault },
       );
     }
     fields.push({ key: "notes", label: "Notes / Observations", type: "textarea" });

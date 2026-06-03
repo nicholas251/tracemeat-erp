@@ -76,8 +76,11 @@ export default function SpiceMixLotPicker({ label, requiredLbs, value = {}, onCh
     const mix = spiceMixes.find(m => m.id === mixId);
     if (!mix) return;
     const available = mix.available_qty_lbs ?? mix.quantity_lbs ?? 0;
-    // Suggest the smaller of: available qty, or remaining needed
-    const suggestedQty = remaining > 0 ? Math.min(available, remaining) : available;
+    // Suggest the REQUIRED amount (capped at what's available), never the full available qty.
+    // Falls back to available only when no required amount is configured.
+    const suggestedQty = requiredLbs > 0
+      ? Math.min(available, remaining > 0 ? remaining : requiredLbs)
+      : available;
     const newLots = lots.map((l, i) =>
       i === index
         ? {
