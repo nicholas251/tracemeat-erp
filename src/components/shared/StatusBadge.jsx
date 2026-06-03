@@ -17,6 +17,10 @@ const statusStyles = {
   active: "bg-chart-2/15 text-chart-2 border-chart-2/20",
   discontinued: "bg-muted text-muted-foreground",
   archived: "bg-muted text-muted-foreground",
+  // Purchase order
+  ordered: "bg-chart-1/15 text-chart-1 border-chart-1/20",
+  partial_received: "bg-chart-3/15 text-chart-3 border-chart-3/20",
+  closed: "bg-muted text-muted-foreground",
   // Raw material
   received: "bg-chart-1/15 text-chart-1 border-chart-1/20",
   inspected: "bg-chart-5/15 text-chart-5 border-chart-5/20",

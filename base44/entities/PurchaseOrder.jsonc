@@ -44,12 +44,14 @@
       "type": "string",
       "enum": [
         "draft",
+        "active",
         "ordered",
         "partial_received",
         "received",
-        "closed"
+        "closed",
+        "archived"
       ],
-      "default": "draft"
+      "default": "active"
     },
     "line_items": {
       "type": "array",

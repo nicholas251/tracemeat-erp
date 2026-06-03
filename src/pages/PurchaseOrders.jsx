@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Archive } from "lucide-react";
 import PageHeader from "@/components/shared/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -36,7 +36,7 @@ export default function PurchaseOrders() {
 
   const createMutation = useMutation({
     mutationFn: async (data) => {
-      const created = await base44.entities.PurchaseOrder.create(data);
+      const created = await base44.entities.PurchaseOrder.create({ ...data, status: "active" });
       // Send email notification with created PO data and logo URL
       try {
         const logoUrl = 'https://media.base44.com/images/public/69fa3d25d6b48b9b300a8c3a/abc6cd33d_MittysFoods_GroteWiegel_MuckesLogos.png';
@@ -129,7 +129,7 @@ export default function PurchaseOrders() {
                   </TableCell>
                 </TableRow>
               ) : (
-                pos.filter(po => po).map((po) => (
+                pos.filter(po => po && po.status !== "archived").map((po) => (
                    <TableRow key={po.id}>
                      <TableCell className="font-medium">{po.po_number}</TableCell>
                      <TableCell>{po.supplier}</TableCell>
@@ -139,6 +139,11 @@ export default function PurchaseOrders() {
                      <TableCell><StatusBadge status={po.status} /></TableCell>
                      <TableCell>
                        <div className="flex gap-2">
+                         {po.status === "received" && (
+                           <Button size="sm" variant="outline" onClick={() => updateMutation.mutate({ id: po.id, data: { status: "archived" } })}>
+                             <Archive className="w-4 h-4 mr-1" /> Archive
+                           </Button>
+                         )}
                          <Button size="sm" variant="ghost" onClick={() => { setEditingPO(po); setShowForm(true); }}>
                            Edit
                          </Button>
