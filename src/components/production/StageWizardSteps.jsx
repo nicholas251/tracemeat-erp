@@ -12,6 +12,7 @@ import LinkingCookBatchBuilder from "./LinkingCookBatchBuilder";
 import TumbleCookBatchBuilder from "./TumbleCookBatchBuilder";
 import RackingCookBatchBuilder from "./RackingCookBatchBuilder";
 import SpiceMixLotPicker from "./SpiceMixLotPicker";
+import TumbleBatchSeasoning from "./TumbleBatchSeasoning";
 import ProductSplitAllocator from "./ProductSplitAllocator";
 
 export function IntroStep({ stage, capKey, stageLabel, resolvedBatches, measureSteps, product, saving, onStart, usesIngredientBatches }) {
@@ -140,6 +141,7 @@ export function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form,
   }, [stepDef.id]);
   const isLinking = capKey === "linking" && stepDef.id === "linking";
   const isTumble = (capKey === "tumble" || capKey === "tumbling") && stepDef.id === "tumble" && !stepDef.simpleTumble;
+  const isSimpleTumble = (capKey === "tumble" || capKey === "tumbling") && stepDef.id === "tumble" && stepDef.simpleTumble;
   const isRacking = (capKey === "racking" || capKey === "racking_product") && stepDef.id === "racking";
   const isPackaging = capKey === "packaging" && stepDef.id === "packaging" && product?.varied_weights;
   const isMixerInputs = capKey === "mixer" && stepDef.id === "mixer_inputs";
@@ -159,6 +161,7 @@ export function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form,
 
   const canProceed = isLinking ? !!cookBatch
      : isTumble ? !!cookPlan
+     : isSimpleTumble ? (Number(form.spice_mix_qty_lbs) > 0 || !product?.chop_spice_mix_id)
      : isRacking ? !!cookPlan
      : isPackaging ? (form.case_count > 0 && caseWeights.length === parseInt(form.case_count))
      : isMixerInputs ? (!!form.pork_lot_confirmed && (stage?.binder_lot_number ? !!form.binder_lot_confirmed : false))
@@ -257,6 +260,25 @@ export function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form,
           product={product}
           cookPlan={cookPlan}
           onChange={setCookPlan}
+        />
+      )}
+
+      {isSimpleTumble && (
+        <TumbleBatchSeasoning
+          totalLbs={stage?.input_qty_lbs || 0}
+          product={product}
+          value={form.spice_mix || {}}
+          notes={form.notes}
+          onNotesChange={val => setForm(f => ({ ...f, notes: val }))}
+          onChange={val => setForm(f => ({
+            ...f,
+            spice_mix: val,
+            spice_mix_id: val.spice_mix_id || "",
+            spice_mix_name: val.spice_mix_name || "",
+            spice_mix_lot_number: val.spice_mix_lot_number || "",
+            spice_mix_qty_lbs: val.spice_mix_qty_lbs || 0,
+            tumble_batches: val.batches || [],
+          }))}
         />
       )}
 

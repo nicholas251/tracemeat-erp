@@ -86,23 +86,34 @@ function buildMeasurementSteps(stage, product, capKey, casingBuckets = [], racki
 
   if (capKey === "tumble" || capKey === "tumbling") {
     const spiceQty = stage?.spice_mix_qty_lbs || product?.tumble_spice_qty_lbs || 0;
-    // When racking follows tumbling, tumbling is a simple seasoning step (racking controls
-    // cook batch splitting). Otherwise the TumbleCookBatchBuilder handles output/lot/racks.
-    const fields = [
-      { key: "spice_mix", label: "Spice Mix Added", type: "spice_mix_picker", requiredLbs: spiceQty, filterSpiceMixId: product?.chop_spice_mix_id },
-      { key: "duration_minutes", label: "Tumble Duration (minutes)", type: "number" },
-    ];
+    // When racking follows tumbling, tumbling is a simple seasoning step. Batches and
+    // seasoning are derived from the product's CHOPPING config (batch size + spice %),
+    // handled by the TumbleBatchSeasoning component. Otherwise the TumbleCookBatchBuilder
+    // handles output/lot/racks.
     if (rackingFollows) {
       const tumbleLotDefault = `TUMBLE-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}`;
-      fields.push(
-        // Output qty is auto-calculated on completion as input + seasoning added — no manual field.
-        { key: "output_lot_number", label: "Tumbled Lot # (auto-assigned, editable)", type: "text", placeholder: "e.g. TUMBLE-2024-001", defaultValue: tumbleLotDefault },
-      );
+      steps.push({
+        id: "tumble",
+        label: "Tumbling",
+        simpleTumble: true,
+        fields: [
+          { key: "duration_minutes", label: "Tumble Duration (minutes)", type: "number" },
+          { key: "output_lot_number", label: "Tumbled Lot # (auto-assigned, editable)", type: "text", placeholder: "e.g. TUMBLE-2024-001", defaultValue: tumbleLotDefault },
+          // Batch split + seasoning auto-calculated from chopping config (rendered separately).
+        ],
+      });
+    } else {
+      steps.push({
+        id: "tumble",
+        label: "Tumbling",
+        simpleTumble: false,
+        fields: [
+          { key: "spice_mix", label: "Spice Mix Added", type: "spice_mix_picker", requiredLbs: spiceQty, filterSpiceMixId: product?.chop_spice_mix_id },
+          { key: "duration_minutes", label: "Tumble Duration (minutes)", type: "number" },
+          { key: "notes", label: "Notes / Observations", type: "textarea" },
+        ],
+      });
     }
-    fields.push({ key: "notes", label: "Notes / Observations", type: "textarea" });
-    // When racking follows, tumbling is a simple seasoning step — the cook batch
-    // assembly (TumbleCookBatchBuilder) belongs to the racking stage, not here.
-    steps.push({ id: "tumble", label: "Tumbling", fields, simpleTumble: rackingFollows });
   }
 
   if (capKey === "mixer") {
