@@ -100,7 +100,9 @@ function buildMeasurementSteps(stage, product, capKey, casingBuckets = [], racki
       );
     }
     fields.push({ key: "notes", label: "Notes / Observations", type: "textarea" });
-    steps.push({ id: "tumble", label: "Tumbling", fields });
+    // When racking follows, tumbling is a simple seasoning step — the cook batch
+    // assembly (TumbleCookBatchBuilder) belongs to the racking stage, not here.
+    steps.push({ id: "tumble", label: "Tumbling", fields, simpleTumble: rackingFollows });
   }
 
   if (capKey === "mixer") {
