@@ -23,8 +23,29 @@ export default function OrderStagesPanel({ orderId, allowedCapabilityKeys = null
     queryFn: () => base44.entities.ProductionStage.filter({ order_id: orderId }, "step_number"),
   });
 
+  // Load the order's flow so we can show the full pipeline (including upcoming steps
+  // whose stage records haven't been created yet — e.g. tumbling flows create
+  // downstream stages dynamically per cook batch).
+  const { data: order } = useQuery({
+    queryKey: ["orderForStages", orderId],
+    queryFn: () => base44.entities.ProductionOrder.get(orderId),
+  });
+
+  const { data: flow } = useQuery({
+    queryKey: ["flowForStages", order?.flow_id],
+    queryFn: () => base44.entities.ProductFlow.get(order.flow_id),
+    enabled: !!order?.flow_id,
+  });
+
   if (isLoading) return <div className="text-sm text-muted-foreground">Loading stages...</div>;
   if (stages.length === 0) return <div className="text-sm text-muted-foreground italic">No stages found for this order.</div>;
+
+  // Determine which flow steps don't yet have a real stage record — render these as
+  // upcoming/locked placeholders so the full pipeline is visible.
+  const existingKeys = new Set(stages.map(s => s.capability_key));
+  const upcomingSteps = (flow?.steps || [])
+    .filter(step => !existingKeys.has(step.capability_key))
+    .sort((a, b) => a.step_number - b.step_number);
 
   return (
     <>
@@ -53,12 +74,29 @@ export default function OrderStagesPanel({ orderId, allowedCapabilityKeys = null
                   <p className="text-xs text-muted-foreground">{stage.racks_count} racks</p>
                 )}
               </button>
-              {idx < stages.length - 1 && (
+              {(idx < stages.length - 1 || upcomingSteps.length > 0) && (
                 <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0 mt-5" />
               )}
             </React.Fragment>
           );
         })}
+
+        {/* Upcoming / not-yet-created flow steps shown as locked placeholders */}
+        {upcomingSteps.map((step, idx) => (
+          <React.Fragment key={`upcoming-${step.capability_key}-${step.step_number}`}>
+            <div className="flex flex-col p-3.5 rounded-xl border-2 border-dashed bg-muted/30 text-left min-w-[130px] opacity-50 cursor-not-allowed">
+              <div className="flex items-center gap-1.5 mb-1.5 text-muted-foreground">
+                <Lock className="w-4 h-4" />
+                <span className="text-xs font-bold capitalize">upcoming</span>
+              </div>
+              <p className="text-sm font-bold leading-tight">{step.capability_name}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Step {step.step_number}</p>
+            </div>
+            {idx < upcomingSteps.length - 1 && (
+              <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0 mt-5" />
+            )}
+          </React.Fragment>
+        ))}
       </div>
 
       {activeStage && activeStage.capability_key === "sous_vide_pack" && (
