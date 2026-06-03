@@ -95,7 +95,7 @@ function buildMeasurementSteps(stage, product, capKey, casingBuckets = [], racki
     if (rackingFollows) {
       const tumbleLotDefault = `TUMBLE-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}`;
       fields.push(
-        { key: "output_qty_lbs", label: "Output Qty (lbs) — auto-calculated", type: "number", defaultValue: stage?.input_qty_lbs, disabled: true },
+        // Output qty is auto-calculated on completion as input + seasoning added — no manual field.
         { key: "output_lot_number", label: "Tumbled Lot # (auto-assigned, editable)", type: "text", placeholder: "e.g. TUMBLE-2024-001", defaultValue: tumbleLotDefault },
       );
     }
@@ -557,7 +557,9 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
         }
       } else if ((capKey === "tumble" || capKey === "tumbling") && rackingFollows) {
         // ── Tumble (seasoning only): racking controls cook batches. Create ONE racking stage ──
-        const tumbledQty = form.output_qty_lbs || stage.input_qty_lbs || 0;
+        // Output = protein in + seasoning added (spice mix gets absorbed into the batch weight)
+        const spiceAddedLbs = Number(form.spice_mix_qty_lbs) || 0;
+        const tumbledQty = parseFloat(((stage.input_qty_lbs || 0) + spiceAddedLbs).toFixed(2));
         const tumbledLot = form.output_lot_number || `TUMBLE-${new Date().toISOString().slice(0,10).replace(/-/g,"")}`;
         await base44.entities.ProductionStage.update(stage.id, {
           status: "completed",
@@ -618,8 +620,17 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
         onClose();
       } else if ((capKey === "tumble" || capKey === "tumbling") && cookPlan) {
         // ── Tumble: complete stage, then create one cooking stage per cook batch ──
-        const totalOutputLbs = cookPlan.cookBatches.reduce((s, b) => s + b.lbs, 0);
+        const spiceAddedLbs = Number(form.spice_mix_qty_lbs) || 0;
+        const totalOutputLbs = parseFloat((cookPlan.cookBatches.reduce((s, b) => s + b.lbs, 0)).toFixed(2));
         const tumbleOutputLot = cookPlan.lotPrefix || `TUMBLE-${new Date().toISOString().slice(0,10).replace(/-/g,"")}`;
+
+        // Deduct from the assigned SpiceMix inventory (separate from the FIFO cook-batch spice lots)
+        if (form.spice_mix?.lots?.length) {
+          base44.functions.invoke("deductSpiceMixOnComplete", {
+            stage_id: stage.id,
+            lots: form.spice_mix.lots,
+          }).catch(err => console.warn("Spice mix deduction failed:", err));
+        }
         await base44.entities.ProductionStage.update(stage.id, {
           status: "completed",
           completed_at: new Date().toISOString(),
