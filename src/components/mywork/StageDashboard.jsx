@@ -42,10 +42,12 @@ export default function StageDashboard({ user, profile, onBack, singleProfile = 
     return isAssigned && (s.status === "in_progress" || s.status === "available");
   });
 
-  // Group stages by capability
-  const cookingStages = myStages.filter(s => s.capability_key === "cooking");
-  const chillingStages = myStages.filter(s => s.capability_key === "chilling");
-  const otherStages = myStages.filter(s => s.capability_key !== "cooking" && s.capability_key !== "chilling");
+  // Group stages by capability. Within each group, sort largest batch first so
+  // the smallest (e.g. a 20 lb remainder) is always made last.
+  const byLbsDesc = (a, b) => (b.input_qty_lbs || 0) - (a.input_qty_lbs || 0);
+  const cookingStages = myStages.filter(s => s.capability_key === "cooking").sort(byLbsDesc);
+  const chillingStages = myStages.filter(s => s.capability_key === "chilling").sort(byLbsDesc);
+  const otherStages = myStages.filter(s => s.capability_key !== "cooking" && s.capability_key !== "chilling").sort(byLbsDesc);
   const sortedStages = [...cookingStages, ...otherStages, ...chillingStages];
 
   const title = profile.name;
