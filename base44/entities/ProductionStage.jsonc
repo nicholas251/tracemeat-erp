@@ -76,6 +76,10 @@
       "type": "string",
       "description": "Cook batch lot number"
     },
+    "source_cooking_stage_id": {
+      "type": "string",
+      "description": "For chilling stages: the ID of the cooking ProductionStage that produced this chilling stage. Ensures each cook batch maps to exactly one cooling batch even when cook lot numbers are reused."
+    },
     "batch_tag": {
       "type": "string",
       "description": "Stable per-blend-batch tag (e.g. blend-batch-1) used to pair chopping/mixer/linking stages across steps in the kielbasa flow"

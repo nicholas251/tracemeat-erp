@@ -1290,16 +1290,20 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
                    });
                  }
                } else {
-                 // Single-batch flow (sous vide or single cooking): create one chilling stage
+                 // Single cook batch per cooking stage → exactly one chilling stage.
+                 // Dedup on the SOURCE cooking stage id (stored in source_cooking_stage_id),
+                 // not the lot number — operators often reuse the same default cook lot
+                 // (e.g. "COOK-20240101") across multiple separate cook batches, and keying
+                 // on the lot would collapse 3 cook batches into a single chilling batch.
                  const outputQty = updates.output_qty_lbs || stage.input_qty_lbs || 0;
                  const cookOutputLot = updates.output_lot_number || stage.input_lot_number || `COOK-${stage.order_number}-${today_str}`;
                  const cookBatchKey = stage.cook_batch_lot || cookOutputLot;
-                 const existingChillStages = await base44.entities.ProductionStage.filter({
+                 const allChillForOrder = await base44.entities.ProductionStage.filter({
                    order_id: stage.order_id,
                    capability_key: "chilling",
-                   cook_batch_lot: cookBatchKey,
                  });
-                 if (existingChillStages.length === 0) {
+                 const alreadyChilled = allChillForOrder.some(s => s.source_cooking_stage_id === stage.id);
+                 if (!alreadyChilled) {
                    await base44.entities.ProductionStage.create({
                      order_id: stage.order_id,
                      order_number: stage.order_number,
@@ -1314,6 +1318,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
                      input_qty_lbs: parseFloat(outputQty.toFixed ? outputQty.toFixed(2) : outputQty),
                      input_lot_number: cookOutputLot,
                      cook_batch_lot: cookBatchKey,
+                     source_cooking_stage_id: stage.id,
                    });
                  }
                }
