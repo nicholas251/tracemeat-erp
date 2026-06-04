@@ -23,6 +23,12 @@ export default function SpiceMixes() {
     queryFn: () => base44.entities.SpiceMix.list('-updated_date', 100),
   });
 
+  // Produced spice-mix lots (so each card can show its batch lot numbers)
+  const { data: producedLots = [] } = useQuery({
+    queryKey: ['spiceMixProducedLots'],
+    queryFn: () => base44.entities.RawInventory.filter({ bucket_category: 'spice' }, '-received_date', 500),
+  });
+
   const createMutation = useMutation({
     mutationFn: (data) => base44.entities.SpiceMix.create(data),
     onSuccess: () => {
@@ -102,6 +108,25 @@ export default function SpiceMixes() {
                     <span className="text-muted-foreground">Available:</span>
                     <span className="font-medium">{mix.available_qty_lbs || 0} lbs</span>
                   </div>
+                  {(() => {
+                    const lots = producedLots
+                      .filter(l => l.bucket_id === mix.bucket_id && (l.available_qty || 0) > 0)
+                      .slice(0, 4);
+                    if (lots.length === 0) return null;
+                    return (
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">Produced lots:</p>
+                        <div className="space-y-1">
+                          {lots.map(l => (
+                            <div key={l.id} className="flex justify-between items-center text-xs bg-muted/40 rounded px-2 py-1">
+                              <span className="font-mono text-muted-foreground truncate max-w-[60%]">{l.lot_number}</span>
+                              <span className="font-semibold ml-2">{(l.available_qty || 0).toLocaleString()} lbs</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
                   {mix.ingredients?.length > 0 && (
                     <div>
                       <p className="text-xs text-muted-foreground mb-2">Ingredients:</p>
@@ -158,6 +183,7 @@ export default function SpiceMixes() {
         onClose={() => setProduceMix(null)}
         onProduced={() => {
           queryClient.invalidateQueries({ queryKey: ['spiceMixes'] });
+          queryClient.invalidateQueries({ queryKey: ['spiceMixProducedLots'] });
           queryClient.invalidateQueries({ queryKey: ['raw_inventory'] });
           queryClient.invalidateQueries({ queryKey: ['inventory_buckets'] });
         }}
