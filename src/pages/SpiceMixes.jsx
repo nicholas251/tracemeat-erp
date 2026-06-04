@@ -193,6 +193,9 @@ export default function SpiceMixes() {
             {produceResult && (
               <div className="text-sm space-y-1 border rounded p-3 bg-muted/30">
                 <p className="font-medium text-chart-2">✓ Batch produced: {produceResult.batchProduced} lbs</p>
+                {produceResult.lotNumber && (
+                  <p className="text-muted-foreground">Assigned lot: <span className="font-mono font-medium text-foreground">{produceResult.lotNumber}</span></p>
+                )}
                 <p className="text-muted-foreground">New available: {produceResult.newAvailableQty} lbs</p>
                 {produceResult.shortfalls?.length > 0 && (
                   <div className="text-destructive mt-1">

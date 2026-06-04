@@ -64,9 +64,49 @@ Deno.serve(async (req) => {
       available_qty_lbs: newAvailable
     });
 
+    // Assign a lot number to this produced batch and create an inventory lot record
+    const now = new Date();
+    const datePart = now.toISOString().slice(0, 10).replace(/-/g, '');
+    const lotNumber = `SM-${datePart}-${Math.floor(now.getTime() / 1000).toString().slice(-5)}`;
+
+    // Ensure the mix has an is_mix spice bucket so the produced batch can be tracked as a lot
+    let bucketId = mix.bucket_id;
+    let bucketName = mix.bucket_name || mix.name;
+    if (!bucketId) {
+      const bucket = await base44.asServiceRole.entities.InventoryBucket.create({
+        name: mix.name,
+        category: 'spice',
+        is_mix: true,
+        unit: 'lbs',
+        code: '',
+        description: '',
+        status: 'active'
+      });
+      bucketId = bucket.id;
+      bucketName = bucket.name;
+      await base44.asServiceRole.entities.SpiceMix.update(spiceMixId, {
+        bucket_id: bucketId,
+        bucket_name: bucketName
+      });
+    }
+
+    await base44.asServiceRole.entities.RawInventory.create({
+      bucket_id: bucketId,
+      bucket_name: bucketName,
+      bucket_category: 'spice',
+      lot_number: lotNumber,
+      description: `Produced spice mix batch — ${mix.name}`,
+      quantity: batchQtyLbs,
+      available_qty: batchQtyLbs,
+      unit: 'lbs',
+      received_date: now.toISOString().slice(0, 10),
+      status: 'available'
+    });
+
     return Response.json({
       success: true,
       batchProduced: batchQtyLbs,
+      lotNumber,
       newAvailableQty: newAvailable,
       deductions,
       shortfalls
