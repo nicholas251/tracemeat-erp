@@ -110,7 +110,7 @@ export default function SpiceMixes() {
                   </div>
                   {(() => {
                     const lots = producedLots
-                      .filter(l => l.bucket_id === mix.bucket_id && (l.available_qty || 0) > 0)
+                      .filter(l => ((mix.bucket_id && l.bucket_id === mix.bucket_id) || l.bucket_name === mix.name) && (l.available_qty || 0) > 0)
                       .slice(0, 4);
                     if (lots.length === 0) return null;
                     return (
