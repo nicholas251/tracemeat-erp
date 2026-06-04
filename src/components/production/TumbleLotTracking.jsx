@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Layers, AlertCircle } from "lucide-react";
 import IngredientLotPicker from "../blending/IngredientLotPicker";
-import TumbleSpiceSource from "./TumbleSpiceSource";
+import SpiceMixLotPicker from "./SpiceMixLotPicker";
 
 /**
  * TumbleLotTracking
@@ -82,7 +82,6 @@ export default function TumbleLotTracking({ totalLbs = 0, product, value = {}, o
   const proteinLots = value.proteinLots || null;
   const proteinConfirmed = value.proteinConfirmed || false;
   const spiceValue = value.spice_mix || {};
-  const spiceBucketName = value.spiceBucketName || "";
 
   const proteinIng = {
     bucket_id: proteinBucketId,
@@ -95,28 +94,9 @@ export default function TumbleLotTracking({ totalLbs = 0, product, value = {}, o
 
   const emit = (patch) => onChange({ ...value, ...patch });
 
-  const useRawBucket = value.spice_source === "raw_bucket";
-  const spiceBucketLots = value.spiceBucketLots || null;
-
   // Keep derived batch + spice totals in the emitted value
   useEffect(() => {
     if (batches.length === 0) return;
-    if (useRawBucket) {
-      // Raw spice bucket source — derive total from the picked FIFO lots and clear SpiceMix fields
-      const bucketTotal = (spiceBucketLots || []).reduce((s, l) => s + (Number(l.actual_lbs) || 0), 0);
-      onChange({
-        ...value,
-        batches,
-        totalSpiceLbs,
-        proteinBucketId,
-        proteinBucketName,
-        spice_mix_id: "",
-        spice_mix_name: "",
-        spice_mix_lot_number: spiceBucketName || "",
-        spice_mix_qty_lbs: parseFloat(bucketTotal.toFixed(2)),
-      });
-      return;
-    }
     const spiceTotal = spiceValue?.lots
       ? spiceValue.lots.reduce((s, l) => s + (Number(l.spice_mix_qty_lbs) || 0), 0)
       : (Number(spiceValue?.spice_mix_qty_lbs) || 0);
@@ -132,7 +112,7 @@ export default function TumbleLotTracking({ totalLbs = 0, product, value = {}, o
       spice_mix_qty_lbs: spiceTotal,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [batches.length, totalSpiceLbs, useRawBucket, spiceValue?.spice_mix_id, JSON.stringify(spiceValue?.lots || []), JSON.stringify(spiceBucketLots || [])]);
+  }, [batches.length, totalSpiceLbs, spiceValue?.spice_mix_id, JSON.stringify(spiceValue?.lots || [])]);
 
   if (!batchSize) {
     return (
@@ -219,13 +199,23 @@ export default function TumbleLotTracking({ totalLbs = 0, product, value = {}, o
         )}
       </div>
 
-      {/* Spice source: produced SpiceMix OR raw spice bucket */}
-      <TumbleSpiceSource
-        requiredLbs={totalSpiceLbs}
-        product={product}
-        value={value}
-        onPatch={(patch) => emit(patch)}
-      />
+      {/* Spice mix production lots */}
+      <div className="rounded-xl border bg-background p-4">
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Spice Mix Used</p>
+          {product?.chop_spice_mix_name && (
+            <Badge variant="secondary" className="text-xs">{product.chop_spice_mix_name}</Badge>
+          )}
+        </div>
+        <SpiceMixLotPicker
+          label=""
+          requiredLbs={totalSpiceLbs}
+          value={spiceValue}
+          shortNotes={value.spiceShortNotes}
+          onShortNotesChange={(v) => emit({ spiceShortNotes: v })}
+          onChange={(val) => emit({ spice_mix: val })}
+        />
+      </div>
 
       {/* Notes */}
       <div className="space-y-1.5">

@@ -595,25 +595,10 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
           }] : stage.sub_batches,
         });
 
-        // Deduct seasoning. The operator may have chosen a produced SpiceMix OR a raw
-        // spice InventoryBucket — deduct from whichever source was used.
+        // Deduct from the assigned SpiceMix inventory (not raw inventory).
         // Awaited (not fire-and-forget) so the deduction always lands and parallel
         // tumble stages don't race / lose updates.
-        if (form.spice_source === "raw_bucket" && form.spiceBucketLots?.length && form.spiceBucketId) {
-          try {
-            await base44.functions.invoke("deductRawInventoryOnBatchComplete", {
-              stage_id: stage.id,
-              ingredients: [{
-                bucket_id: form.spiceBucketId,
-                bucket_name: form.spiceBucketName || "Spice",
-                actual_lbs: form.spiceBucketLots.reduce((s, a) => s + (Number(a.actual_lbs) || 0), 0),
-                lot_allocations: form.spiceBucketLots,
-              }],
-            });
-          } catch (err) {
-            console.warn("Raw spice bucket deduction failed:", err);
-          }
-        } else if (form.spice_mix?.lots?.length) {
+        if (form.spice_mix?.lots?.length) {
           try {
             await base44.functions.invoke("deductSpiceMixOnComplete", {
               stage_id: stage.id,
