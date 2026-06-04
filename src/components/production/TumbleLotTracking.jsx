@@ -1,7 +1,10 @@
 import React, { useMemo, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { base44 } from "@/api/base44Client";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Layers, AlertCircle } from "lucide-react";
 import IngredientLotPicker from "../blending/IngredientLotPicker";
 import SpiceMixLotPicker from "./SpiceMixLotPicker";
@@ -37,8 +40,19 @@ export default function TumbleLotTracking({ totalLbs = 0, product, value = {}, o
   const spicePerBatch = Number(product?.chop_spice_qty_lbs) || 0;
   const spicePct = batchSize > 0 ? spicePerBatch / batchSize : 0;
 
-  const proteinBucketId = product?.blend_ingredients?.[0]?.bucket_id || null;
-  const proteinBucketName = product?.blend_ingredients?.[0]?.bucket_name || "Protein";
+  const defaultProteinBucketId = product?.blend_ingredients?.[0]?.bucket_id || null;
+  const defaultProteinBucketName = product?.blend_ingredients?.[0]?.bucket_name || "Protein";
+
+  // Load active protein buckets so the operator can override which bucket to draw from
+  const { data: proteinBuckets = [] } = useQuery({
+    queryKey: ["proteinBuckets"],
+    queryFn: () => base44.entities.InventoryBucket.filter({ category: "protein", status: "active" }),
+  });
+
+  // Operator-selected bucket overrides the product default
+  const proteinBucketId = value.proteinBucketId || defaultProteinBucketId;
+  const proteinBucketName =
+    proteinBuckets.find(b => b.id === proteinBucketId)?.name || defaultProteinBucketName;
 
   // Split raw weight into chopping-sized batches to derive total seasoning required
   const batches = useMemo(() => {
@@ -138,10 +152,38 @@ export default function TumbleLotTracking({ totalLbs = 0, product, value = {}, o
       <div className="rounded-xl border bg-background p-4">
         <div className="flex items-center justify-between mb-2">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Protein — FIFO Lots</p>
-          {proteinBucketId && (
-            <Badge variant="secondary" className="text-xs">{proteinBucketName}</Badge>
-          )}
         </div>
+
+        {/* Bucket selector */}
+        <div className="space-y-1 mb-3">
+          <Label className="text-xs font-semibold text-muted-foreground">
+            Protein Bucket
+            {value.proteinBucketId && value.proteinBucketId !== defaultProteinBucketId && (
+              <span className="text-amber-600 font-normal ml-1">(overridden)</span>
+            )}
+          </Label>
+          <Select
+            value={proteinBucketId || ""}
+            disabled={proteinConfirmed}
+            onValueChange={(v) => {
+              // Switching bucket resets the FIFO lots so they re-pick from the new bucket
+              emit({ proteinBucketId: v, proteinBucketName: proteinBuckets.find(b => b.id === v)?.name || "", proteinLots: null });
+            }}
+          >
+            <SelectTrigger className="h-10 text-sm">
+              <SelectValue placeholder="Select protein bucket..." />
+            </SelectTrigger>
+            <SelectContent>
+              {proteinBuckets.map(b => (
+                <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+              ))}
+              {proteinBuckets.length === 0 && (
+                <div className="px-3 py-2 text-xs text-muted-foreground">No protein buckets found</div>
+              )}
+            </SelectContent>
+          </Select>
+        </div>
+
         {proteinBucketId ? (
           <IngredientLotPicker
             ing={proteinIng}
@@ -169,7 +211,6 @@ export default function TumbleLotTracking({ totalLbs = 0, product, value = {}, o
           label=""
           requiredLbs={totalSpiceLbs}
           value={spiceValue}
-          filterSpiceMixId={product?.chop_spice_mix_id}
           shortNotes={value.spiceShortNotes}
           onShortNotesChange={(v) => emit({ spiceShortNotes: v })}
           onChange={(val) => emit({ spice_mix: val })}
