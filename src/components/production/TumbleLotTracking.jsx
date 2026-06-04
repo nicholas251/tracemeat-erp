@@ -94,14 +94,16 @@ export default function TumbleLotTracking({ totalLbs = 0, product, value = {}, o
 
   const emit = (patch) => onChange({ ...value, ...patch });
 
-  // Keep derived batch + spice totals in the emitted value
+  // Keep derived batch + spice totals in the emitted value.
+  // Only emit when a derived field genuinely differs to avoid a render
+  // feedback loop that closes the spice-mix dropdown mid-selection.
   useEffect(() => {
     if (batches.length === 0) return;
     const spiceTotal = spiceValue?.lots
       ? spiceValue.lots.reduce((s, l) => s + (Number(l.spice_mix_qty_lbs) || 0), 0)
       : (Number(spiceValue?.spice_mix_qty_lbs) || 0);
-    onChange({
-      ...value,
+
+    const next = {
       batches,
       totalSpiceLbs,
       proteinBucketId,
@@ -110,7 +112,18 @@ export default function TumbleLotTracking({ totalLbs = 0, product, value = {}, o
       spice_mix_name: spiceValue.spice_mix_name || "",
       spice_mix_lot_number: spiceValue.spice_mix_lot_number || "",
       spice_mix_qty_lbs: spiceTotal,
-    });
+    };
+
+    const unchanged =
+      value.totalSpiceLbs === next.totalSpiceLbs &&
+      value.proteinBucketId === next.proteinBucketId &&
+      value.spice_mix_id === next.spice_mix_id &&
+      value.spice_mix_lot_number === next.spice_mix_lot_number &&
+      value.spice_mix_qty_lbs === next.spice_mix_qty_lbs &&
+      (value.batches?.length || 0) === batches.length;
+
+    if (unchanged) return;
+    onChange({ ...value, ...next });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [batches.length, totalSpiceLbs, spiceValue?.spice_mix_id, JSON.stringify(spiceValue?.lots || [])]);
 
@@ -211,6 +224,7 @@ export default function TumbleLotTracking({ totalLbs = 0, product, value = {}, o
           label=""
           requiredLbs={totalSpiceLbs}
           value={spiceValue}
+          filterSpiceMixId={product?.chop_spice_mix_id || undefined}
           shortNotes={value.spiceShortNotes}
           onShortNotesChange={(v) => emit({ spiceShortNotes: v })}
           onChange={(val) => emit({ spice_mix: val })}
