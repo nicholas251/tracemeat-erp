@@ -156,7 +156,11 @@ export default function SpiceMixes() {
         mix={produceMix}
         open={!!produceMix}
         onClose={() => setProduceMix(null)}
-        onProduced={() => queryClient.invalidateQueries({ queryKey: ['spiceMixes'] })}
+        onProduced={() => {
+          queryClient.invalidateQueries({ queryKey: ['spiceMixes'] });
+          queryClient.invalidateQueries({ queryKey: ['raw_inventory'] });
+          queryClient.invalidateQueries({ queryKey: ['inventory_buckets'] });
+        }}
       />
 
       <AlertDialog open={!!deleteMix} onOpenChange={() => setDeleteMix(null)}>
