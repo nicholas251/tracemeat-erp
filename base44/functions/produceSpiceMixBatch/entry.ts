@@ -8,7 +8,7 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { spiceMixId, batchQtyLbs } = await req.json();
+    const { spiceMixId, batchQtyLbs, ingredientLots } = await req.json();
     if (!spiceMixId || !batchQtyLbs) {
       return Response.json({ error: 'spiceMixId and batchQtyLbs are required' }, { status: 400 });
     }
@@ -28,33 +28,52 @@ Deno.serve(async (req) => {
     const deductions = [];
     const shortfalls = [];
 
-    for (const ingredient of mix.ingredients) {
-      const neededLbs = ingredient.quantity_lbs * scaleFactor;
+    if (Array.isArray(ingredientLots) && ingredientLots.length > 0) {
+      // Operator confirmed exact lots for each ingredient — deduct those
+      for (const ing of ingredientLots) {
+        for (const lot of (ing.lots || [])) {
+          const take = Number(lot.actual_lbs) || 0;
+          if (take <= 0 || !lot.raw_inventory_id) continue;
 
-      // Get available RawInventory lots for this bucket (FIFO by received_date)
-      const lots = await base44.asServiceRole.entities.RawInventory.filter({
-        bucket_id: ingredient.bucket_id,
-        status: { $in: ['available', 'in_use'] }
-      }, 'received_date', 100);
-
-      let remaining = neededLbs;
-      for (const lot of lots) {
-        if (remaining <= 0) break;
-        const take = Math.min(lot.available_qty || 0, remaining);
-        if (take <= 0) continue;
-
-        const newQty = (lot.available_qty || 0) - take;
-        await base44.asServiceRole.entities.RawInventory.update(lot.id, {
-          available_qty: newQty,
-          status: newQty <= 0 ? 'depleted' : 'in_use'
-        });
-
-        deductions.push({ bucket_name: ingredient.bucket_name, lot_id: lot.id, deducted: take });
-        remaining -= take;
+          const row = await base44.asServiceRole.entities.RawInventory.get(lot.raw_inventory_id);
+          if (!row) continue;
+          const newQty = (row.available_qty || 0) - take;
+          await base44.asServiceRole.entities.RawInventory.update(row.id, {
+            available_qty: newQty,
+            status: newQty <= 0 ? 'depleted' : 'in_use'
+          });
+          deductions.push({ bucket_name: ing.bucket_name, lot_number: lot.lot_number, lot_id: row.id, deducted: take });
+        }
       }
+    } else {
+      // Fallback: auto FIFO deduction
+      for (const ingredient of mix.ingredients) {
+        const neededLbs = ingredient.quantity_lbs * scaleFactor;
 
-      if (remaining > 0) {
-        shortfalls.push({ bucket_name: ingredient.bucket_name, shortfall: remaining });
+        const lots = await base44.asServiceRole.entities.RawInventory.filter({
+          bucket_id: ingredient.bucket_id,
+          status: { $in: ['available', 'in_use'] }
+        }, 'received_date', 100);
+
+        let remaining = neededLbs;
+        for (const lot of lots) {
+          if (remaining <= 0) break;
+          const take = Math.min(lot.available_qty || 0, remaining);
+          if (take <= 0) continue;
+
+          const newQty = (lot.available_qty || 0) - take;
+          await base44.asServiceRole.entities.RawInventory.update(lot.id, {
+            available_qty: newQty,
+            status: newQty <= 0 ? 'depleted' : 'in_use'
+          });
+
+          deductions.push({ bucket_name: ingredient.bucket_name, lot_id: lot.id, deducted: take });
+          remaining -= take;
+        }
+
+        if (remaining > 0) {
+          shortfalls.push({ bucket_name: ingredient.bucket_name, shortfall: remaining });
+        }
       }
     }
 

@@ -4,23 +4,18 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Plus, Trash2, Edit, FlaskConical } from "lucide-react";
 import PageHeader from "@/components/shared/PageHeader";
 import StatusBadge from "@/components/shared/StatusBadge";
 import SpiceMixFormDialog from "@/components/spice-mixes/SpiceMixFormDialog";
+import ProduceSpiceMixDialog from "@/components/spice-mixes/ProduceSpiceMixDialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 
 export default function SpiceMixes() {
   const [showForm, setShowForm] = useState(false);
   const [editingMix, setEditingMix] = useState(null);
   const [deleteMix, setDeleteMix] = useState(null);
   const [produceMix, setProduceMix] = useState(null);
-  const [produceQty, setProduceQty] = useState("");
-  const [producing, setProducing] = useState(false);
-  const [produceResult, setProduceResult] = useState(null);
   const queryClient = useQueryClient();
 
   const { data: mixes = [], isLoading } = useQuery({
@@ -69,19 +64,6 @@ export default function SpiceMixes() {
       });
       createMutation.mutate({ ...data, bucket_id: bucket.id, bucket_name: bucket.name });
     }
-  };
-
-  const handleProduceBatch = async () => {
-    if (!produceQty || !produceMix) return;
-    setProducing(true);
-    setProduceResult(null);
-    const res = await base44.functions.invoke("produceSpiceMixBatch", {
-      spiceMixId: produceMix.id,
-      batchQtyLbs: Number(produceQty)
-    });
-    setProduceResult(res.data);
-    setProducing(false);
-    queryClient.invalidateQueries({ queryKey: ['spiceMixes'] });
   };
 
   if (isLoading) return <div className="p-6"><div className="w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin"></div></div>;
@@ -135,7 +117,7 @@ export default function SpiceMixes() {
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => { setProduceMix(mix); setProduceQty(mix.quantity_lbs || ""); setProduceResult(null); }}
+                    onClick={() => setProduceMix(mix)}
                     className="flex-1 gap-1 text-chart-2 border-chart-2/30 hover:bg-chart-2/10"
                   >
                     <FlaskConical className="w-3 h-3" /> Produce
@@ -170,54 +152,12 @@ export default function SpiceMixes() {
         mix={editingMix}
       />
 
-      {/* Produce Batch Dialog */}
-      <Dialog open={!!produceMix} onOpenChange={() => { setProduceMix(null); setProduceResult(null); }}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Produce Batch — {produceMix?.name}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              This will deduct ingredients from RawInventory buckets and add to the available quantity.
-            </p>
-            <div className="space-y-2">
-              <Label>Batch Quantity (lbs)</Label>
-              <Input
-                type="number"
-                step="0.1"
-                value={produceQty}
-                onChange={e => setProduceQty(e.target.value)}
-                placeholder={`Base batch: ${produceMix?.quantity_lbs} lbs`}
-              />
-            </div>
-            {produceResult && (
-              <div className="text-sm space-y-1 border rounded p-3 bg-muted/30">
-                <p className="font-medium text-chart-2">✓ Batch produced: {produceResult.batchProduced} lbs</p>
-                {produceResult.lotNumber && (
-                  <p className="text-muted-foreground">Assigned lot: <span className="font-mono font-medium text-foreground">{produceResult.lotNumber}</span></p>
-                )}
-                <p className="text-muted-foreground">New available: {produceResult.newAvailableQty} lbs</p>
-                {produceResult.shortfalls?.length > 0 && (
-                  <div className="text-destructive mt-1">
-                    <p className="font-medium">Shortfalls:</p>
-                    {produceResult.shortfalls.map((s, i) => (
-                      <p key={i}>{s.bucket_name}: {s.shortfall.toFixed(1)} lbs short</p>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-          <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => { setProduceMix(null); setProduceResult(null); }}>Close</Button>
-            {!produceResult && (
-              <Button onClick={handleProduceBatch} disabled={producing}>
-                {producing ? "Producing..." : "Confirm Produce"}
-              </Button>
-            )}
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ProduceSpiceMixDialog
+        mix={produceMix}
+        open={!!produceMix}
+        onClose={() => setProduceMix(null)}
+        onProduced={() => queryClient.invalidateQueries({ queryKey: ['spiceMixes'] })}
+      />
 
       <AlertDialog open={!!deleteMix} onOpenChange={() => setDeleteMix(null)}>
         <AlertDialogContent>
