@@ -609,17 +609,22 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
           }
         }
 
-        // Deduct the picked protein FIFO lots from raw inventory (full traceability)
+        // Deduct the picked protein FIFO lots from raw inventory (full traceability).
+        // Awaited (like spice) so the deduction reliably lands before the stage closes.
         if (form.protein_lots?.length && form.protein_bucket_id) {
-          base44.functions.invoke("deductRawInventoryOnBatchComplete", {
-            stage_id: stage.id,
-            ingredients: [{
-              bucket_id: form.protein_bucket_id,
-              bucket_name: form.protein_bucket_name || "Protein",
-              actual_lbs: form.protein_lots.reduce((s, a) => s + (Number(a.actual_lbs) || 0), 0),
-              lot_allocations: form.protein_lots,
-            }],
-          }).catch(err => console.warn("Protein inventory deduction failed:", err));
+          try {
+            await base44.functions.invoke("deductRawInventoryOnBatchComplete", {
+              stage_id: stage.id,
+              ingredients: [{
+                bucket_id: form.protein_bucket_id,
+                bucket_name: form.protein_bucket_name || "Protein",
+                actual_lbs: form.protein_lots.reduce((s, a) => s + (Number(a.actual_lbs) || 0), 0),
+                lot_allocations: form.protein_lots,
+              }],
+            });
+          } catch (err) {
+            console.warn("Protein inventory deduction failed:", err);
+          }
         }
 
         // Build per-racking-card list. Use the internal tumble batches if present (each
