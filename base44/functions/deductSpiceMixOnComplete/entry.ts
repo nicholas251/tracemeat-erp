@@ -22,13 +22,25 @@ Deno.serve(async (req) => {
 
     const results = [];
 
+    // Aggregate quantities per spice mix so multiple lot rows pointing at the
+    // same SpiceMix are deducted in a single read+write (avoids self-races).
+    const byMix = new Map();
     for (const lot of lots) {
       const mixId = lot.spice_mix_id || lot.id;
       const qty = Number(lot.spice_mix_qty_lbs ?? lot.qty_lbs ?? lot.actual_lbs ?? 0);
       if (!mixId || !qty || qty <= 0) continue;
+      byMix.set(mixId, (byMix.get(mixId) || 0) + qty);
+    }
 
-      const mixes = await base44.asServiceRole.entities.SpiceMix.filter({ id: mixId });
-      const mix = mixes?.[0];
+    for (const [mixId, qty] of byMix.entries()) {
+      // Re-read the latest value immediately before updating to minimise the
+      // window for a lost update when stages complete close together.
+      let mix = null;
+      try {
+        mix = await base44.asServiceRole.entities.SpiceMix.get(mixId);
+      } catch (_e) {
+        mix = null;
+      }
       if (!mix) {
         console.warn(`SpiceMix not found: ${mixId}`);
         continue;

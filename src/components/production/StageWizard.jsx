@@ -595,12 +595,18 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
           }] : stage.sub_batches,
         });
 
-        // Deduct from the assigned SpiceMix inventory (not raw inventory)
+        // Deduct from the assigned SpiceMix inventory (not raw inventory).
+        // Awaited (not fire-and-forget) so the deduction always lands and parallel
+        // tumble stages don't race / lose updates.
         if (form.spice_mix?.lots?.length) {
-          base44.functions.invoke("deductSpiceMixOnComplete", {
-            stage_id: stage.id,
-            lots: form.spice_mix.lots,
-          }).catch(err => console.warn("Spice mix deduction failed:", err));
+          try {
+            await base44.functions.invoke("deductSpiceMixOnComplete", {
+              stage_id: stage.id,
+              lots: form.spice_mix.lots,
+            });
+          } catch (err) {
+            console.warn("Spice mix deduction failed:", err);
+          }
         }
 
         // Deduct the picked protein FIFO lots from raw inventory (full traceability)
