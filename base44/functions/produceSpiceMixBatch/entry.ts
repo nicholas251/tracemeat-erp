@@ -88,11 +88,18 @@ Deno.serve(async (req) => {
     const datePart = now.toISOString().slice(0, 10).replace(/-/g, '');
     const lotNumber = `SM-${datePart}-${Math.floor(now.getTime() / 1000).toString().slice(-5)}`;
 
-    // Ensure the mix has an is_mix spice bucket so the produced batch can be tracked as a lot
+    // Ensure the mix has an is_mix spice bucket so the produced batch can be tracked as a lot.
+    // Reuse the linked bucket if present, otherwise find an existing one by name before
+    // creating a new one — prevents duplicate buckets for the same mix.
     let bucketId = mix.bucket_id;
     let bucketName = mix.bucket_name || mix.name;
     if (!bucketId) {
-      const bucket = await base44.asServiceRole.entities.InventoryBucket.create({
+      const existing = await base44.asServiceRole.entities.InventoryBucket.filter({
+        name: mix.name,
+        category: 'spice',
+        is_mix: true,
+      });
+      const bucket = existing[0] || await base44.asServiceRole.entities.InventoryBucket.create({
         name: mix.name,
         category: 'spice',
         is_mix: true,
@@ -103,11 +110,14 @@ Deno.serve(async (req) => {
       });
       bucketId = bucket.id;
       bucketName = bucket.name;
-      await base44.asServiceRole.entities.SpiceMix.update(spiceMixId, {
-        bucket_id: bucketId,
-        bucket_name: bucketName
-      });
     }
+    // Always persist the resolved bucket link back to the mix (and re-activate it,
+    // since producing a batch means the mix is in use again).
+    await base44.asServiceRole.entities.SpiceMix.update(spiceMixId, {
+      bucket_id: bucketId,
+      bucket_name: bucketName,
+      status: mix.status === 'archived' ? 'active' : mix.status,
+    });
 
     await base44.asServiceRole.entities.RawInventory.create({
       bucket_id: bucketId,
