@@ -1,4 +1,4 @@
-import React, { useMemo, useEffect } from "react";
+import React, { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Label } from "@/components/ui/label";
@@ -34,9 +34,12 @@ export default function SpiceMixLotPicker({ label, requiredLbs, value = {}, onCh
     ? allSpiceMixes.filter(m => m.id === filterSpiceMixId)
     : allSpiceMixes;
 
-  // Normalise incoming value to multi-lot format
+  const EMPTY_LOT = { spice_mix_id: "", spice_mix_name: "", spice_mix_lot_number: "", spice_mix_qty_lbs: 0 };
+
+  // Normalise incoming value to multi-lot format. Always render at least one
+  // row so the operator has a Select to interact with, without emitting on mount.
   const lots = useMemo(() => {
-    if (value.lots && Array.isArray(value.lots)) return value.lots;
+    if (value.lots && Array.isArray(value.lots) && value.lots.length > 0) return value.lots;
     // Backwards-compat: single-lot flat shape
     if (value.spice_mix_id) {
       return [{
@@ -46,7 +49,7 @@ export default function SpiceMixLotPicker({ label, requiredLbs, value = {}, onCh
         spice_mix_qty_lbs: value.spice_mix_qty_lbs || 0,
       }];
     }
-    return [];
+    return [EMPTY_LOT];
   }, [value]);
 
   const totalAllocated = lots.reduce((s, l) => s + (Number(l.spice_mix_qty_lbs) || 0), 0);
@@ -121,13 +124,6 @@ export default function SpiceMixLotPicker({ label, requiredLbs, value = {}, onCh
   const removeLot = (index) => {
     emitChange(lots.filter((_, i) => i !== index));
   };
-
-  // Initialise with one empty row
-  useEffect(() => {
-    if (lots.length === 0 && !disabled) {
-      emitChange([{ spice_mix_id: "", spice_mix_name: "", spice_mix_lot_number: "", spice_mix_qty_lbs: requiredLbs || 0 }]);
-    }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="space-y-3 rounded-xl border bg-muted/20 p-4">

@@ -81,7 +81,10 @@ export default function TumbleLotTracking({ totalLbs = 0, product, value = {}, o
 
   const proteinLots = value.proteinLots || null;
   const proteinConfirmed = value.proteinConfirmed || false;
-  const spiceValue = value.spice_mix || {};
+  // Stabilise the spice value reference so the child picker's Select doesn't
+  // get torn down / reset on every parent re-render (which made the dropdown
+  // impossible to open).
+  const spiceValue = useMemo(() => value.spice_mix || {}, [value.spice_mix]);
 
   const proteinIng = {
     bucket_id: proteinBucketId,
