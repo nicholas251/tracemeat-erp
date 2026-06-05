@@ -245,7 +245,9 @@ export default function IngredientLotPicker({ ing, disabled, onChange, onConfirm
                      onValueChange={v => updateAllocation(idx, "lot_number", v)}
                    >
                      <SelectTrigger className="h-10 text-sm">
-                       <SelectValue placeholder={inventoryRows.length === 0 ? "No inventory available" : "Select lot..."} />
+                       <SelectValue placeholder={inventoryRows.length === 0 ? "No inventory available" : "Select lot..."}>
+                         {alloc.lot_number || (inventoryRows.length === 0 ? "No inventory available" : "Select lot...")}
+                       </SelectValue>
                      </SelectTrigger>
                      <SelectContent>
                        {inventoryRows.length === 0 ? (
@@ -256,7 +258,8 @@ export default function IngredientLotPicker({ ing, disabled, onChange, onConfirm
                            .sort((a, b) => (a.received_date || "") < (b.received_date || "") ? -1 : 1)
                            .map(r => (
                              <SelectItem key={r.id} value={r.lot_number}>
-                               {r.lot_number} <span className="text-muted-foreground text-xs ml-1">({liveRemaining(r.lot_number, r.available_qty)} lbs avail)</span>
+                               {r.lot_number}
+                               <span className="text-muted-foreground text-xs ml-1">({liveRemaining(r.lot_number, r.available_qty)} lbs avail)</span>
                              </SelectItem>
                            ))
                        )}
