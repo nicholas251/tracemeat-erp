@@ -22,18 +22,42 @@ Deno.serve(async (req) => {
     const results = [];
 
     for (const ing of ingredients) {
-      const { bucket_id, actual_lbs, bucket_name } = ing;
+      const { bucket_id, actual_lbs, bucket_name, lot_allocations } = ing;
       if (!bucket_id || !actual_lbs) continue;
 
-      // FIFO: fetch oldest available AND in_use lots (in_use means partially consumed but has remaining qty)
+      let remaining = actual_lbs;
+
+      // ── Preferred path: deduct from the EXACT lots the operator assigned ──
+      // The operator may assign the full quantity of a lot (or more than what's
+      // recorded as available). We deduct exactly what they assigned per lot.
+      const explicit = (lot_allocations || []).filter(a => a?.raw_inventory_id && (Number(a.actual_lbs) || 0) > 0);
+      if (explicit.length > 0) {
+        for (const a of explicit) {
+          const lot = await base44.asServiceRole.entities.RawInventory.filter({ id: a.raw_inventory_id }).then(r => r?.[0]);
+          if (!lot) continue;
+          const assigned = Number(a.actual_lbs) || 0;
+          const newQty = parseFloat(((lot.available_qty || 0) - assigned).toFixed(2));
+          await base44.asServiceRole.entities.RawInventory.update(lot.id, {
+            available_qty: Math.max(0, newQty),
+            status: newQty <= 0 ? 'depleted' : 'in_use',
+          });
+          remaining -= assigned;
+        }
+        results.push({
+          bucket_name: bucket_name || bucket_id,
+          requested_lbs: actual_lbs,
+          shortfall: 0,
+        });
+        continue;
+      }
+
+      // ── Fallback: FIFO across the bucket when no explicit lots were assigned ──
       const allLots = await base44.asServiceRole.entities.RawInventory.filter(
         { bucket_id },
         'received_date',
         100
       );
       const lots = allLots.filter(l => (l.status === 'available' || l.status === 'in_use') && (l.available_qty || 0) > 0);
-
-      let remaining = actual_lbs;
 
       for (const lot of lots) {
         if (remaining <= 0) break;

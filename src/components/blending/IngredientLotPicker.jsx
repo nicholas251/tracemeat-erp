@@ -104,12 +104,10 @@ export default function IngredientLotPicker({ ing, disabled, onChange, onConfirm
   const updateAllocation = (idx, field, value) => {
     let val = value;
     if (field === "actual_lbs") {
-      const numVal = Number(value);
-      const avail = allocations[idx]?.available_qty;
-      if (avail > 0) val = Math.min(numVal, avail);
-      const otherTotal = allocations.reduce((s, a, i) => i === idx ? s : s + (Number(a.actual_lbs) || 0), 0);
-      val = Math.min(val, Math.max(0, ing.required_lbs - otherTotal));
-      val = parseFloat(val.toFixed(2));
+      // Operators may assign any amount from a lot — including the full lot. We no
+      // longer clamp to available_qty or to the remaining required amount. Over/short
+      // amounts are surfaced visually below, but never blocked.
+      val = parseFloat(Math.max(0, Number(value) || 0).toFixed(2));
     }
     if (field === "lot_number") {
       // When a lot is selected from the dropdown, also sync available_qty and raw_inventory_id
@@ -142,7 +140,6 @@ export default function IngredientLotPicker({ ing, disabled, onChange, onConfirm
   };
 
   const canConfirm =
-    !isOver &&
     allocations.every(a => a.lot_number?.trim()) &&
     (!isShort || ing.notes?.trim());
 
@@ -238,10 +235,10 @@ export default function IngredientLotPicker({ ing, disabled, onChange, onConfirm
                   value={alloc.actual_lbs}
                   disabled={disabled}
                   onChange={e => updateAllocation(idx, "actual_lbs", Number(e.target.value))}
-                  className={`h-10 text-sm ${alloc.available_qty > 0 && alloc.actual_lbs > alloc.available_qty ? "border-destructive text-destructive" : ""}`}
+                  className="h-10 text-sm"
                 />
                 {alloc.available_qty > 0 && alloc.actual_lbs > alloc.available_qty && !disabled && (
-                  <p className="text-xs text-destructive">Exceeds available {alloc.available_qty} lbs</p>
+                  <p className="text-xs text-amber-600">Above recorded {alloc.available_qty} lbs available</p>
                 )}
               </div>
             </div>
@@ -251,9 +248,9 @@ export default function IngredientLotPicker({ ing, disabled, onChange, onConfirm
 
       {/* Total vs required */}
       {!disabled && (
-        <div className={`flex items-center justify-between text-xs px-1 ${isOver ? "text-destructive" : isShort ? "text-amber-600" : "text-chart-2"}`}>
+        <div className={`flex items-center justify-between text-xs px-1 ${isShort ? "text-amber-600" : "text-chart-2"}`}>
           <span>Total: <span className="font-semibold">{parseFloat(totalActual.toFixed(2))} lbs</span> of {ing.required_lbs} lbs</span>
-          {isOver && <span className="flex items-center gap-1"><AlertCircle className="w-3 h-3" /> Over limit</span>}
+          {isOver && <span className="flex items-center gap-1 text-muted-foreground">Over required by {parseFloat((totalActual - ing.required_lbs).toFixed(2))} lbs</span>}
           {!isOver && isShort && <span>Short by {parseFloat((ing.required_lbs - totalActual).toFixed(2))} lbs</span>}
           {!isOver && !isShort && <span>✓ Exact</span>}
         </div>
