@@ -610,8 +610,36 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
           }
         }
 
-        // NOTE: Protein is now consumed PER BATCH at the moment each batch is confirmed
-        // (see TumbleProteinBatch), so it is intentionally NOT deducted again here.
+        // ── Protein consumption (SINGLE SOURCE OF TRUTH) ──
+        // Deduct ALL the protein for this tumble stage here, at completion — the same
+        // way spice is. This guarantees protein is always consumed even if the operator
+        // never expanded a per-batch picker. We deduct by the tracked batch lbs; if the
+        // operator assigned explicit FIFO lots we pass them through, otherwise the
+        // backend auto-FIFOs the bucket.
+        const proteinBucketId = form.protein_bucket_id || product?.blend_ingredients?.[0]?.bucket_id;
+        const proteinBucketName = form.protein_bucket_name || product?.blend_ingredients?.[0]?.bucket_name || "Protein";
+        if (!proteinBucketId) {
+          throw new Error("No protein bucket configured on this product — cannot deduct tumble inventory. Set blend ingredients on the product.");
+        }
+        // Total protein to consume = the raw weight that entered the tumble stage.
+        const proteinToConsume = parseFloat((stage.input_qty_lbs || 0).toFixed(2));
+        if (proteinToConsume > 0) {
+          // Use explicit lots only when they actually carry inventory ids.
+          const explicitLots = (allProteinLots || []).filter(l => l?.raw_inventory_id && (Number(l.actual_lbs) || 0) > 0);
+          const res = await base44.functions.invoke("deductRawInventoryOnBatchComplete", {
+            stage_id: stage.id,
+            ingredients: [{
+              bucket_id: proteinBucketId,
+              bucket_name: proteinBucketName,
+              actual_lbs: proteinToConsume,
+              lot_allocations: explicitLots.length ? explicitLots : null,
+            }],
+          });
+          const shortfall = Number(res?.data?.total_shortfall) || 0;
+          if (shortfall > 0) {
+            throw new Error(`Not enough protein inventory — short ${shortfall} lbs. Receive more stock, then retry.`);
+          }
+        }
 
         // Build per-racking-card list. Use the internal tumble batches if present (each
         // carries its own batch_lbs + spice_lbs); otherwise fall back to a single card

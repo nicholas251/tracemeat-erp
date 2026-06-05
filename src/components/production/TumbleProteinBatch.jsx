@@ -1,8 +1,6 @@
 import React from "react";
-import { useQueryClient } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, Loader2, AlertCircle, Lock } from "lucide-react";
+import { CheckCircle2, AlertCircle, Lock } from "lucide-react";
 import IngredientLotPicker from "../blending/IngredientLotPicker";
 
 /**
@@ -21,55 +19,23 @@ import IngredientLotPicker from "../blending/IngredientLotPicker";
  *   onChange     – (patch) => void   (patch merged into this batch's value)
  */
 export default function TumbleProteinBatch({ batch, bucketId, bucketName, value = {}, stageId, locked = false, inventoryRows = [], onChange }) {
-  const queryClient = useQueryClient();
-  const [deducting, setDeducting] = React.useState(false);
   const [error, setError] = React.useState(null);
 
   const lots = value.lots || null;
   const confirmed = !!value.confirmed;
 
   const handleConfirm = async () => {
-    setDeducting(true);
     setError(null);
-    try {
-      // Sum the explicitly-picked lots. If the picker never propagated lots up
-      // (or they total 0), fall back to the batch's required lbs so the backend
-      // auto-FIFOs the bucket — this guarantees protein is ALWAYS consumed.
-      const pickedLbs = (lots || []).reduce((s, a) => s + (Number(a.actual_lbs) || 0), 0);
-      const actualLbs = pickedLbs > 0 ? pickedLbs : (Number(batch.batch_lbs) || 0);
-      const useExplicitLots = pickedLbs > 0 && (lots || []).some(a => a.raw_inventory_id);
-
-      if (actualLbs <= 0) {
-        throw new Error("Batch has no protein weight to consume.");
-      }
-
-      // Deduct this batch's protein from raw inventory immediately.
-      const res = await base44.functions.invoke("deductRawInventoryOnBatchComplete", {
-        stage_id: stageId,
-        ingredients: [{
-          bucket_id: bucketId,
-          bucket_name: bucketName || "Protein",
-          actual_lbs: actualLbs,
-          // Only pass explicit lots when they carry real inventory ids; otherwise
-          // let the backend FIFO across the bucket by actual_lbs.
-          lot_allocations: useExplicitLots ? lots : null,
-        }],
-      });
-      const shortfall = Number(res?.data?.total_shortfall) || 0;
-      if (shortfall > 0) {
-        throw new Error(`Not enough inventory — short ${shortfall} lbs. Receive more stock, then retry.`);
-      }
-      // Mark confirmed first so this picker locks (and stops refetching), THEN
-      // refresh inventory so EVERY other batch's picker re-FIFOs from reduced qty.
-      // Each batch now has its own cache key, so we invalidate the whole
-      // rawInventory family to force all pending siblings to refetch live.
-      onChange({ confirmed: true });
-      await queryClient.invalidateQueries({ queryKey: ["rawInventory"] });
-    } catch (err) {
-      setError(err?.message || "Deduction failed — inventory was not changed. Try again.");
-    } finally {
-      setDeducting(false);
+    // Confirm only RECORDS the operator's lot picks for this batch (traceability).
+    // The actual inventory deduction happens ONCE at stage completion (StageWizard),
+    // which is the single source of truth — this prevents double-deducting protein.
+    const pickedLbs = (lots || []).reduce((s, a) => s + (Number(a.actual_lbs) || 0), 0);
+    const actualLbs = pickedLbs > 0 ? pickedLbs : (Number(batch.batch_lbs) || 0);
+    if (actualLbs <= 0) {
+      setError("Batch has no protein weight to assign.");
+      return;
     }
+    onChange({ confirmed: true });
   };
 
   return (
@@ -102,10 +68,6 @@ export default function TumbleProteinBatch({ batch, bucketId, bucketName, value 
       {locked ? (
         <div className="flex items-center gap-2 text-sm text-muted-foreground py-3 justify-center">
           <Lock className="w-4 h-4" /> Confirm the previous batch to unlock this one.
-        </div>
-      ) : deducting ? (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground py-3 justify-center">
-          <Loader2 className="w-4 h-4 animate-spin" /> Consuming inventory…
         </div>
       ) : (
         <IngredientLotPicker
