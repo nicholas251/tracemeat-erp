@@ -14,13 +14,18 @@ import { CheckCircle2, AlertCircle, Plus, Trash2, Package } from "lucide-react";
  * Returns an array of { lot_number, available_qty, raw_inventory_id, actual_lbs }
  */
 function buildFifoAllocations(inventoryRows, requiredLbs) {
-  // Sort FIFO by received_date ascending, then created_date
+  // Stable FIFO: received_date, then created_date, then id — so lots received on
+  // the same day always sort deterministically (no jumping between refetches).
   const sorted = [...inventoryRows]
     .filter(r => (r.available_qty || 0) > 0)
     .sort((a, b) => {
       const da = a.received_date || a.created_date || "";
       const db = b.received_date || b.created_date || "";
-      return da < db ? -1 : da > db ? 1 : 0;
+      if (da !== db) return da < db ? -1 : 1;
+      const ca = a.created_date || "";
+      const cb = b.created_date || "";
+      if (ca !== cb) return ca < cb ? -1 : 1;
+      return (a.id || "") < (b.id || "") ? -1 : 1;
     });
 
   const allocations = [];
@@ -121,8 +126,10 @@ export default function IngredientLotPicker({ ing, disabled, onChange, onConfirm
     if (inventoryRows.length === 0) return;
     let changed = false;
     const refreshed = ing.lot_allocations.map(a => {
-      const liveRow = inventoryRows.find(r => r.lot_number === a.lot_number);
-      if (liveRow && liveRow.available_qty !== a.available_qty) {
+      // Match by stable raw_inventory_id first; fall back to lot_number only if no id.
+      const liveRow = inventoryRows.find(r => r.id === a.raw_inventory_id)
+        || inventoryRows.find(r => r.lot_number === a.lot_number);
+      if (liveRow && (liveRow.available_qty !== a.available_qty || liveRow.id !== a.raw_inventory_id)) {
         changed = true;
         return { ...a, available_qty: liveRow.available_qty, raw_inventory_id: liveRow.id };
       }
@@ -160,7 +167,15 @@ export default function IngredientLotPicker({ ing, disabled, onChange, onConfirm
     const used = currentAllocations.map(a => a.lot_number).filter(Boolean);
     const nextRow = [...inventoryRows]
       .filter(r => (r.available_qty || 0) > 0 && !used.includes(r.lot_number))
-      .sort((a, b) => (a.received_date || a.created_date || "") < (b.received_date || b.created_date || "") ? -1 : 1)[0];
+      .sort((a, b) => {
+        const da = a.received_date || a.created_date || "";
+        const db = b.received_date || b.created_date || "";
+        if (da !== db) return da < db ? -1 : 1;
+        const ca = a.created_date || "";
+        const cb = b.created_date || "";
+        if (ca !== cb) return ca < cb ? -1 : 1;
+        return (a.id || "") < (b.id || "") ? -1 : 1;
+      })[0];
     return {
       lot_number: nextRow?.lot_number || "",
       available_qty: nextRow?.available_qty || 0,
