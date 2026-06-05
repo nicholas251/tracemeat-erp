@@ -23,7 +23,7 @@ import TumbleBatchCard from "./TumbleBatchCard";
  */
 export default function TumbleWizard({ stage, open, onClose, onCompleted }) {
   const queryClient = useQueryClient();
-  const [releasedBatches, setReleasedBatches] = useState({}); // { [batch_number]: true }
+  const [releasedBatches, setReleasedBatches] = useState({}); // { [batch_number]: { proteinLots, spiceLots, bucketName } }
   const [releasingBatch, setReleasingBatch] = useState(null);
   const [error, setError] = useState("");
 
@@ -132,7 +132,14 @@ export default function TumbleWizard({ stage, open, onClose, onCompleted }) {
         });
       }
 
-      const nextReleased = { ...releasedBatches, [batch.batch_number]: true };
+      const nextReleased = {
+        ...releasedBatches,
+        [batch.batch_number]: {
+          bucketName: chosenBucket?.bucket_name || "Protein",
+          proteinLots,
+          spiceLots,
+        },
+      };
       setReleasedBatches(nextReleased);
 
       // If that was the last batch, complete the tumble stage.
@@ -228,6 +235,7 @@ export default function TumbleWizard({ stage, open, onClose, onCompleted }) {
                   proteinBucket={proteinBucket}
                   spiceMixId={product?.chop_spice_mix_id}
                   released={!!releasedBatches[b.batch_number]}
+                  releaseDetails={releasedBatches[b.batch_number] || null}
                   releasing={releasingBatch === b.batch_number}
                   onRelease={(payload) => handleReleaseBatch(b, payload)}
                 />

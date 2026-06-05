@@ -30,6 +30,7 @@ export default function TumbleBatchCard({
   proteinBucket,
   spiceMixId,
   released,
+  releaseDetails,
   releasing,
   onRelease,
 }) {
@@ -112,9 +113,38 @@ export default function TumbleBatchCard({
       </div>
 
       {released ? (
-        <div className="rounded-lg bg-chart-2/5 border border-chart-2/30 px-3 py-2.5 text-xs text-chart-2 flex items-center gap-2">
-          <PackageCheck className="w-4 h-4" />
-          {batch.total_lbs} lbs released to racking.
+        <div className="space-y-2">
+          <div className="rounded-lg bg-chart-2/5 border border-chart-2/30 px-3 py-2.5 text-xs text-chart-2 flex items-center gap-2">
+            <PackageCheck className="w-4 h-4" />
+            {batch.total_lbs} lbs released to racking.
+          </div>
+          {/* Proof of what was deducted from inventory */}
+          {releaseDetails?.proteinLots?.length > 0 && (
+            <div className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-xs space-y-1">
+              <p className="font-semibold text-muted-foreground uppercase tracking-wide text-[10px]">
+                Deducted from {releaseDetails.bucketName}
+              </p>
+              {releaseDetails.proteinLots.map((l, i) => (
+                <div key={i} className="flex justify-between">
+                  <span className="font-mono text-muted-foreground">Lot {l.lot_number || "—"}</span>
+                  <span className="font-semibold text-destructive">−{l.actual_lbs} lbs</span>
+                </div>
+              ))}
+            </div>
+          )}
+          {releaseDetails?.spiceLots?.length > 0 && (
+            <div className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-xs space-y-1">
+              <p className="font-semibold text-muted-foreground uppercase tracking-wide text-[10px]">
+                Spice mix deducted
+              </p>
+              {releaseDetails.spiceLots.map((l, i) => (
+                <div key={i} className="flex justify-between">
+                  <span className="font-mono text-muted-foreground">{l.spice_mix_name || "Spice mix"}</span>
+                  <span className="font-semibold text-destructive">−{l.spice_mix_qty_lbs} lbs</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       ) : (
         <>
