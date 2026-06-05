@@ -1,5 +1,5 @@
 import React, { useMemo, useEffect, useState, useRef, useCallback } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -38,6 +38,7 @@ import TumbleProteinBatch from "./TumbleProteinBatch";
  *   notes / onNotesChange – optional notes passthrough
  */
 export default function TumbleLotTracking({ totalLbs = 0, product, value = {}, onChange, notes, onNotesChange, stageId }) {
+  const queryClient = useQueryClient();
   const batchSize = Number(product?.blend_batch_lbs) || 0;
   const spicePerBatch = Number(product?.chop_spice_qty_lbs) || 0;
   const spicePct = batchSize > 0 ? spicePerBatch / batchSize : 0;
@@ -68,6 +69,17 @@ export default function TumbleLotTracking({ totalLbs = 0, product, value = {}, o
     gcTime: 0,
     refetchOnMount: "always",
   });
+
+  // REAL-TIME SYNC ACROSS USERS: invalidateQueries only refreshes the browser of
+  // the person who confirmed. To make on-hand quantities update for EVERY connected
+  // user (e.g. a coworker watching the same stage), subscribe to RawInventory changes
+  // and refetch the moment any record is created/updated/deleted by anyone.
+  useEffect(() => {
+    const unsubscribe = base44.entities.RawInventory.subscribe(() => {
+      queryClient.invalidateQueries({ queryKey: ["rawInventory"] });
+    });
+    return unsubscribe;
+  }, [queryClient]);
 
   // Split raw weight into chopping-sized batches to derive total seasoning required
   const batches = useMemo(() => {
