@@ -770,6 +770,21 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
         };
         await base44.entities.ProductionStage.update(stage.id, updates);
 
+        // Deduct casings consumed in this linking batch
+        {
+          const casingLbs = Number(form.casing_qty_lbs) || 0;
+          if (form.casing_bucket_id && casingLbs > 0) {
+            await base44.functions.invoke("deductRawInventoryOnBatchComplete", {
+              stage_id: stage.id,
+              ingredients: [{
+                bucket_id: form.casing_bucket_id,
+                bucket_name: form.casing_bucket_name || "Casings",
+                actual_lbs: casingLbs,
+              }],
+            });
+          }
+        }
+
         // Mark all other selected linking stages as merged into this cook batch
         const otherSelected = (cookBatch.selectedStageIds || []).filter(id => id !== stage.id);
         for (const sid of otherSelected) {
@@ -934,6 +949,44 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
         }
 
         await base44.entities.ProductionStage.update(stage.id, updates);
+
+        // ── Chopping: deduct cure + spice mix consumed in the bowl ──
+        if (capKey === "chopping") {
+          // Cure: a RawInventory bucket on the product. Deduct the entered cure amount.
+          const cureLbs = Number(form.cure_amount_lbs) || 0;
+          if (product?.cure_bucket_id && cureLbs > 0) {
+            await base44.functions.invoke("deductRawInventoryOnBatchComplete", {
+              stage_id: stage.id,
+              ingredients: [{
+                bucket_id: product.cure_bucket_id,
+                bucket_name: product.cure_bucket_name || "Cure",
+                actual_lbs: cureLbs,
+              }],
+            });
+          }
+          // Spice mix: assigned SpiceMix inventory (same shape as tumble).
+          if (form.spice_mix?.lots?.length) {
+            await base44.functions.invoke("deductSpiceMixOnComplete", {
+              stage_id: stage.id,
+              lots: form.spice_mix.lots,
+            });
+          }
+        }
+
+        // ── Linking: deduct casings consumed ──
+        if (capKey === "linking") {
+          const casingLbs = Number(form.casing_qty_lbs) || 0;
+          if (form.casing_bucket_id && casingLbs > 0) {
+            await base44.functions.invoke("deductRawInventoryOnBatchComplete", {
+              stage_id: stage.id,
+              ingredients: [{
+                bucket_id: form.casing_bucket_id,
+                bucket_name: form.casing_bucket_name || "Casings",
+                actual_lbs: casingLbs,
+              }],
+            });
+          }
+        }
 
         // If this is packaging: push into the FG bucket AND create an InventoryItem lot
          if (capKey === "packaging") {
