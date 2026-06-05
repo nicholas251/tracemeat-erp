@@ -959,6 +959,43 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
           ...form,
         };
 
+        // ── Tumble fallback: deduct protein here when no racking/cook-plan path ran ──
+        // Some tumble flows don't have racking or a cook-batch builder right after the
+        // tumble step, so they fall through to this generic branch. Protein must still
+        // be consumed (single source of truth, same as spice). Deduct the full incoming
+        // weight from the chosen protein bucket (operator override or product default).
+        if (capKey === "tumble" || capKey === "tumbling") {
+          const tProteinBucketId = form.protein_bucket_id || product?.blend_ingredients?.[0]?.bucket_id;
+          const tProteinBucketName = form.protein_bucket_name || product?.blend_ingredients?.[0]?.bucket_name || "Protein";
+          const tProteinLbs = parseFloat((stage.input_qty_lbs || 0).toFixed(2));
+          if (!tProteinBucketId) {
+            throw new Error("No protein bucket configured on this product — cannot deduct tumble inventory. Set blend ingredients on the product.");
+          }
+          if (tProteinLbs > 0) {
+            const tExplicit = (form.protein_lots || []).filter(l => l?.raw_inventory_id && (Number(l.actual_lbs) || 0) > 0);
+            const tRes = await base44.functions.invoke("deductRawInventoryOnBatchComplete", {
+              stage_id: stage.id,
+              ingredients: [{
+                bucket_id: tProteinBucketId,
+                bucket_name: tProteinBucketName,
+                actual_lbs: tProteinLbs,
+                lot_allocations: tExplicit.length ? tExplicit : null,
+              }],
+            });
+            const tShortfall = Number(tRes?.data?.total_shortfall) || 0;
+            if (tShortfall > 0) {
+              throw new Error(`Not enough protein inventory — short ${tShortfall} lbs. Receive more stock, then retry.`);
+            }
+          }
+          // Deduct the assigned spice mix too (same as the specialized tumble paths)
+          if (form.spice_mix?.lots?.length) {
+            await base44.functions.invoke("deductSpiceMixOnComplete", {
+              stage_id: stage.id,
+              lots: form.spice_mix.lots,
+            });
+          }
+        }
+
         // ── Cooking: assemble cook batch from the racks the operator selected ──
         if (capKey === "cooking" && cookBatch) {
           updates.cook_batch_lot = cookBatch.lotNumber;
