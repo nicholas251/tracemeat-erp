@@ -20,7 +20,7 @@ import IngredientLotPicker from "../blending/IngredientLotPicker";
  *   stageId      – ProductionStage id (for deduction traceability)
  *   onChange     – (patch) => void   (patch merged into this batch's value)
  */
-export default function TumbleProteinBatch({ batch, bucketId, bucketName, value = {}, stageId, locked = false, onChange }) {
+export default function TumbleProteinBatch({ batch, bucketId, bucketName, value = {}, stageId, locked = false, inventoryRows = [], onChange }) {
   const queryClient = useQueryClient();
   const [deducting, setDeducting] = React.useState(false);
   const [error, setError] = React.useState(null);
@@ -77,7 +77,13 @@ export default function TumbleProteinBatch({ batch, bucketId, bucketName, value 
       <div className="flex items-center justify-between mb-3">
         <div>
           <p className="font-bold text-sm">Batch #{batch.batch_number}</p>
-          <p className="text-xs text-muted-foreground">{batch.batch_lbs} lbs protein</p>
+          <p className="text-xs text-muted-foreground">
+            {batch.batch_lbs} lbs protein
+            <span className="mx-1">·</span>
+            <span className="text-foreground/70">
+              {parseFloat((inventoryRows.reduce((s, r) => s + (Number(r.available_qty) || 0), 0)).toFixed(2))} lbs on hand
+            </span>
+          </p>
         </div>
         {confirmed
           ? <Badge className="bg-chart-2/15 text-chart-2 border-0 gap-1"><CheckCircle2 className="w-3.5 h-3.5" /> Consumed</Badge>
@@ -104,6 +110,7 @@ export default function TumbleProteinBatch({ batch, bucketId, bucketName, value 
       ) : (
         <IngredientLotPicker
           capByRequired
+          externalRows={inventoryRows}
           cacheKey={`tumble-batch-${batch.batch_number}`}
           ing={{
             bucket_id: bucketId,

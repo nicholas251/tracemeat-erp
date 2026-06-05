@@ -56,6 +56,19 @@ export default function TumbleLotTracking({ totalLbs = 0, product, value = {}, o
   const proteinBucketName =
     proteinBuckets.find(b => b.id === proteinBucketId)?.name || defaultProteinBucketName;
 
+  // SINGLE shared inventory source for ALL batches. Every batch reads the same
+  // live rows, so the moment one batch confirms (and deducts), this refetches and
+  // every other batch immediately sees the reduced on-hand. This is the source of
+  // truth that fixes "every batch shows the same number".
+  const { data: proteinInventory = [] } = useQuery({
+    queryKey: ["rawInventory", proteinBucketId],
+    queryFn: () => base44.entities.RawInventory.filter({ bucket_id: proteinBucketId }),
+    enabled: !!proteinBucketId,
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnMount: "always",
+  });
+
   // Split raw weight into chopping-sized batches to derive total seasoning required
   const batches = useMemo(() => {
     if (!batchSize || batchSize <= 0 || !totalLbs) return [];
@@ -236,6 +249,7 @@ export default function TumbleLotTracking({ totalLbs = 0, product, value = {}, o
                 bucketName={proteinBucketName}
                 stageId={stageId}
                 locked={locked}
+                inventoryRows={proteinInventory}
                 value={proteinBatches[b.batch_number] || {}}
                 onChange={(patch) => updateBatch(b.batch_number, patch)}
               />

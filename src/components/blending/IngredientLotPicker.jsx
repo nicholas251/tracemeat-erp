@@ -72,19 +72,20 @@ function buildFifoAllocations(inventoryRows, requiredLbs) {
  *   onChange    – (field, value) => void
  *   onConfirm   – () => void
  */
-export default function IngredientLotPicker({ ing, disabled, onChange, onConfirm, cacheKey, capByRequired = false }) {
-  // Once this picker is confirmed, its lots are locked in — we must NOT refetch
-  // inventory (which would now show those lots as depleted and make them vanish).
-  // cacheKey isolates each batch's picker so a confirmed sibling can't serve a
-  // pre-deduction snapshot to a still-pending batch (the source of stale lots).
-  const { data: rawRows = [], isLoading } = useQuery({
+export default function IngredientLotPicker({ ing, disabled, onChange, onConfirm, cacheKey, capByRequired = false, externalRows = null }) {
+  // When a parent owns inventory (e.g. per-batch tumbling), it passes live
+  // `externalRows` so every batch reads ONE shared, always-fresh source of truth.
+  // Otherwise (standalone use) fetch our own copy.
+  const ownQuery = useQuery({
     queryKey: ["rawInventory", ing.bucket_id, cacheKey || "default"],
     queryFn: () => base44.entities.RawInventory.filter({ bucket_id: ing.bucket_id }),
-    enabled: !!ing.bucket_id && !disabled,
+    enabled: !!ing.bucket_id && !disabled && externalRows === null,
     staleTime: 0,
     gcTime: 0,
     refetchOnMount: "always",
   });
+  const rawRows = externalRows !== null ? externalRows : (ownQuery.data || []);
+  const isLoading = externalRows !== null ? false : ownQuery.isLoading;
 
   // Only ever treat a lot as live stock when it's not depleted AND still has qty.
   // (Bug fix: the query pulls every status; depleted lots with leftover qty,
