@@ -1,6 +1,9 @@
 import React, { useState } from "react";
+import { base44 } from "@/api/base44Client";
+import { useQuery } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CheckCircle2, Loader2, PackageCheck, Lock } from "lucide-react";
 import IngredientLotPicker from "@/components/blending/IngredientLotPicker";
 import SpiceMixLotPicker from "@/components/production/SpiceMixLotPicker";
@@ -30,6 +33,8 @@ export default function TumbleBatchCard({
   releasing,
   onRelease,
 }) {
+  // Operator picks which protein bucket to pull from (pre-filled if the product has one).
+  const [selectedBucketId, setSelectedBucketId] = useState(proteinBucket?.bucket_id || "");
   const [proteinIng, setProteinIng] = useState({
     bucket_id: proteinBucket?.bucket_id,
     bucket_name: proteinBucket?.bucket_name || "Protein",
@@ -37,24 +42,43 @@ export default function TumbleBatchCard({
     lot_allocations: null,
     confirmed: false,
   });
-  const hasProteinBucket = !!proteinBucket?.bucket_id;
-  // When no protein bucket is configured (tumble-entry flow), there are no lots to
-  // pick — the incoming weight is carried forward, so treat protein as confirmed.
-  const [proteinConfirmed, setProteinConfirmed] = useState(!proteinBucket?.bucket_id);
+  const [proteinConfirmed, setProteinConfirmed] = useState(false);
   const [spice, setSpice] = useState({});
+
+  // Available protein buckets to choose from.
+  const { data: proteinBuckets = [] } = useQuery({
+    queryKey: ["proteinBuckets"],
+    queryFn: () => base44.entities.InventoryBucket.filter({ category: "protein", status: "active" }),
+  });
+
+  const hasProteinBucket = !!selectedBucketId;
+
+  const handleSelectBucket = (id) => {
+    const b = proteinBuckets.find((x) => x.id === id);
+    setSelectedBucketId(id);
+    setProteinConfirmed(false);
+    setProteinIng({
+      bucket_id: id,
+      bucket_name: b?.name || "Protein",
+      required_lbs: batch.protein_lbs,
+      lot_allocations: null,
+      confirmed: false,
+    });
+  };
 
   const spiceTotal = spice?.lots
     ? spice.lots.reduce((s, l) => s + (Number(l.spice_mix_qty_lbs) || 0), 0)
     : 0;
   const spiceReady = batch.spice_lbs <= 0 || Math.abs(spiceTotal - batch.spice_lbs) < 0.01;
 
-  const canRelease = proteinConfirmed && spiceReady && !released && !releasing;
+  const canRelease = hasProteinBucket && proteinConfirmed && spiceReady && !released && !releasing;
 
   const handleRelease = () => {
     const proteinLots = (proteinIng.lot_allocations || []).filter(
       (l) => l.raw_inventory_id && (Number(l.actual_lbs) || 0) > 0
     );
     onRelease({
+      proteinBucket: { bucket_id: selectedBucketId, bucket_name: proteinIng.bucket_name },
       proteinLots,
       spiceLots: spice?.lots?.filter((l) => l.spice_mix_id) || [],
       spiceQty: spiceTotal,
@@ -94,33 +118,45 @@ export default function TumbleBatchCard({
         </div>
       ) : (
         <>
-          {/* Protein lot picker (FIFO) — only when a protein bucket is configured */}
-          {hasProteinBucket && (
-            <div className="space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Protein
-              </p>
-              <IngredientLotPicker
-                ing={proteinIng}
-                disabled={proteinConfirmed}
-                cacheKey={`tumble-batch-${batch.batch_number}`}
-                onChange={(field, value) =>
-                  setProteinIng((p) => ({ ...p, [field]: value }))
-                }
-                onConfirm={() => setProteinConfirmed(true)}
-              />
-              {proteinConfirmed && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-xs h-7"
-                  onClick={() => setProteinConfirmed(false)}
-                >
-                  Edit protein lots
-                </Button>
-              )}
-            </div>
-          )}
+          {/* Protein: pick bucket, then FIFO lot picker */}
+          <div className="space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Protein
+            </p>
+            <Select value={selectedBucketId} onValueChange={handleSelectBucket} disabled={proteinConfirmed}>
+              <SelectTrigger className="h-9 text-sm">
+                <SelectValue placeholder="Select protein bucket to pull from..." />
+              </SelectTrigger>
+              <SelectContent>
+                {proteinBuckets.map((b) => (
+                  <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {hasProteinBucket && (
+              <>
+                <IngredientLotPicker
+                  ing={proteinIng}
+                  disabled={proteinConfirmed}
+                  cacheKey={`tumble-batch-${batch.batch_number}`}
+                  onChange={(field, value) =>
+                    setProteinIng((p) => ({ ...p, [field]: value }))
+                  }
+                  onConfirm={() => setProteinConfirmed(true)}
+                />
+                {proteinConfirmed && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-xs h-7"
+                    onClick={() => setProteinConfirmed(false)}
+                  >
+                    Edit protein lots
+                  </Button>
+                )}
+              </>
+            )}
+          </div>
 
           {/* Spice mix picker */}
           {batch.spice_lbs > 0 && (
@@ -147,6 +183,10 @@ export default function TumbleBatchCard({
             {releasing ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" /> Releasing…
+              </>
+            ) : !hasProteinBucket ? (
+              <>
+                <Lock className="w-4 h-4" /> Select protein bucket
               </>
             ) : !proteinConfirmed ? (
               <>

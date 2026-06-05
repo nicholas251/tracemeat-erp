@@ -84,19 +84,17 @@ export default function TumbleWizard({ stage, open, onClose, onCompleted }) {
   }, [flow, stage]);
 
   // Release a single batch: deduct protein + spice, create a racking card.
-  const handleReleaseBatch = async (batch, { proteinLots, spiceLots }) => {
+  const handleReleaseBatch = async (batch, { proteinBucket: chosenBucket, proteinLots, spiceLots }) => {
     setError("");
     setReleasingBatch(batch.batch_number);
     try {
-      // 1. Deduct protein for THIS batch — only when a protein bucket is configured.
-      //    Tumble-entry flows have no blend bucket (raw protein consumed at receiving),
-      //    so we skip protein deduction and just carry the incoming weight forward.
-      if (proteinBucket?.bucket_id) {
+      // 1. Deduct protein for THIS batch from the bucket the operator selected.
+      if (chosenBucket?.bucket_id) {
         const res = await base44.functions.invoke("deductRawInventoryOnBatchComplete", {
           stage_id: stage.id,
           ingredients: [{
-            bucket_id: proteinBucket.bucket_id,
-            bucket_name: proteinBucket.bucket_name || "Protein",
+            bucket_id: chosenBucket.bucket_id,
+            bucket_name: chosenBucket.bucket_name || "Protein",
             actual_lbs: batch.protein_lbs,
             lot_allocations: proteinLots.length ? proteinLots : null,
           }],
