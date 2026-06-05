@@ -1,4 +1,4 @@
-import React, { useMemo, useEffect } from "react";
+import React, { useMemo, useEffect, useState, useRef, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Label } from "@/components/ui/label";
@@ -94,9 +94,25 @@ export default function TumbleLotTracking({ totalLbs = 0, product, value = {}, o
     [batches]
   );
 
-  // Per-batch protein state. value.proteinBatches is keyed by batch_number:
-  //   { [batch_number]: { lots: [...], confirmed: bool } }
-  const proteinBatches = value.proteinBatches || {};
+  // Per-batch protein state is owned LOCALLY here so concurrent updates from
+  // sibling pickers (e.g. batch 2's auto-FIFO firing right after batch 1 confirms)
+  // never clobber each other via a stale parent-prop closure. We use functional
+  // setState so every patch merges into the LATEST state, then sync up to parent.
+  const [proteinBatches, setProteinBatches] = useState(value.proteinBatches || {});
+
+  // Re-hydrate local state if the parent value is reset externally (e.g. bucket switch).
+  const lastSyncedRef = useRef(proteinBatches);
+  useEffect(() => {
+    const incoming = value.proteinBatches || {};
+    // Only adopt the parent's value when it diverges from what we last pushed up
+    // (prevents an echo loop while still honoring external resets like bucket change).
+    if (JSON.stringify(incoming) !== JSON.stringify(lastSyncedRef.current)) {
+      setProteinBatches(incoming);
+      lastSyncedRef.current = incoming;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [JSON.stringify(value.proteinBatches || {})]);
+
   const allProteinConfirmed =
     batches.length > 0 && batches.every(b => proteinBatches[b.batch_number]?.confirmed);
 
@@ -105,18 +121,23 @@ export default function TumbleLotTracking({ totalLbs = 0, product, value = {}, o
     return batches.flatMap(b => proteinBatches[b.batch_number]?.lots || []);
   }, [batches, proteinBatches]);
 
-  const updateBatch = (batchNumber, patch) => {
-    const prev = proteinBatches[batchNumber] || {};
-    const nextBatches = { ...proteinBatches, [batchNumber]: { ...prev, ...patch } };
-    const nextConfirmed = batches.length > 0 && batches.every(b => nextBatches[b.batch_number]?.confirmed);
-    const nextLots = batches.flatMap(b => nextBatches[b.batch_number]?.lots || []);
-    onChange({
-      ...value,
-      proteinBatches: nextBatches,
-      proteinLots: nextLots,
-      proteinConfirmed: nextConfirmed,
+  const updateBatch = useCallback((batchNumber, patch) => {
+    setProteinBatches(prev => {
+      const nextBatches = { ...prev, [batchNumber]: { ...(prev[batchNumber] || {}), ...patch } };
+      const nextConfirmed = batches.length > 0 && batches.every(b => nextBatches[b.batch_number]?.confirmed);
+      const nextLots = batches.flatMap(b => nextBatches[b.batch_number]?.lots || []);
+      lastSyncedRef.current = nextBatches;
+      // Push the freshly-merged state up to the parent form.
+      onChange({
+        ...value,
+        proteinBatches: nextBatches,
+        proteinLots: nextLots,
+        proteinConfirmed: nextConfirmed,
+      });
+      return nextBatches;
     });
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [batches, onChange, value]);
 
   // Stabilise the spice value reference so the child picker's Select doesn't reset.
   const spiceValue = useMemo(() => value.spice_mix || {}, [value.spice_mix]);
