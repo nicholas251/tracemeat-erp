@@ -216,7 +216,17 @@ export default function RawInventoryPage() {
   const { data: lots = [] } = useQuery({
     queryKey: ["raw_inventory"],
     queryFn: () => base44.entities.RawInventory.list("-received_date"),
+    refetchInterval: 15000,
+    refetchOnWindowFocus: true,
   });
+
+  // Live-refresh on-hand numbers whenever raw inventory changes anywhere (e.g. batch deductions on the production floor).
+  useEffect(() => {
+    const unsubscribe = base44.entities.RawInventory.subscribe(() => {
+      queryClient.invalidateQueries({ queryKey: ["raw_inventory"] });
+    });
+    return unsubscribe;
+  }, [queryClient]);
 
   const createBucket = useMutation({
     mutationFn: (data) => base44.entities.InventoryBucket.create(data),
