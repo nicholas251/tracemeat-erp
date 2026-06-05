@@ -420,10 +420,10 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
           actual_lbs: ing.lot_allocations?.reduce((s, a) => s + (Number(a.actual_lbs) || 0), 0) || 0,
           lot_allocations: ing.lot_allocations,
         }));
-        base44.functions.invoke("deductRawInventoryOnBatchComplete", {
+        await base44.functions.invoke("deductRawInventoryOnBatchComplete", {
           stage_id: stage.id,
           ingredients: batchIngredients,
-        }).catch(err => console.warn("Inventory deduction failed:", err));
+        });
 
         // Route blending outputs: beef → chopping (step 2), pork → mixer (step 3) directly
         const order = await base44.entities.ProductionOrder.filter({ id: stage.order_id }).then(r => r?.[0]);
@@ -676,10 +676,10 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
 
         // Deduct from the assigned SpiceMix inventory (separate from the FIFO cook-batch spice lots)
         if (form.spice_mix?.lots?.length) {
-          base44.functions.invoke("deductSpiceMixOnComplete", {
+          await base44.functions.invoke("deductSpiceMixOnComplete", {
             stage_id: stage.id,
             lots: form.spice_mix.lots,
-          }).catch(err => console.warn("Spice mix deduction failed:", err));
+          });
         }
         await base44.entities.ProductionStage.update(stage.id, {
           status: "completed",
@@ -716,10 +716,10 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
             });
           }
           if (ingredients.length) {
-            base44.functions.invoke("deductRawInventoryOnBatchComplete", {
+            await base44.functions.invoke("deductRawInventoryOnBatchComplete", {
               stage_id: stage.id,
               ingredients,
-            }).catch(err => console.warn("Inventory deduction failed:", err));
+            });
           }
         }
 
@@ -1426,6 +1426,9 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
         onCompleted?.();
         onClose();
       }
+    } catch (err) {
+      console.error("Stage completion failed:", err);
+      alert(`Could not complete this stage — inventory was not fully deducted.\n\n${err?.message || err}\n\nPlease retry.`);
     } finally {
       setSaving(false);
     }
