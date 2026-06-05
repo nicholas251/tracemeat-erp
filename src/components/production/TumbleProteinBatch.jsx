@@ -32,17 +32,33 @@ export default function TumbleProteinBatch({ batch, bucketId, bucketName, value 
     setDeducting(true);
     setError(null);
     try {
-      const actualLbs = (lots || []).reduce((s, a) => s + (Number(a.actual_lbs) || 0), 0);
+      // Sum the explicitly-picked lots. If the picker never propagated lots up
+      // (or they total 0), fall back to the batch's required lbs so the backend
+      // auto-FIFOs the bucket — this guarantees protein is ALWAYS consumed.
+      const pickedLbs = (lots || []).reduce((s, a) => s + (Number(a.actual_lbs) || 0), 0);
+      const actualLbs = pickedLbs > 0 ? pickedLbs : (Number(batch.batch_lbs) || 0);
+      const useExplicitLots = pickedLbs > 0 && (lots || []).some(a => a.raw_inventory_id);
+
+      if (actualLbs <= 0) {
+        throw new Error("Batch has no protein weight to consume.");
+      }
+
       // Deduct this batch's protein from raw inventory immediately.
-      await base44.functions.invoke("deductRawInventoryOnBatchComplete", {
+      const res = await base44.functions.invoke("deductRawInventoryOnBatchComplete", {
         stage_id: stageId,
         ingredients: [{
           bucket_id: bucketId,
           bucket_name: bucketName || "Protein",
           actual_lbs: actualLbs,
-          lot_allocations: lots,
+          // Only pass explicit lots when they carry real inventory ids; otherwise
+          // let the backend FIFO across the bucket by actual_lbs.
+          lot_allocations: useExplicitLots ? lots : null,
         }],
       });
+      const shortfall = Number(res?.data?.total_shortfall) || 0;
+      if (shortfall > 0) {
+        throw new Error(`Not enough inventory — short ${shortfall} lbs. Receive more stock, then retry.`);
+      }
       // Mark confirmed first so this picker locks (and stops refetching), THEN
       // refresh inventory so EVERY other batch's picker re-FIFOs from reduced qty.
       // Each batch now has its own cache key, so we invalidate the whole
