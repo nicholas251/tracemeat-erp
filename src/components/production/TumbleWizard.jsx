@@ -156,6 +156,8 @@ export default function TumbleWizard({ stage, open, onClose, onCompleted }) {
 
       queryClient.invalidateQueries({ queryKey: ["allStages"] });
       queryClient.invalidateQueries({ queryKey: ["rawInventory"] });
+      queryClient.invalidateQueries({ queryKey: ["spiceMixesActive"] });
+      queryClient.invalidateQueries({ queryKey: ["proteinBuckets"] });
     } catch (err) {
       console.error("Batch release failed:", err);
       setError(err?.message || "Could not release this batch.");
