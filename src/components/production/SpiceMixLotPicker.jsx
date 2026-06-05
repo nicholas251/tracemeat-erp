@@ -27,6 +27,9 @@ export default function SpiceMixLotPicker({ label, requiredLbs, value = {}, onCh
   const { data: allSpiceMixes = [], isLoading } = useQuery({
     queryKey: ["spiceMixesActive"],
     queryFn: () => base44.entities.SpiceMix.filter({ status: "active" }),
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnMount: "always",
   });
 
   // If a specific spice mix is assigned to the product, only show that one
