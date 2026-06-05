@@ -73,28 +73,32 @@ function buildFifoAllocations(inventoryRows, requiredLbs) {
  *   onConfirm   – () => void
  */
 export default function IngredientLotPicker({ ing, disabled, onChange, onConfirm }) {
+  // Once this picker is confirmed, its lots are locked in — we must NOT refetch
+  // inventory (which would now show those lots as depleted and make them vanish).
   const { data: inventoryRows = [], isLoading } = useQuery({
     queryKey: ["rawInventory", ing.bucket_id],
     queryFn: () => base44.entities.RawInventory.filter({ bucket_id: ing.bucket_id }),
-    enabled: !!ing.bucket_id,
+    enabled: !!ing.bucket_id && !disabled,
     staleTime: 0,
     gcTime: 0,
   });
 
-  // Initialize allocations from FIFO once inventory loads, if not already set
+  // Initialize allocations from FIFO once inventory loads, if not already set.
+  // When confirmed, ALWAYS use the saved lot_allocations as-is (never recompute).
   const allocations = useMemo(() => {
     if (ing.lot_allocations && ing.lot_allocations.length > 0) return ing.lot_allocations;
+    if (disabled) return [];
     if (inventoryRows.length > 0) return buildFifoAllocations(inventoryRows, ing.required_lbs);
     return [{ lot_number: "", available_qty: 0, raw_inventory_id: null, actual_lbs: ing.required_lbs }];
-  }, [inventoryRows, ing.lot_allocations, ing.required_lbs]);
+  }, [inventoryRows, ing.lot_allocations, ing.required_lbs, disabled]);
 
-  // Sync back to parent when inventory first loads
+  // Sync back to parent when inventory first loads (only while still editable)
   useEffect(() => {
-    console.log(`[IngredientLotPicker] bucket_id=${ing.bucket_id}, inventoryRows=${inventoryRows.length}, isLoading=${isLoading}`);
+    if (disabled) return;
     if (inventoryRows.length > 0 && !ing.lot_allocations) {
       onChange("lot_allocations", buildFifoAllocations(inventoryRows, ing.required_lbs));
     }
-  }, [inventoryRows, isLoading]);
+  }, [inventoryRows, isLoading, disabled]);
 
   const totalActual = parseFloat(allocations.reduce((s, a) => s + (Number(a.actual_lbs) || 0), 0).toFixed(2));
   const isOver = totalActual > ing.required_lbs + 0.001;

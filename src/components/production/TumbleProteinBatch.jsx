@@ -2,7 +2,7 @@ import React from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, Loader2 } from "lucide-react";
+import { CheckCircle2, Loader2, AlertCircle } from "lucide-react";
 import IngredientLotPicker from "../blending/IngredientLotPicker";
 
 /**
@@ -23,12 +23,14 @@ import IngredientLotPicker from "../blending/IngredientLotPicker";
 export default function TumbleProteinBatch({ batch, bucketId, bucketName, value = {}, stageId, onChange }) {
   const queryClient = useQueryClient();
   const [deducting, setDeducting] = React.useState(false);
+  const [error, setError] = React.useState(null);
 
   const lots = value.lots || null;
   const confirmed = !!value.confirmed;
 
   const handleConfirm = async () => {
     setDeducting(true);
+    setError(null);
     try {
       const actualLbs = (lots || []).reduce((s, a) => s + (Number(a.actual_lbs) || 0), 0);
       // Deduct this batch's protein from raw inventory immediately.
@@ -41,11 +43,12 @@ export default function TumbleProteinBatch({ batch, bucketId, bucketName, value 
           lot_allocations: lots,
         }],
       });
-      // Refresh inventory so the next batch sees the reduced available qty.
-      await queryClient.invalidateQueries({ queryKey: ["rawInventory", bucketId] });
+      // Mark confirmed first so this picker locks (and stops refetching), THEN
+      // refresh inventory so the next batch's picker re-FIFOs from reduced qty.
       onChange({ confirmed: true });
+      await queryClient.invalidateQueries({ queryKey: ["rawInventory", bucketId] });
     } catch (err) {
-      console.warn("Per-batch protein deduction failed:", err);
+      setError(err?.message || "Deduction failed — inventory was not changed. Try again.");
     } finally {
       setDeducting(false);
     }
@@ -63,6 +66,12 @@ export default function TumbleProteinBatch({ batch, bucketId, bucketName, value 
           : <Badge variant="outline" className="text-xs">Pending</Badge>
         }
       </div>
+
+      {error && (
+        <div className="mb-2 flex items-center gap-1.5 rounded bg-destructive/10 border border-destructive/30 px-3 py-2 text-xs text-destructive">
+          <AlertCircle className="w-3.5 h-3.5 shrink-0" /> {error}
+        </div>
+      )}
 
       {deducting ? (
         <div className="flex items-center gap-2 text-sm text-muted-foreground py-3 justify-center">
