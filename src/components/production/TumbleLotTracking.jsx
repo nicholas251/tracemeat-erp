@@ -6,8 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Layers, AlertCircle } from "lucide-react";
-import IngredientLotPicker from "../blending/IngredientLotPicker";
 import SpiceMixLotPicker from "./SpiceMixLotPicker";
+import TumbleProteinBatch from "./TumbleProteinBatch";
 
 /**
  * TumbleLotTracking
@@ -37,7 +37,7 @@ import SpiceMixLotPicker from "./SpiceMixLotPicker";
  *   onChange   – (value) => void
  *   notes / onNotesChange – optional notes passthrough
  */
-export default function TumbleLotTracking({ totalLbs = 0, product, value = {}, onChange, notes, onNotesChange }) {
+export default function TumbleLotTracking({ totalLbs = 0, product, value = {}, onChange, notes, onNotesChange, stageId }) {
   const batchSize = Number(product?.blend_batch_lbs) || 0;
   const spicePerBatch = Number(product?.chop_spice_qty_lbs) || 0;
   const spicePct = batchSize > 0 ? spicePerBatch / batchSize : 0;
@@ -81,9 +81,29 @@ export default function TumbleLotTracking({ totalLbs = 0, product, value = {}, o
     [batches]
   );
 
-  // Protein FIFO state (mirrors the spice picker: single picker for the full weight).
-  const proteinLots = value.proteinLots || null;
-  const proteinConfirmed = !!value.proteinConfirmed;
+  // Per-batch protein state. value.proteinBatches is keyed by batch_number:
+  //   { [batch_number]: { lots: [...], confirmed: bool } }
+  const proteinBatches = value.proteinBatches || {};
+  const allProteinConfirmed =
+    batches.length > 0 && batches.every(b => proteinBatches[b.batch_number]?.confirmed);
+
+  // Flattened list of every confirmed protein lot allocation (for downstream traceability).
+  const allProteinLots = useMemo(() => {
+    return batches.flatMap(b => proteinBatches[b.batch_number]?.lots || []);
+  }, [batches, proteinBatches]);
+
+  const updateBatch = (batchNumber, patch) => {
+    const prev = proteinBatches[batchNumber] || {};
+    const nextBatches = { ...proteinBatches, [batchNumber]: { ...prev, ...patch } };
+    const nextConfirmed = batches.length > 0 && batches.every(b => nextBatches[b.batch_number]?.confirmed);
+    const nextLots = batches.flatMap(b => nextBatches[b.batch_number]?.lots || []);
+    onChange({
+      ...value,
+      proteinBatches: nextBatches,
+      proteinLots: nextLots,
+      proteinConfirmed: nextConfirmed,
+    });
+  };
 
   // Stabilise the spice value reference so the child picker's Select doesn't reset.
   const spiceValue = useMemo(() => value.spice_mix || {}, [value.spice_mix]);
@@ -102,6 +122,8 @@ export default function TumbleLotTracking({ totalLbs = 0, product, value = {}, o
       totalSpiceLbs,
       proteinBucketId,
       proteinBucketName,
+      proteinLots: allProteinLots,
+      proteinConfirmed: allProteinConfirmed,
       spice_mix_id: spiceValue.spice_mix_id || "",
       spice_mix_name: spiceValue.spice_mix_name || "",
       spice_mix_lot_number: spiceValue.spice_mix_lot_number || "",
@@ -165,10 +187,10 @@ export default function TumbleLotTracking({ totalLbs = 0, product, value = {}, o
         </Label>
         <Select
           value={proteinBucketId || ""}
-          disabled={proteinConfirmed}
+          disabled={allProteinConfirmed || Object.values(proteinBatches).some(b => b?.confirmed)}
           onValueChange={(v) => {
-            // Switching bucket resets the protein lots so they re-pick from the new bucket
-            emit({ proteinBucketId: v, proteinBucketName: proteinBuckets.find(b => b.id === v)?.name || "", proteinLots: null, proteinConfirmed: false });
+            // Switching bucket resets all per-batch protein so they re-pick from the new bucket
+            emit({ proteinBucketId: v, proteinBucketName: proteinBuckets.find(b => b.id === v)?.name || "", proteinBatches: {}, proteinLots: [], proteinConfirmed: false });
           }}
         >
           <SelectTrigger className="h-10 text-sm">
@@ -185,26 +207,29 @@ export default function TumbleLotTracking({ totalLbs = 0, product, value = {}, o
         </Select>
       </div>
 
-      {/* Protein FIFO picker (single picker for the full incoming weight — like spice) */}
+      {/* Per-batch protein pickers — each batch is consumed immediately on confirm,
+          so the next batch sees the reduced inventory live. */}
       {!proteinBucketId ? (
         <p className="text-xs text-amber-700">No protein bucket configured on this product (set blend ingredients).</p>
       ) : (
-        <div className="rounded-xl border bg-background p-4">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Protein Used</p>
-          <IngredientLotPicker
-            ing={{
-              bucket_id: proteinBucketId,
-              bucket_name: proteinBucketName,
-              required_lbs: parseFloat((totalLbs || 0).toFixed(2)),
-              lot_allocations: proteinLots,
-              confirmed: proteinConfirmed,
-            }}
-            disabled={proteinConfirmed}
-            onChange={(field, val) => {
-              if (field === "lot_allocations") emit({ proteinLots: val });
-            }}
-            onConfirm={() => emit({ proteinConfirmed: true })}
-          />
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Protein Per Batch</p>
+            <Badge variant="outline" className="text-xs">
+              {batches.filter(b => proteinBatches[b.batch_number]?.confirmed).length} / {batches.length} consumed
+            </Badge>
+          </div>
+          {batches.map(b => (
+            <TumbleProteinBatch
+              key={b.batch_number}
+              batch={b}
+              bucketId={proteinBucketId}
+              bucketName={proteinBucketName}
+              stageId={stageId}
+              value={proteinBatches[b.batch_number] || {}}
+              onChange={(patch) => updateBatch(b.batch_number, patch)}
+            />
+          ))}
         </div>
       )}
 
