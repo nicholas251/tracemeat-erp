@@ -59,11 +59,27 @@ export default function SpiceMixLotPicker({ label, requiredLbs, value = {}, onCh
   const isShort = requiredLbs > 0 && totalAllocated < requiredLbs - 0.001 && totalAllocated > 0;
   const isOver = requiredLbs > 0 && totalAllocated > requiredLbs + 0.001;
 
+  // Detect any lot whose entered qty exceeds the live available stock for that mix.
+  const hasOverDraw = lots.some((l) => {
+    if (!l.spice_mix_id) return false;
+    const mix = spiceMixes.find((m) => m.id === l.spice_mix_id);
+    const avail = mix?.available_qty_lbs ?? mix?.quantity_lbs ?? null;
+    return avail !== null && (Number(l.spice_mix_qty_lbs) || 0) > avail + 0.001;
+  });
+
   const emitChange = (newLots) => {
     // Emit multi-lot shape, plus flatten first lot fields for backwards-compat
     const first = newLots[0] || {};
+    // Recompute over-draw against the new lots so the parent gets an accurate flag.
+    const overDraw = newLots.some((l) => {
+      if (!l.spice_mix_id) return false;
+      const mix = spiceMixes.find((m) => m.id === l.spice_mix_id);
+      const avail = mix?.available_qty_lbs ?? mix?.quantity_lbs ?? null;
+      return avail !== null && (Number(l.spice_mix_qty_lbs) || 0) > avail + 0.001;
+    });
     onChange({
       lots: newLots,
+      has_over_draw: overDraw,
       // flat fields mirroring first lot for backwards-compat
       spice_mix_id: first.spice_mix_id || "",
       spice_mix_name: first.spice_mix_name || "",
@@ -263,6 +279,14 @@ export default function SpiceMixLotPicker({ label, requiredLbs, value = {}, onCh
           <span className="font-medium">
             ✓ Exact — {totalAllocated.toFixed(2)} lbs across {lots.filter(l => l.spice_mix_id).length} lot{lots.filter(l => l.spice_mix_id).length !== 1 ? "s" : ""}
           </span>
+        </div>
+      )}
+
+      {/* Over-draw: trying to use more than is physically in stock */}
+      {!disabled && hasOverDraw && (
+        <div className="flex items-center gap-2 text-xs text-destructive bg-destructive/5 border border-destructive/30 rounded px-3 py-2">
+          <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+          A lot's quantity exceeds what's available in stock — reduce it or add another lot. Not enough on hand.
         </div>
       )}
 

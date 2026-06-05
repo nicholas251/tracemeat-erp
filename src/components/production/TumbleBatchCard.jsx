@@ -80,8 +80,10 @@ export default function TumbleBatchCard({
     ? spice.lots.reduce((s, l) => s + (Number(l.spice_mix_qty_lbs) || 0), 0)
     : 0;
   const spiceReady = batch.spice_lbs <= 0 || Math.abs(spiceTotal - batch.spice_lbs) < 0.01;
+  // Hard guard: never release if any spice lot pulls more than is in stock right now.
+  const spiceOverDraw = !!spice?.has_over_draw;
 
-  const canRelease = hasProteinBucket && spiceReady && !released && !releasing;
+  const canRelease = hasProteinBucket && spiceReady && !spiceOverDraw && !released && !releasing;
 
   const handleRelease = () => {
     const proteinLots = (proteinIng.lot_allocations || []).filter(
@@ -226,6 +228,10 @@ export default function TumbleBatchCard({
             ) : !hasProteinBucket ? (
               <>
                 <Lock className="w-4 h-4" /> Select protein bucket
+              </>
+            ) : spiceOverDraw ? (
+              <>
+                <Lock className="w-4 h-4" /> Not enough spice in stock
               </>
             ) : !spiceReady ? (
               <>
