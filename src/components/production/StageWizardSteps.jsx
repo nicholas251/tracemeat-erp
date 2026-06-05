@@ -168,7 +168,7 @@ export function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form,
   const canProceed = isLinking ? !!cookBatch
      : isTumble ? !!cookPlan
      : isSimpleTumble ? (
-          !!form.all_protein_confirmed &&
+          !!form.protein_confirmed &&
           (Number(form.spice_mix_qty_lbs) > 0 || !product?.chop_spice_mix_id)
         )
      : isRacking ? (cookPlan?.racks?.some(r => r.released))
@@ -276,15 +276,14 @@ export function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form,
         <TumbleLotTracking
           totalLbs={stage?.input_qty_lbs || 0}
           product={product}
-          stageId={stage?.id}
           value={form.tumble_tracking || {}}
           notes={form.notes}
           onNotesChange={val => setForm(f => ({ ...f, notes: val }))}
           onChange={val => setForm(f => ({
             ...f,
             tumble_tracking: val,
-            protein_batches: val.proteinBatches || [],
-            all_protein_confirmed: val.allProteinConfirmed || false,
+            protein_lots: val.proteinLots || null,
+            protein_confirmed: val.proteinConfirmed || false,
             protein_bucket_id: val.proteinBucketId || "",
             protein_bucket_name: val.proteinBucketName || "",
             spice_mix: val.spice_mix || {},

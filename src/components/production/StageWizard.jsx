@@ -572,9 +572,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
         const spiceAddedLbs = Number(form.spice_mix_qty_lbs) || 0;
         const tumbledQty = parseFloat(((stage.input_qty_lbs || 0) + spiceAddedLbs).toFixed(2));
         const tumbledLotBase = form.output_lot_number || `TUMBLE-${new Date().toISOString().slice(0,10).replace(/-/g,"")}`;
-        // Protein was already deducted per-batch as each batch was confirmed.
-        // Flatten all batch lot allocations here purely for traceability.
-        const allProteinLots = (form.protein_batches || []).flatMap(b => b.lot_allocations || []);
+        const allProteinLots = form.protein_lots || [];
         const proteinLotRefs = allProteinLots.filter(l => l.lot_number).map(l => l.lot_number);
         await base44.entities.ProductionStage.update(stage.id, {
           status: "completed",
@@ -612,8 +610,23 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
           }
         }
 
-        // Protein was already deducted per-batch as each batch was confirmed in
-        // TumbleLotTracking — no stage-level protein deduction needed here.
+        // Deduct the picked protein FIFO lots from raw inventory — awaited (exactly
+        // like the spice mix above) so the deduction reliably lands before the stage closes.
+        if (allProteinLots.length && form.protein_bucket_id) {
+          try {
+            await base44.functions.invoke("deductRawInventoryOnBatchComplete", {
+              stage_id: stage.id,
+              ingredients: [{
+                bucket_id: form.protein_bucket_id,
+                bucket_name: form.protein_bucket_name || "Protein",
+                actual_lbs: allProteinLots.reduce((s, a) => s + (Number(a.actual_lbs) || 0), 0),
+                lot_allocations: allProteinLots,
+              }],
+            });
+          } catch (err) {
+            console.warn("Protein inventory deduction failed:", err);
+          }
+        }
 
         // Build per-racking-card list. Use the internal tumble batches if present (each
         // carries its own batch_lbs + spice_lbs); otherwise fall back to a single card
