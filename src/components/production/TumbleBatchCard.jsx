@@ -37,7 +37,10 @@ export default function TumbleBatchCard({
     lot_allocations: null,
     confirmed: false,
   });
-  const [proteinConfirmed, setProteinConfirmed] = useState(false);
+  const hasProteinBucket = !!proteinBucket?.bucket_id;
+  // When no protein bucket is configured (tumble-entry flow), there are no lots to
+  // pick — the incoming weight is carried forward, so treat protein as confirmed.
+  const [proteinConfirmed, setProteinConfirmed] = useState(!proteinBucket?.bucket_id);
   const [spice, setSpice] = useState({});
 
   const spiceTotal = spice?.lots
@@ -91,31 +94,33 @@ export default function TumbleBatchCard({
         </div>
       ) : (
         <>
-          {/* Protein lot picker (FIFO) */}
-          <div className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Protein
-            </p>
-            <IngredientLotPicker
-              ing={proteinIng}
-              disabled={proteinConfirmed}
-              cacheKey={`tumble-batch-${batch.batch_number}`}
-              onChange={(field, value) =>
-                setProteinIng((p) => ({ ...p, [field]: value }))
-              }
-              onConfirm={() => setProteinConfirmed(true)}
-            />
-            {proteinConfirmed && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-xs h-7"
-                onClick={() => setProteinConfirmed(false)}
-              >
-                Edit protein lots
-              </Button>
-            )}
-          </div>
+          {/* Protein lot picker (FIFO) — only when a protein bucket is configured */}
+          {hasProteinBucket && (
+            <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Protein
+              </p>
+              <IngredientLotPicker
+                ing={proteinIng}
+                disabled={proteinConfirmed}
+                cacheKey={`tumble-batch-${batch.batch_number}`}
+                onChange={(field, value) =>
+                  setProteinIng((p) => ({ ...p, [field]: value }))
+                }
+                onConfirm={() => setProteinConfirmed(true)}
+              />
+              {proteinConfirmed && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs h-7"
+                  onClick={() => setProteinConfirmed(false)}
+                >
+                  Edit protein lots
+                </Button>
+              )}
+            </div>
+          )}
 
           {/* Spice mix picker */}
           {batch.spice_lbs > 0 && (

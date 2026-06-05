@@ -48,9 +48,11 @@ export default function TumbleWizard({ stage, open, onClose, onCompleted }) {
   });
 
   const totalLbs = stage?.input_qty_lbs || 0;
-  const batchSize = Number(product?.blend_batch_lbs) || 0;
+  const batchSize = Number(product?.tumble_batch_lbs) || Number(product?.blend_batch_lbs) || 0;
   const spicePerBatch = Number(product?.chop_spice_qty_lbs) || 0;
   const spicePct = batchSize > 0 ? spicePerBatch / batchSize : 0;
+  // Protein bucket is optional. Tumble-entry flows receive raw protein directly
+  // (already deducted at receiving), so there may be no blend bucket to deduct.
   const proteinBucket = product?.blend_ingredients?.[0] || null;
 
   // Split incoming weight into chopping-sized batches.
@@ -86,23 +88,23 @@ export default function TumbleWizard({ stage, open, onClose, onCompleted }) {
     setError("");
     setReleasingBatch(batch.batch_number);
     try {
-      if (!proteinBucket?.bucket_id) {
-        throw new Error("No protein bucket configured on this product. Set blend ingredients on the product.");
-      }
-
-      // 1. Deduct protein for THIS batch.
-      const res = await base44.functions.invoke("deductRawInventoryOnBatchComplete", {
-        stage_id: stage.id,
-        ingredients: [{
-          bucket_id: proteinBucket.bucket_id,
-          bucket_name: proteinBucket.bucket_name || "Protein",
-          actual_lbs: batch.protein_lbs,
-          lot_allocations: proteinLots.length ? proteinLots : null,
-        }],
-      });
-      const shortfall = Number(res?.data?.total_shortfall) || 0;
-      if (shortfall > 0) {
-        throw new Error(`Not enough protein inventory — short ${shortfall} lbs. Receive more stock, then retry.`);
+      // 1. Deduct protein for THIS batch — only when a protein bucket is configured.
+      //    Tumble-entry flows have no blend bucket (raw protein consumed at receiving),
+      //    so we skip protein deduction and just carry the incoming weight forward.
+      if (proteinBucket?.bucket_id) {
+        const res = await base44.functions.invoke("deductRawInventoryOnBatchComplete", {
+          stage_id: stage.id,
+          ingredients: [{
+            bucket_id: proteinBucket.bucket_id,
+            bucket_name: proteinBucket.bucket_name || "Protein",
+            actual_lbs: batch.protein_lbs,
+            lot_allocations: proteinLots.length ? proteinLots : null,
+          }],
+        });
+        const shortfall = Number(res?.data?.total_shortfall) || 0;
+        if (shortfall > 0) {
+          throw new Error(`Not enough protein inventory — short ${shortfall} lbs. Receive more stock, then retry.`);
+        }
       }
 
       // 2. Deduct spice mix for THIS batch.
@@ -187,11 +189,6 @@ export default function TumbleWizard({ stage, open, onClose, onCompleted }) {
               <AlertCircle className="w-4 h-4 shrink-0" />
               No chopping batch size set on this product — set "Total Batch Size" under the Chopping tab.
             </div>
-          ) : !proteinBucket?.bucket_id ? (
-            <div className="flex items-center gap-2 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-3">
-              <AlertCircle className="w-4 h-4 shrink-0" />
-              No protein bucket configured — set blend ingredients on the product.
-            </div>
           ) : (
             <>
               {/* Summary */}
@@ -214,7 +211,7 @@ export default function TumbleWizard({ stage, open, onClose, onCompleted }) {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Protein bucket</span>
-                    <span className="font-semibold">{proteinBucket.bucket_name}</span>
+                    <span className="font-semibold">{proteinBucket?.bucket_name || "Raw protein (from receiving)"}</span>
                   </div>
                 </div>
               </div>
