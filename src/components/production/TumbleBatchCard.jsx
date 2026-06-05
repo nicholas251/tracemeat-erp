@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
@@ -52,6 +52,15 @@ export default function TumbleBatchCard({
     queryFn: () => base44.entities.InventoryBucket.filter({ category: "protein", status: "active" }),
   });
 
+  // Auto-select the protein bucket if the product didn't pre-set one and there's
+  // exactly one active protein bucket — so deduction never silently gets skipped.
+  useEffect(() => {
+    if (!selectedBucketId && proteinBuckets.length === 1) {
+      handleSelectBucket(proteinBuckets[0].id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [proteinBuckets, selectedBucketId]);
+
   const hasProteinBucket = !!selectedBucketId;
 
   const handleSelectBucket = (id) => {
@@ -72,7 +81,7 @@ export default function TumbleBatchCard({
     : 0;
   const spiceReady = batch.spice_lbs <= 0 || Math.abs(spiceTotal - batch.spice_lbs) < 0.01;
 
-  const canRelease = !released && !releasing;
+  const canRelease = hasProteinBucket && !released && !releasing;
 
   const handleRelease = () => {
     const proteinLots = (proteinIng.lot_allocations || []).filter(
@@ -213,6 +222,10 @@ export default function TumbleBatchCard({
             {releasing ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" /> Releasing…
+              </>
+            ) : !hasProteinBucket ? (
+              <>
+                <Lock className="w-4 h-4" /> Select protein bucket
               </>
             ) : (
               <>

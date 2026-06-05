@@ -88,19 +88,20 @@ export default function TumbleWizard({ stage, open, onClose, onCompleted }) {
     setError("");
     setReleasingBatch(batch.batch_number);
     try {
-      // 1. Deduct protein for THIS batch from the bucket the operator selected.
-      //    Always consume whatever is available — no shortfall guardrail.
-      if (chosenBucket?.bucket_id) {
-        await base44.functions.invoke("deductRawInventoryOnBatchComplete", {
-          stage_id: stage.id,
-          ingredients: [{
-            bucket_id: chosenBucket.bucket_id,
-            bucket_name: chosenBucket.bucket_name || "Protein",
-            actual_lbs: batch.protein_lbs,
-            lot_allocations: proteinLots.length ? proteinLots : null,
-          }],
-        });
+      // 1. Deduct protein for THIS batch from the selected bucket.
+      //    A bucket is REQUIRED — without it we cannot deduct inventory.
+      if (!chosenBucket?.bucket_id) {
+        throw new Error("Pick a protein bucket for this batch before releasing — inventory can't be deducted without one.");
       }
+      await base44.functions.invoke("deductRawInventoryOnBatchComplete", {
+        stage_id: stage.id,
+        ingredients: [{
+          bucket_id: chosenBucket.bucket_id,
+          bucket_name: chosenBucket.bucket_name || "Protein",
+          actual_lbs: batch.protein_lbs,
+          lot_allocations: proteinLots.length ? proteinLots : null,
+        }],
+      });
 
       // 2. Deduct spice mix for THIS batch.
       if (spiceLots.length) {

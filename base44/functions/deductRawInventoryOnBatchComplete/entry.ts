@@ -23,7 +23,11 @@ Deno.serve(async (req) => {
 
     for (const ing of ingredients) {
       const { bucket_id, actual_lbs, bucket_name, lot_allocations } = ing;
-      if (!bucket_id || !actual_lbs) continue;
+      if (!bucket_id || !(Number(actual_lbs) > 0)) {
+        console.warn(`Skipping ingredient — bucket_id=${bucket_id}, actual_lbs=${actual_lbs}`);
+        continue;
+      }
+      console.log(`Deducting ${actual_lbs} lbs from bucket ${bucket_id} (${bucket_name})`);
 
       let remaining = actual_lbs;
       const usedLotIds = new Set();
