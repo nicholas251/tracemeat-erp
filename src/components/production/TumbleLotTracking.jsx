@@ -219,17 +219,28 @@ export default function TumbleLotTracking({ totalLbs = 0, product, value = {}, o
               {batches.filter(b => proteinBatches[b.batch_number]?.confirmed).length} / {batches.length} consumed
             </Badge>
           </div>
-          {batches.map(b => (
-            <TumbleProteinBatch
-              key={b.batch_number}
-              batch={b}
-              bucketId={proteinBucketId}
-              bucketName={proteinBucketName}
-              stageId={stageId}
-              value={proteinBatches[b.batch_number] || {}}
-              onChange={(patch) => updateBatch(b.batch_number, patch)}
-            />
-          ))}
+          {batches.map((b, i) => {
+            // Sequential entry: a batch is only active once EVERY prior batch is
+            // confirmed. This guarantees each batch FIFOs against live inventory
+            // already reduced by the batches before it (no double-allocating lots).
+            const prevAllConfirmed = batches
+              .slice(0, i)
+              .every(pb => proteinBatches[pb.batch_number]?.confirmed);
+            const thisConfirmed = !!proteinBatches[b.batch_number]?.confirmed;
+            const locked = !thisConfirmed && !prevAllConfirmed;
+            return (
+              <TumbleProteinBatch
+                key={b.batch_number}
+                batch={b}
+                bucketId={proteinBucketId}
+                bucketName={proteinBucketName}
+                stageId={stageId}
+                locked={locked}
+                value={proteinBatches[b.batch_number] || {}}
+                onChange={(patch) => updateBatch(b.batch_number, patch)}
+              />
+            );
+          })}
         </div>
       )}
 

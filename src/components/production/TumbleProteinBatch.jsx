@@ -2,7 +2,7 @@ import React from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, Loader2, AlertCircle } from "lucide-react";
+import { CheckCircle2, Loader2, AlertCircle, Lock } from "lucide-react";
 import IngredientLotPicker from "../blending/IngredientLotPicker";
 
 /**
@@ -20,7 +20,7 @@ import IngredientLotPicker from "../blending/IngredientLotPicker";
  *   stageId      – ProductionStage id (for deduction traceability)
  *   onChange     – (patch) => void   (patch merged into this batch's value)
  */
-export default function TumbleProteinBatch({ batch, bucketId, bucketName, value = {}, stageId, onChange }) {
+export default function TumbleProteinBatch({ batch, bucketId, bucketName, value = {}, stageId, locked = false, onChange }) {
   const queryClient = useQueryClient();
   const [deducting, setDeducting] = React.useState(false);
   const [error, setError] = React.useState(null);
@@ -65,6 +65,8 @@ export default function TumbleProteinBatch({ batch, bucketId, bucketName, value 
         </div>
         {confirmed
           ? <Badge className="bg-chart-2/15 text-chart-2 border-0 gap-1"><CheckCircle2 className="w-3.5 h-3.5" /> Consumed</Badge>
+          : locked
+          ? <Badge variant="outline" className="text-xs gap-1 text-muted-foreground"><Lock className="w-3 h-3" /> Locked</Badge>
           : <Badge variant="outline" className="text-xs">Pending</Badge>
         }
       </div>
@@ -75,7 +77,11 @@ export default function TumbleProteinBatch({ batch, bucketId, bucketName, value 
         </div>
       )}
 
-      {deducting ? (
+      {locked ? (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground py-3 justify-center">
+          <Lock className="w-4 h-4" /> Confirm the previous batch to unlock this one.
+        </div>
+      ) : deducting ? (
         <div className="flex items-center gap-2 text-sm text-muted-foreground py-3 justify-center">
           <Loader2 className="w-4 h-4 animate-spin" /> Consuming inventory…
         </div>
