@@ -695,18 +695,32 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
           temperature_c: form.temperature_c || null,
         });
 
-        // Deduct FIFO lots for protein + spice across all cook batches
+        // Deduct protein (+ optional spice) for EVERY cook batch.
+        // Protein is ALWAYS deducted by the batch's lbs — if the operator assigned
+        // explicit FIFO lots we pass them through, otherwise the backend auto-FIFOs
+        // by bucket. This guarantees each batch consumes inventory even when the
+        // operator confirms the cook plan without expanding the lot pickers.
+        const tumbleProteinBucket = product?.blend_ingredients?.[0];
+        if (!tumbleProteinBucket?.bucket_id) {
+          throw new Error("No protein bucket configured on this product — cannot deduct tumble inventory. Set blend ingredients on the product.");
+        }
         for (const cb of cookPlan.cookBatches) {
           const ingredients = [];
-          if (cb.proteinLots?.length) {
-            const proteinBucket = product?.blend_ingredients?.[0];
+
+          // Protein — always deduct the batch's full lbs (explicit lots or FIFO fallback)
+          const proteinLbs = cb.proteinLots?.length
+            ? cb.proteinLots.reduce((s, a) => s + (Number(a.actual_lbs) || 0), 0)
+            : Number(cb.lbs) || 0;
+          if (proteinLbs > 0) {
             ingredients.push({
-              bucket_id: proteinBucket?.bucket_id || "",
-              bucket_name: proteinBucket?.bucket_name || "Protein",
-              actual_lbs: cb.proteinLots.reduce((s, a) => s + (Number(a.actual_lbs) || 0), 0),
-              lot_allocations: cb.proteinLots,
+              bucket_id: tumbleProteinBucket.bucket_id,
+              bucket_name: tumbleProteinBucket.bucket_name || "Protein",
+              actual_lbs: parseFloat(proteinLbs.toFixed(2)),
+              lot_allocations: cb.proteinLots?.length ? cb.proteinLots : null,
             });
           }
+
+          // Spice — only when explicit FIFO spice lots were assigned
           if (cb.spiceLots?.length) {
             ingredients.push({
               bucket_id: cb.spiceLots[0]?.bucket_id || null,
@@ -715,11 +729,16 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
               lot_allocations: cb.spiceLots,
             });
           }
+
           if (ingredients.length) {
-            await base44.functions.invoke("deductRawInventoryOnBatchComplete", {
+            const res = await base44.functions.invoke("deductRawInventoryOnBatchComplete", {
               stage_id: stage.id,
               ingredients,
             });
+            const shortfall = Number(res?.data?.total_shortfall) || 0;
+            if (shortfall > 0) {
+              throw new Error(`Cook batch ${cb.lotNumber || ""} is short ${shortfall} lbs of inventory. Receive more stock or adjust the batch, then retry.`);
+            }
           }
         }
 
