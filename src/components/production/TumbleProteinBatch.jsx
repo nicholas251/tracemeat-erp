@@ -44,9 +44,11 @@ export default function TumbleProteinBatch({ batch, bucketId, bucketName, value 
         }],
       });
       // Mark confirmed first so this picker locks (and stops refetching), THEN
-      // refresh inventory so the next batch's picker re-FIFOs from reduced qty.
+      // refresh inventory so EVERY other batch's picker re-FIFOs from reduced qty.
+      // Each batch now has its own cache key, so we invalidate the whole
+      // rawInventory family to force all pending siblings to refetch live.
       onChange({ confirmed: true });
-      await queryClient.invalidateQueries({ queryKey: ["rawInventory", bucketId] });
+      await queryClient.invalidateQueries({ queryKey: ["rawInventory"] });
     } catch (err) {
       setError(err?.message || "Deduction failed — inventory was not changed. Try again.");
     } finally {
@@ -79,6 +81,7 @@ export default function TumbleProteinBatch({ batch, bucketId, bucketName, value 
         </div>
       ) : (
         <IngredientLotPicker
+          cacheKey={`tumble-batch-${batch.batch_number}`}
           ing={{
             bucket_id: bucketId,
             bucket_name: bucketName,

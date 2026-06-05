@@ -72,16 +72,27 @@ function buildFifoAllocations(inventoryRows, requiredLbs) {
  *   onChange    – (field, value) => void
  *   onConfirm   – () => void
  */
-export default function IngredientLotPicker({ ing, disabled, onChange, onConfirm }) {
+export default function IngredientLotPicker({ ing, disabled, onChange, onConfirm, cacheKey }) {
   // Once this picker is confirmed, its lots are locked in — we must NOT refetch
   // inventory (which would now show those lots as depleted and make them vanish).
-  const { data: inventoryRows = [], isLoading } = useQuery({
-    queryKey: ["rawInventory", ing.bucket_id],
+  // cacheKey isolates each batch's picker so a confirmed sibling can't serve a
+  // pre-deduction snapshot to a still-pending batch (the source of stale lots).
+  const { data: rawRows = [], isLoading } = useQuery({
+    queryKey: ["rawInventory", ing.bucket_id, cacheKey || "default"],
     queryFn: () => base44.entities.RawInventory.filter({ bucket_id: ing.bucket_id }),
     enabled: !!ing.bucket_id && !disabled,
     staleTime: 0,
     gcTime: 0,
+    refetchOnMount: "always",
   });
+
+  // Only ever treat a lot as live stock when it's not depleted AND still has qty.
+  // (Bug fix: the query pulls every status; depleted lots with leftover qty,
+  // or stale cached rows from a previously-confirmed batch, were leaking through.)
+  const inventoryRows = useMemo(
+    () => rawRows.filter(r => r.status !== "depleted" && (r.available_qty || 0) > 0),
+    [rawRows]
+  );
 
   // Initialize allocations from FIFO once inventory loads, if not already set.
   // When confirmed, ALWAYS use the saved lot_allocations as-is (never recompute).
