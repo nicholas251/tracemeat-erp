@@ -610,29 +610,8 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
           }
         }
 
-        // ── Deduct protein ONCE at stage completion (mirrors spice mix process 1-to-1) ──
-        // A single picker chose the protein lots for the whole incoming weight; deduct
-        // them here in one call, exactly like the spice mix above.
-        if (allProteinLots.length) {
-          const proteinBucketId = form.protein_bucket_id || product?.blend_ingredients?.[0]?.bucket_id;
-          const proteinBucketName = form.protein_bucket_name || product?.blend_ingredients?.[0]?.bucket_name || "Protein";
-          const proteinLbs = allProteinLots.reduce((s, a) => s + (Number(a.actual_lbs) || 0), 0);
-          if (proteinBucketId && proteinLbs > 0) {
-            const res = await base44.functions.invoke("deductRawInventoryOnBatchComplete", {
-              stage_id: stage.id,
-              ingredients: [{
-                bucket_id: proteinBucketId,
-                bucket_name: proteinBucketName,
-                actual_lbs: parseFloat(proteinLbs.toFixed(2)),
-                lot_allocations: allProteinLots,
-              }],
-            });
-            const shortfall = Number(res?.data?.total_shortfall) || 0;
-            if (shortfall > 0) {
-              throw new Error(`Protein is short ${shortfall} lbs of inventory. Receive more stock or adjust the lots, then retry.`);
-            }
-          }
-        }
+        // NOTE: Protein is now consumed PER BATCH at the moment each batch is confirmed
+        // (see TumbleProteinBatch), so it is intentionally NOT deducted again here.
 
         // Build per-racking-card list. Use the internal tumble batches if present (each
         // carries its own batch_lbs + spice_lbs); otherwise fall back to a single card
