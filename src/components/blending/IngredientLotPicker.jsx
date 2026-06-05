@@ -111,6 +111,26 @@ export default function IngredientLotPicker({ ing, disabled, onChange, onConfirm
     }
   }, [inventoryRows, isLoading, disabled]);
 
+  // When live inventory changes (e.g. a PRIOR batch was just confirmed and deducted),
+  // refresh each already-chosen allocation's available_qty from the live rows so this
+  // still-editable batch shows the TRUE reduced on-hand — never a stale pre-deduction value.
+  useEffect(() => {
+    if (disabled) return;
+    if (!ing.lot_allocations || ing.lot_allocations.length === 0) return;
+    if (inventoryRows.length === 0) return;
+    let changed = false;
+    const refreshed = ing.lot_allocations.map(a => {
+      const liveRow = inventoryRows.find(r => r.lot_number === a.lot_number);
+      if (liveRow && liveRow.available_qty !== a.available_qty) {
+        changed = true;
+        return { ...a, available_qty: liveRow.available_qty, raw_inventory_id: liveRow.id };
+      }
+      return a;
+    });
+    if (changed) onChange("lot_allocations", refreshed);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inventoryRows, disabled]);
+
   const totalActual = parseFloat(allocations.reduce((s, a) => s + (Number(a.actual_lbs) || 0), 0).toFixed(2));
   const isOver = totalActual > ing.required_lbs + 0.001;
   const isShort = totalActual < ing.required_lbs - 0.001;
@@ -120,13 +140,16 @@ export default function IngredientLotPicker({ ing, disabled, onChange, onConfirm
   // Lot numbers already chosen in other rows (so we don't offer them again)
   const usedLotNumbers = (idx) => allocations.filter((_, i) => i !== idx).map(a => a.lot_number).filter(Boolean);
 
-  // Live remaining available for a given lot number, after subtracting qty already
-  // allocated to it across all rows (mirrors the spice picker's decreasing display).
+  // Live remaining available for a given lot number.
+  // Always read from the freshly-refetched inventory rows so the number shown is the
+  // TRUE on-hand quantity (already reduced by any prior CONFIRMED batches). We do NOT
+  // subtract this batch's own un-confirmed entry — inventory is only deducted on confirm,
+  // so showing it pre-deducted is misleading. Falls back to the saved snapshot only when
+  // the live row is gone (e.g. confirmed/locked picker that no longer refetches).
   const liveRemaining = (lotNumber, baseAvailable) => {
-    const allocatedToLot = allocations
-      .filter(a => a.lot_number === lotNumber)
-      .reduce((s, a) => s + (Number(a.actual_lbs) || 0), 0);
-    return parseFloat(Math.max(0, (baseAvailable || 0) - allocatedToLot).toFixed(2));
+    const liveRow = inventoryRows.find(r => r.lot_number === lotNumber);
+    const onHand = liveRow ? (liveRow.available_qty || 0) : (baseAvailable || 0);
+    return parseFloat(Math.max(0, onHand).toFixed(2));
   };
 
   // Add an empty next-lot row for the remaining amount (next FIFO lot not yet used)
