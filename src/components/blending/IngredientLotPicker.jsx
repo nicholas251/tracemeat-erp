@@ -72,7 +72,7 @@ function buildFifoAllocations(inventoryRows, requiredLbs) {
  *   onChange    – (field, value) => void
  *   onConfirm   – () => void
  */
-export default function IngredientLotPicker({ ing, disabled, onChange, onConfirm, cacheKey }) {
+export default function IngredientLotPicker({ ing, disabled, onChange, onConfirm, cacheKey, capByRequired = false }) {
   // Once this picker is confirmed, its lots are locked in — we must NOT refetch
   // inventory (which would now show those lots as depleted and make them vanish).
   // cacheKey isolates each batch's picker so a confirmed sibling can't serve a
@@ -286,7 +286,9 @@ export default function IngredientLotPicker({ ing, disabled, onChange, onConfirm
               <div className="space-y-1">
                 <Label className="text-xs font-semibold">
                   Qty (lbs)
-                  {alloc.available_qty > 0 && (
+                  {capByRequired ? (
+                    <span className="text-muted-foreground font-normal ml-1">max {ing.required_lbs}</span>
+                  ) : alloc.available_qty > 0 && (
                     <span className="text-muted-foreground font-normal ml-1">max {alloc.available_qty}</span>
                   )}
                 </Label>

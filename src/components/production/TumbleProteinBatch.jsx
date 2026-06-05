@@ -87,6 +87,7 @@ export default function TumbleProteinBatch({ batch, bucketId, bucketName, value 
         </div>
       ) : (
         <IngredientLotPicker
+          capByRequired
           cacheKey={`tumble-batch-${batch.batch_number}`}
           ing={{
             bucket_id: bucketId,
