@@ -276,7 +276,6 @@ export function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form,
         <TumbleLotTracking
           totalLbs={stage?.input_qty_lbs || 0}
           product={product}
-          stageId={stage?.id}
           value={form.tumble_tracking || {}}
           notes={form.notes}
           onNotesChange={val => setForm(f => ({ ...f, notes: val }))}

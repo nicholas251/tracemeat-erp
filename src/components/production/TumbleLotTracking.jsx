@@ -7,23 +7,24 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Layers, AlertCircle } from "lucide-react";
 import SpiceMixLotPicker from "./SpiceMixLotPicker";
-import TumbleProteinBatch from "./TumbleProteinBatch";
+import IngredientLotPicker from "../blending/IngredientLotPicker";
 
 /**
  * TumbleLotTracking
  *
  * Full lot traceability for the tumbling stage (when racking follows).
  * Splits the incoming raw weight into batches sized by the product's CHOPPING batch
- * size (blend_batch_lbs) — used only to derive the total seasoning required.
+ * size (blend_batch_lbs) — used only to derive the total seasoning required and to
+ * create the downstream racking cards.
  *
- * Protein is picked from raw inventory via a SINGLE FIFO picker (the full incoming
- * weight) and the spice mix via the spice picker — both are deducted at STAGE
- * COMPLETION (see StageWizard), exactly the same way the spice mix is.
+ * Protein and spice are BOTH picked ONCE for the whole stage (single picker each)
+ * and BOTH deducted ONCE at stage completion (see StageWizard). This mirrors the
+ * spice mix process 1-to-1 for reliability.
  *
  * Emits (via onChange):
  *   {
- *     proteinLots: [...], proteinConfirmed: boolean,
  *     proteinBucketId, proteinBucketName,
+ *     protein: { lots: [...] }, proteinLots: [...], proteinConfirmed: boolean,
  *     spice_mix: { lots: [...], ... },
  *     spice_mix_id, spice_mix_name, spice_mix_lot_number, spice_mix_qty_lbs,
  *     batches: [{ batch_number, batch_lbs, spice_lbs, is_partial }],
@@ -37,7 +38,7 @@ import TumbleProteinBatch from "./TumbleProteinBatch";
  *   onChange   – (value) => void
  *   notes / onNotesChange – optional notes passthrough
  */
-export default function TumbleLotTracking({ totalLbs = 0, product, value = {}, onChange, notes, onNotesChange, stageId }) {
+export default function TumbleLotTracking({ totalLbs = 0, product, value = {}, onChange, notes, onNotesChange }) {
   const batchSize = Number(product?.blend_batch_lbs) || 0;
   const spicePerBatch = Number(product?.chop_spice_qty_lbs) || 0;
   const spicePct = batchSize > 0 ? spicePerBatch / batchSize : 0;
@@ -57,6 +58,7 @@ export default function TumbleLotTracking({ totalLbs = 0, product, value = {}, o
     proteinBuckets.find(b => b.id === proteinBucketId)?.name || defaultProteinBucketName;
 
   // Split raw weight into chopping-sized batches to derive total seasoning required
+  // and to build the downstream racking cards.
   const batches = useMemo(() => {
     if (!batchSize || batchSize <= 0 || !totalLbs) return [];
     const count = Math.ceil(totalLbs / batchSize);
@@ -81,36 +83,16 @@ export default function TumbleLotTracking({ totalLbs = 0, product, value = {}, o
     [batches]
   );
 
-  // Per-batch protein state. value.proteinBatches is keyed by batch_number:
-  //   { [batch_number]: { lots: [...], confirmed: bool } }
-  const proteinBatches = value.proteinBatches || {};
-  const allProteinConfirmed =
-    batches.length > 0 && batches.every(b => proteinBatches[b.batch_number]?.confirmed);
-
-  // Flattened list of every confirmed protein lot allocation (for downstream traceability).
-  const allProteinLots = useMemo(() => {
-    return batches.flatMap(b => proteinBatches[b.batch_number]?.lots || []);
-  }, [batches, proteinBatches]);
-
-  const updateBatch = (batchNumber, patch) => {
-    const prev = proteinBatches[batchNumber] || {};
-    const nextBatches = { ...proteinBatches, [batchNumber]: { ...prev, ...patch } };
-    const nextConfirmed = batches.length > 0 && batches.every(b => nextBatches[b.batch_number]?.confirmed);
-    const nextLots = batches.flatMap(b => nextBatches[b.batch_number]?.lots || []);
-    onChange({
-      ...value,
-      proteinBatches: nextBatches,
-      proteinLots: nextLots,
-      proteinConfirmed: nextConfirmed,
-    });
-  };
-
-  // Stabilise the spice value reference so the child picker's Select doesn't reset.
-  const spiceValue = useMemo(() => value.spice_mix || {}, [value.spice_mix]);
+  // ── Protein: a SINGLE picker for the whole incoming weight (mirrors spice) ──
+  const proteinValue = useMemo(() => value.protein || {}, [value.protein]);
+  const proteinLots = proteinValue.lots || null;
+  const proteinConfirmed = !!value.proteinConfirmed;
 
   const emit = (patch) => onChange({ ...value, ...patch });
 
   // Keep derived totals + spice info in the emitted value.
+  const spiceValue = useMemo(() => value.spice_mix || {}, [value.spice_mix]);
+
   useEffect(() => {
     if (batches.length === 0) return;
     const spiceTotal = spiceValue?.lots
@@ -122,8 +104,6 @@ export default function TumbleLotTracking({ totalLbs = 0, product, value = {}, o
       totalSpiceLbs,
       proteinBucketId,
       proteinBucketName,
-      proteinLots: allProteinLots,
-      proteinConfirmed: allProteinConfirmed,
       spice_mix_id: spiceValue.spice_mix_id || "",
       spice_mix_name: spiceValue.spice_mix_name || "",
       spice_mix_lot_number: spiceValue.spice_mix_lot_number || "",
@@ -187,10 +167,10 @@ export default function TumbleLotTracking({ totalLbs = 0, product, value = {}, o
         </Label>
         <Select
           value={proteinBucketId || ""}
-          disabled={allProteinConfirmed || Object.values(proteinBatches).some(b => b?.confirmed)}
+          disabled={proteinConfirmed}
           onValueChange={(v) => {
-            // Switching bucket resets all per-batch protein so they re-pick from the new bucket
-            emit({ proteinBucketId: v, proteinBucketName: proteinBuckets.find(b => b.id === v)?.name || "", proteinBatches: {}, proteinLots: [], proteinConfirmed: false });
+            // Switching bucket resets protein so it re-picks from the new bucket
+            emit({ proteinBucketId: v, proteinBucketName: proteinBuckets.find(b => b.id === v)?.name || "", protein: {}, proteinLots: [], proteinConfirmed: false });
           }}
         >
           <SelectTrigger className="h-10 text-sm">
@@ -207,40 +187,29 @@ export default function TumbleLotTracking({ totalLbs = 0, product, value = {}, o
         </Select>
       </div>
 
-      {/* Per-batch protein pickers — each batch is consumed immediately on confirm,
-          so the next batch sees the reduced inventory live. */}
+      {/* Protein lots — ONE picker for the whole incoming weight (mirrors spice mix).
+          Picked here, deducted ONCE at stage completion. */}
       {!proteinBucketId ? (
         <p className="text-xs text-amber-700">No protein bucket configured on this product (set blend ingredients).</p>
       ) : (
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Protein Per Batch</p>
-            <Badge variant="outline" className="text-xs">
-              {batches.filter(b => proteinBatches[b.batch_number]?.confirmed).length} / {batches.length} consumed
-            </Badge>
-          </div>
-          {batches.map((b, i) => {
-            // Sequential entry: a batch is only active once EVERY prior batch is
-            // confirmed. This guarantees each batch FIFOs against live inventory
-            // already reduced by the batches before it (no double-allocating lots).
-            const prevAllConfirmed = batches
-              .slice(0, i)
-              .every(pb => proteinBatches[pb.batch_number]?.confirmed);
-            const thisConfirmed = !!proteinBatches[b.batch_number]?.confirmed;
-            const locked = !thisConfirmed && !prevAllConfirmed;
-            return (
-              <TumbleProteinBatch
-                key={b.batch_number}
-                batch={b}
-                bucketId={proteinBucketId}
-                bucketName={proteinBucketName}
-                stageId={stageId}
-                locked={locked}
-                value={proteinBatches[b.batch_number] || {}}
-                onChange={(patch) => updateBatch(b.batch_number, patch)}
-              />
-            );
-          })}
+        <div className="rounded-xl border bg-background p-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Protein Used</p>
+          <IngredientLotPicker
+            ing={{
+              bucket_id: proteinBucketId,
+              bucket_name: proteinBucketName,
+              required_lbs: parseFloat((totalLbs || 0).toFixed(2)),
+              lot_allocations: proteinLots,
+              confirmed: proteinConfirmed,
+            }}
+            disabled={proteinConfirmed}
+            onChange={(field, val) => {
+              if (field === "lot_allocations") {
+                emit({ protein: { lots: val }, proteinLots: val });
+              }
+            }}
+            onConfirm={() => emit({ proteinConfirmed: true })}
+          />
         </div>
       )}
 
