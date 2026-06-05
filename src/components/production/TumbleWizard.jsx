@@ -89,8 +89,9 @@ export default function TumbleWizard({ stage, open, onClose, onCompleted }) {
     setReleasingBatch(batch.batch_number);
     try {
       // 1. Deduct protein for THIS batch from the bucket the operator selected.
+      //    Always consume whatever is available — no shortfall guardrail.
       if (chosenBucket?.bucket_id) {
-        const res = await base44.functions.invoke("deductRawInventoryOnBatchComplete", {
+        await base44.functions.invoke("deductRawInventoryOnBatchComplete", {
           stage_id: stage.id,
           ingredients: [{
             bucket_id: chosenBucket.bucket_id,
@@ -99,10 +100,6 @@ export default function TumbleWizard({ stage, open, onClose, onCompleted }) {
             lot_allocations: proteinLots.length ? proteinLots : null,
           }],
         });
-        const shortfall = Number(res?.data?.total_shortfall) || 0;
-        if (shortfall > 0) {
-          throw new Error(`Not enough protein inventory — short ${shortfall} lbs. Receive more stock, then retry.`);
-        }
       }
 
       // 2. Deduct spice mix for THIS batch.

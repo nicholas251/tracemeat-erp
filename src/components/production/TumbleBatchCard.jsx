@@ -72,7 +72,7 @@ export default function TumbleBatchCard({
     : 0;
   const spiceReady = batch.spice_lbs <= 0 || Math.abs(spiceTotal - batch.spice_lbs) < 0.01;
 
-  const canRelease = hasProteinBucket && proteinConfirmed && spiceReady && !released && !releasing;
+  const canRelease = !released && !releasing;
 
   const handleRelease = () => {
     const proteinLots = (proteinIng.lot_allocations || []).filter(
@@ -213,18 +213,6 @@ export default function TumbleBatchCard({
             {releasing ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" /> Releasing…
-              </>
-            ) : !hasProteinBucket ? (
-              <>
-                <Lock className="w-4 h-4" /> Select protein bucket
-              </>
-            ) : !proteinConfirmed ? (
-              <>
-                <Lock className="w-4 h-4" /> Confirm protein first
-              </>
-            ) : !spiceReady ? (
-              <>
-                <Lock className="w-4 h-4" /> Allocate spice first
               </>
             ) : (
               <>
