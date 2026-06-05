@@ -96,17 +96,34 @@ export default function IngredientLotPicker({ ing, disabled, onChange, onConfirm
     }
   }, [inventoryRows, isLoading]);
 
-  const totalActual = allocations.reduce((s, a) => s + (Number(a.actual_lbs) || 0), 0);
-  const isOver = totalActual > ing.required_lbs;
+  const totalActual = parseFloat(allocations.reduce((s, a) => s + (Number(a.actual_lbs) || 0), 0).toFixed(2));
+  const isOver = totalActual > ing.required_lbs + 0.001;
   const isShort = totalActual < ing.required_lbs - 0.001;
+  const isExact = !isOver && !isShort;
   const hasInsufficientInventory = allocations.some(a => a.insufficient);
+
+  // Lot numbers already chosen in other rows (so we don't offer them again)
+  const usedLotNumbers = (idx) => allocations.filter((_, i) => i !== idx).map(a => a.lot_number).filter(Boolean);
+
+  // Add an empty next-lot row for the remaining amount (next FIFO lot not yet used)
+  const buildNextRow = (currentAllocations) => {
+    const remaining = parseFloat(Math.max(0, ing.required_lbs - currentAllocations.reduce((s, a) => s + (Number(a.actual_lbs) || 0), 0)).toFixed(2));
+    if (remaining <= 0.001) return null;
+    const used = currentAllocations.map(a => a.lot_number).filter(Boolean);
+    const nextRow = [...inventoryRows]
+      .filter(r => (r.available_qty || 0) > 0 && !used.includes(r.lot_number))
+      .sort((a, b) => (a.received_date || a.created_date || "") < (b.received_date || b.created_date || "") ? -1 : 1)[0];
+    return {
+      lot_number: nextRow?.lot_number || "",
+      available_qty: nextRow?.available_qty || 0,
+      raw_inventory_id: nextRow?.id || null,
+      actual_lbs: parseFloat(Math.min(nextRow?.available_qty || remaining, remaining).toFixed(2)),
+    };
+  };
 
   const updateAllocation = (idx, field, value) => {
     let val = value;
     if (field === "actual_lbs") {
-      // Operators may assign any amount from a lot — including the full lot. We no
-      // longer clamp to available_qty or to the remaining required amount. Over/short
-      // amounts are surfaced visually below, but never blocked.
       val = parseFloat(Math.max(0, Number(value) || 0).toFixed(2));
     }
     if (field === "lot_number") {
@@ -121,7 +138,21 @@ export default function IngredientLotPicker({ ing, disabled, onChange, onConfirm
       onChange("lot_allocations", updated);
       return;
     }
-    const updated = allocations.map((a, i) => i === idx ? { ...a, [field]: val } : a);
+    let updated = allocations.map((a, i) => i === idx ? { ...a, [field]: val } : a);
+
+    // When this row's qty consumes the ENTIRE available lot, auto-mark it depleted
+    // and append the next FIFO lot row to keep building toward the required amount.
+    if (field === "actual_lbs") {
+      const row = updated[idx];
+      const consumedFull = row.available_qty > 0 && val >= row.available_qty - 0.001;
+      updated = updated.map((a, i) => i === idx ? { ...a, depleted: consumedFull && val >= a.available_qty - 0.001 } : a);
+      const totalNow = updated.reduce((s, a) => s + (Number(a.actual_lbs) || 0), 0);
+      const isLast = idx === updated.length - 1;
+      if (consumedFull && isLast && totalNow < ing.required_lbs - 0.001) {
+        const next = buildNextRow(updated);
+        if (next) updated = [...updated, next];
+      }
+    }
     onChange("lot_allocations", updated);
   };
 
@@ -141,7 +172,7 @@ export default function IngredientLotPicker({ ing, disabled, onChange, onConfirm
 
   const canConfirm =
     allocations.every(a => a.lot_number?.trim()) &&
-    (!isShort || ing.notes?.trim());
+    isExact;
 
   return (
     <div className="space-y-2">
@@ -179,6 +210,9 @@ export default function IngredientLotPicker({ ing, disabled, onChange, onConfirm
               {alloc.available_qty > 0 && (
                 <span className="text-xs text-muted-foreground">· {alloc.available_qty} lbs available</span>
               )}
+              {alloc.depleted && (
+                <span className="text-xs font-semibold text-chart-2 flex items-center gap-0.5"><CheckCircle2 className="w-3 h-3" /> Depleted</span>
+              )}
               {allocations.length > 1 && !disabled && (
                 <button onClick={() => removeRow(idx)} className="ml-auto text-muted-foreground hover:text-destructive">
                   <Trash2 className="w-3 h-3" />
@@ -205,7 +239,7 @@ export default function IngredientLotPicker({ ing, disabled, onChange, onConfirm
                          <div className="px-3 py-2 text-xs text-muted-foreground">No inventory available</div>
                        ) : (
                          inventoryRows
-                           .filter(r => (r.available_qty || 0) > 0)
+                           .filter(r => (r.available_qty || 0) > 0 && (r.lot_number === alloc.lot_number || !usedLotNumbers(idx).includes(r.lot_number)))
                            .sort((a, b) => (a.received_date || "") < (b.received_date || "") ? -1 : 1)
                            .map(r => (
                              <SelectItem key={r.id} value={r.lot_number}>
@@ -248,11 +282,11 @@ export default function IngredientLotPicker({ ing, disabled, onChange, onConfirm
 
       {/* Total vs required */}
       {!disabled && (
-        <div className={`flex items-center justify-between text-xs px-1 ${isShort ? "text-amber-600" : "text-chart-2"}`}>
-          <span>Total: <span className="font-semibold">{parseFloat(totalActual.toFixed(2))} lbs</span> of {ing.required_lbs} lbs</span>
-          {isOver && <span className="flex items-center gap-1 text-muted-foreground">Over required by {parseFloat((totalActual - ing.required_lbs).toFixed(2))} lbs</span>}
-          {!isOver && isShort && <span>Short by {parseFloat((ing.required_lbs - totalActual).toFixed(2))} lbs</span>}
-          {!isOver && !isShort && <span>✓ Exact</span>}
+        <div className={`flex items-center justify-between text-xs px-1 ${isExact ? "text-chart-2" : isOver ? "text-destructive" : "text-amber-600"}`}>
+          <span>Total: <span className="font-semibold">{totalActual} lbs</span> of {ing.required_lbs} lbs</span>
+          {isOver && <span className="flex items-center gap-1"><AlertCircle className="w-3 h-3" /> Over by {parseFloat((totalActual - ing.required_lbs).toFixed(2))} lbs</span>}
+          {isShort && <span>Short by {parseFloat((ing.required_lbs - totalActual).toFixed(2))} lbs</span>}
+          {isExact && <span>✓ Exact</span>}
         </div>
       )}
 
@@ -261,19 +295,6 @@ export default function IngredientLotPicker({ ing, disabled, onChange, onConfirm
         <Button size="sm" variant="ghost" className="w-full text-xs gap-1 h-7 border border-dashed" onClick={addRow}>
           <Plus className="w-3 h-3" /> Add lot from next FIFO lot
         </Button>
-      )}
-
-      {/* Short quantity notes */}
-      {isShort && !isOver && !disabled && (
-        <div className="space-y-1">
-          <Label className="text-xs text-amber-600">Reason for short quantity <span className="text-destructive">*</span></Label>
-          <Textarea
-            value={ing.notes || ""}
-            onChange={e => onChange("notes", e.target.value)}
-            placeholder="e.g. scale variance, partial lot used..."
-            className="h-16 text-xs"
-          />
-        </div>
       )}
 
       {/* Confirm button */}

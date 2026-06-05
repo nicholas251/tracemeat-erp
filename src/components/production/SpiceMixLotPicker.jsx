@@ -52,10 +52,12 @@ export default function SpiceMixLotPicker({ label, requiredLbs, value = {}, onCh
     return [EMPTY_LOT];
   }, [value]);
 
-  const totalAllocated = lots.reduce((s, l) => s + (Number(l.spice_mix_qty_lbs) || 0), 0);
-  const remaining = Math.max(0, (requiredLbs || 0) - totalAllocated);
-  const isCovered = requiredLbs > 0 ? totalAllocated >= requiredLbs : lots.length > 0;
+  const totalAllocated = parseFloat(lots.reduce((s, l) => s + (Number(l.spice_mix_qty_lbs) || 0), 0).toFixed(2));
+  const remaining = Math.max(0, parseFloat(((requiredLbs || 0) - totalAllocated).toFixed(2)));
+  const isExact = requiredLbs > 0 ? Math.abs(totalAllocated - requiredLbs) < 0.001 : lots.length > 0;
+  const isCovered = isExact;
   const isShort = requiredLbs > 0 && totalAllocated < requiredLbs - 0.001 && totalAllocated > 0;
+  const isOver = requiredLbs > 0 && totalAllocated > requiredLbs + 0.001;
 
   const emitChange = (newLots) => {
     // Emit multi-lot shape, plus flatten first lot fields for backwards-compat
@@ -113,7 +115,20 @@ export default function SpiceMixLotPicker({ label, requiredLbs, value = {}, onCh
       }
       value = parseFloat(value.toFixed(2));
     }
-    const newLots = lots.map((l, i) => i === index ? { ...l, [field]: value } : l);
+    let newLots = lots.map((l, i) => i === index ? { ...l, [field]: value } : l);
+
+    // When this lot's full available qty is consumed and we still haven't reached
+    // the required total, auto-append the next lot row for the remainder.
+    if (field === "spice_mix_qty_lbs") {
+      const mix = spiceMixes.find(m => m.id === lots[index]?.spice_mix_id);
+      const available = mix?.available_qty_lbs ?? mix?.quantity_lbs ?? null;
+      const total = newLots.reduce((s, l) => s + (Number(l.spice_mix_qty_lbs) || 0), 0);
+      const consumedFull = available !== null && value >= available - 0.001;
+      const isLast = index === newLots.length - 1;
+      if (consumedFull && isLast && requiredLbs > 0 && total < requiredLbs - 0.001) {
+        newLots = [...newLots, { spice_mix_id: "", spice_mix_name: "", spice_mix_lot_number: "", spice_mix_qty_lbs: 0 }];
+      }
+    }
     emitChange(newLots);
   };
 
@@ -241,33 +256,21 @@ export default function SpiceMixLotPicker({ label, requiredLbs, value = {}, onCh
         </div>
       )}
 
-      {/* Add lot button when already covered but want more */}
-      {!disabled && isCovered && !isLoading && (
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1.5 text-xs text-chart-2">
-            <CheckCircle2 className="w-3.5 h-3.5" />
-            <span className="font-medium">
-              {totalAllocated.toFixed(2)} lbs allocated across {lots.filter(l => l.spice_mix_id).length} lot{lots.filter(l => l.spice_mix_id).length !== 1 ? "s" : ""}
-            </span>
-          </div>
-          <button onClick={addLot} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
-            <PlusCircle className="w-3 h-3" /> Add lot
-          </button>
+      {/* Exact match confirmation */}
+      {!disabled && isExact && !isLoading && (
+        <div className="flex items-center gap-1.5 text-xs text-chart-2">
+          <CheckCircle2 className="w-3.5 h-3.5" />
+          <span className="font-medium">
+            ✓ Exact — {totalAllocated.toFixed(2)} lbs across {lots.filter(l => l.spice_mix_id).length} lot{lots.filter(l => l.spice_mix_id).length !== 1 ? "s" : ""}
+          </span>
         </div>
       )}
 
-      {/* Short quantity — require a comment */}
-      {isShort && !disabled && (
-        <div className="space-y-1.5">
-          <Label className="text-xs text-amber-600 font-semibold">
-            Reason for short quantity ({remaining.toFixed(2)} lbs under) <span className="text-destructive">*</span>
-          </Label>
-          <Textarea
-            value={shortNotes || ""}
-            onChange={e => onShortNotesChange?.(e.target.value)}
-            placeholder="e.g. scale variance, partial lot used..."
-            className="h-16 text-xs"
-          />
+      {/* Over allocated warning */}
+      {!disabled && isOver && (
+        <div className="flex items-center gap-2 text-xs text-destructive bg-destructive/5 border border-destructive/30 rounded px-3 py-2">
+          <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+          Over by {(totalAllocated - requiredLbs).toFixed(2)} lbs — reduce a lot's qty to match exactly {requiredLbs} lbs
         </div>
       )}
     </div>
