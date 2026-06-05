@@ -54,6 +54,32 @@ Deno.serve(async (req) => {
         status: newQty <= 0 ? 'archived' : mix.status,
       });
 
+      // ── Also deplete the matching RawInventory "produced mix" lots (FIFO) ──
+      // Producing a mix batch creates RawInventory lots (lot_number "SM-...") in a
+      // spice bucket named after the mix. Those lot copies must shrink too, otherwise
+      // they keep showing on the bucket cards after the mix is consumed.
+      try {
+        const mixLots = (await base44.asServiceRole.entities.RawInventory.filter(
+          { bucket_name: mix.name },
+          'received_date',
+          200
+        )).filter(l => (l.available_qty || 0) > 0 && l.status !== 'depleted');
+
+        let toRemove = qty;
+        for (const lot of mixLots) {
+          if (toRemove <= 0.001) break;
+          const take = Math.min(lot.available_qty || 0, toRemove);
+          const lotNewQty = parseFloat(Math.max(0, (lot.available_qty || 0) - take).toFixed(2));
+          await base44.asServiceRole.entities.RawInventory.update(lot.id, {
+            available_qty: lotNewQty,
+            status: lotNewQty <= 0 ? 'depleted' : 'in_use',
+          });
+          toRemove -= take;
+        }
+      } catch (e) {
+        console.warn(`Could not sync raw mix lots for "${mix.name}": ${e.message}`);
+      }
+
       results.push({
         spice_mix_id: mix.id,
         spice_mix_name: mix.name,
