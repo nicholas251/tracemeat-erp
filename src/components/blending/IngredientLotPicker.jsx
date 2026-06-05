@@ -105,6 +105,15 @@ export default function IngredientLotPicker({ ing, disabled, onChange, onConfirm
   // Lot numbers already chosen in other rows (so we don't offer them again)
   const usedLotNumbers = (idx) => allocations.filter((_, i) => i !== idx).map(a => a.lot_number).filter(Boolean);
 
+  // Live remaining available for a given lot number, after subtracting qty already
+  // allocated to it across all rows (mirrors the spice picker's decreasing display).
+  const liveRemaining = (lotNumber, baseAvailable) => {
+    const allocatedToLot = allocations
+      .filter(a => a.lot_number === lotNumber)
+      .reduce((s, a) => s + (Number(a.actual_lbs) || 0), 0);
+    return parseFloat(Math.max(0, (baseAvailable || 0) - allocatedToLot).toFixed(2));
+  };
+
   // Add an empty next-lot row for the remaining amount (next FIFO lot not yet used)
   const buildNextRow = (currentAllocations) => {
     const remaining = parseFloat(Math.max(0, ing.required_lbs - currentAllocations.reduce((s, a) => s + (Number(a.actual_lbs) || 0), 0)).toFixed(2));
@@ -208,7 +217,7 @@ export default function IngredientLotPicker({ ing, disabled, onChange, onConfirm
             <div className="flex items-center gap-1 mb-1">
               <span className="text-xs font-medium text-muted-foreground">Lot {idx + 1}</span>
               {alloc.available_qty > 0 && (
-                <span className="text-xs text-muted-foreground">· {alloc.available_qty} lbs available</span>
+                <span className="text-xs text-muted-foreground">· {liveRemaining(alloc.lot_number, alloc.available_qty)} lbs remaining</span>
               )}
               {alloc.depleted && (
                 <span className="text-xs font-semibold text-chart-2 flex items-center gap-0.5"><CheckCircle2 className="w-3 h-3" /> Depleted</span>
@@ -243,7 +252,7 @@ export default function IngredientLotPicker({ ing, disabled, onChange, onConfirm
                            .sort((a, b) => (a.received_date || "") < (b.received_date || "") ? -1 : 1)
                            .map(r => (
                              <SelectItem key={r.id} value={r.lot_number}>
-                               {r.lot_number} <span className="text-muted-foreground text-xs ml-1">({r.available_qty} lbs avail)</span>
+                               {r.lot_number} <span className="text-muted-foreground text-xs ml-1">({liveRemaining(r.lot_number, r.available_qty)} lbs avail)</span>
                              </SelectItem>
                            ))
                        )}
