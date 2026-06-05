@@ -51,7 +51,7 @@ function buildIngredientBatchesMultiple(stage, product, capKey, numBatches) {
 }
 
 // ─── Build measurement steps for cooking / chilling / linking / packaging ────
-function buildMeasurementSteps(stage, product, capKey, casingBuckets = [], rackingFollows = false) {
+function buildMeasurementSteps(stage, product, capKey, casingBuckets = []) {
   const steps = [];
 
   if (capKey === "chopping") {
@@ -84,37 +84,7 @@ function buildMeasurementSteps(stage, product, capKey, casingBuckets = [], racki
     // Cook batch assembly is handled via the separate cook_batch state, not a field step
   }
 
-  if (capKey === "tumble" || capKey === "tumbling") {
-    const spiceQty = stage?.spice_mix_qty_lbs || product?.tumble_spice_qty_lbs || 0;
-    // When racking follows tumbling, tumbling is a simple seasoning step. Batches and
-    // seasoning are derived from the product's CHOPPING config (batch size + spice %),
-    // handled by the TumbleBatchSeasoning component. Otherwise the TumbleCookBatchBuilder
-    // handles output/lot/racks.
-    if (rackingFollows) {
-      const tumbleLotDefault = `TUMBLE-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}`;
-      steps.push({
-        id: "tumble",
-        label: "Tumbling",
-        simpleTumble: true,
-        fields: [
-          { key: "duration_minutes", label: "Tumble Duration (minutes)", type: "number" },
-          { key: "output_lot_number", label: "Tumbled Lot # (auto-assigned, editable)", type: "text", placeholder: "e.g. TUMBLE-2024-001", defaultValue: tumbleLotDefault },
-          // Batch split + seasoning auto-calculated from chopping config (rendered separately).
-        ],
-      });
-    } else {
-      steps.push({
-        id: "tumble",
-        label: "Tumbling",
-        simpleTumble: false,
-        fields: [
-          { key: "spice_mix", label: "Spice Mix Added", type: "spice_mix_picker", requiredLbs: spiceQty, filterSpiceMixId: product?.chop_spice_mix_id },
-          { key: "duration_minutes", label: "Tumble Duration (minutes)", type: "number" },
-          { key: "notes", label: "Notes / Observations", type: "textarea" },
-        ],
-      });
-    }
-  }
+  // Tumbling is handled entirely by the dedicated TumbleWizard component.
 
   if (capKey === "mixer") {
     const porkLot = stage?.pork_lot_number || stage?.input_lot_number || "N/A";
@@ -259,26 +229,6 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
     enabled: open && capKey === "linking",
   });
 
-  // For tumble stages: detect whether a racking step immediately follows (so tumbling
-  // becomes a simple seasoning step and racking controls cook-batch splitting).
-  const { data: wizardFlow = null } = useQuery({
-    queryKey: ["wizardFlow", stage?.order_id],
-    queryFn: async () => {
-      const orders = await base44.entities.ProductionOrder.filter({ id: stage.order_id });
-      const order = orders[0];
-      if (!order?.flow_id) return null;
-      const flows = await base44.entities.ProductFlow.filter({ id: order.flow_id });
-      return flows[0] || null;
-    },
-    enabled: open && !!stage && (capKey === "tumble" || capKey === "tumbling"),
-  });
-  const rackingFollows = (() => {
-    if (!wizardFlow?.steps) return false;
-    const sorted = [...wizardFlow.steps].sort((a, b) => a.step_number - b.step_number);
-    const next = sorted.find(s => s.step_number > stage.step_number);
-    return next?.capability_key === "racking" || next?.capability_key === "racking_product";
-  })();
-
   const { data: cureBucket = null } = useQuery({
     queryKey: ["cureBucket", product?.cure_bucket_id],
     queryFn: async () => {
@@ -327,7 +277,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
 
   // For measurement stages
   const measureSteps = !usesIngredientBatches
-    ? buildMeasurementSteps(stage, product, capKey, casingBuckets, rackingFollows)
+    ? buildMeasurementSteps(stage, product, capKey, casingBuckets)
     : [];
 
   // ── Navigation boundaries ──
@@ -564,248 +514,6 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
           // Advance to the next batch step
           setStep(s => s + 1);
         }
-      } else if ((capKey === "tumble" || capKey === "tumbling") && rackingFollows) {
-        // ── Tumble (seasoning only): each tumble card produces racking card(s) ──
-        // This single tumble card may internally split into batches (TumbleBatchSeasoning).
-        // We create ONE separate racking card per internal batch, each carrying ONLY that
-        // batch's own tumbled lbs — never the full order total.
-        const spiceAddedLbs = Number(form.spice_mix_qty_lbs) || 0;
-        const tumbledQty = parseFloat(((stage.input_qty_lbs || 0) + spiceAddedLbs).toFixed(2));
-        const tumbledLotBase = form.output_lot_number || `TUMBLE-${new Date().toISOString().slice(0,10).replace(/-/g,"")}`;
-        const allProteinLots = form.protein_lots || [];
-        const proteinLotRefs = allProteinLots.filter(l => l.lot_number).map(l => l.lot_number);
-        await base44.entities.ProductionStage.update(stage.id, {
-          status: "completed",
-          completed_at: new Date().toISOString(),
-          output_qty_lbs: tumbledQty,
-          output_lot_number: tumbledLotBase,
-          input_lot_number: proteinLotRefs.length ? proteinLotRefs.join(", ") : stage.input_lot_number,
-          spice_mix_id: form.spice_mix_id || "",
-          spice_mix_name: form.spice_mix_name || "",
-          spice_mix_lot_number: form.spice_mix_lot_number || "",
-          spice_mix_qty_lbs: form.spice_mix_qty_lbs || 0,
-          duration_minutes: form.duration_minutes || null,
-          sub_batches: allProteinLots.length ? [{
-            sub_batch_id: `tumble-${Date.now()}`,
-            label: "Tumble Protein Lots",
-            qty_lbs: tumbledQty,
-            lot_number: tumbledLotBase,
-            lot_allocations: allProteinLots,
-            raw_lots: proteinLotRefs,
-            status: "completed",
-          }] : stage.sub_batches,
-        });
-
-        // Deduct from the assigned SpiceMix inventory (not raw inventory).
-        // Awaited (not fire-and-forget) so the deduction always lands and parallel
-        // tumble stages don't race / lose updates.
-        if (form.spice_mix?.lots?.length) {
-          try {
-            await base44.functions.invoke("deductSpiceMixOnComplete", {
-              stage_id: stage.id,
-              lots: form.spice_mix.lots,
-            });
-          } catch (err) {
-            console.warn("Spice mix deduction failed:", err);
-          }
-        }
-
-        // ── Protein consumption (SINGLE SOURCE OF TRUTH) ──
-        // Deduct ALL the protein for this tumble stage here, at completion — the same
-        // way spice is. This guarantees protein is always consumed even if the operator
-        // never expanded a per-batch picker. We deduct by the tracked batch lbs; if the
-        // operator assigned explicit FIFO lots we pass them through, otherwise the
-        // backend auto-FIFOs the bucket.
-        const proteinBucketId = form.protein_bucket_id || product?.blend_ingredients?.[0]?.bucket_id;
-        const proteinBucketName = form.protein_bucket_name || product?.blend_ingredients?.[0]?.bucket_name || "Protein";
-        if (!proteinBucketId) {
-          throw new Error("No protein bucket configured on this product — cannot deduct tumble inventory. Set blend ingredients on the product.");
-        }
-        // Total protein to consume = the raw weight that entered the tumble stage.
-        const proteinToConsume = parseFloat((stage.input_qty_lbs || 0).toFixed(2));
-        if (proteinToConsume > 0) {
-          // Use explicit lots only when they actually carry inventory ids.
-          const explicitLots = (allProteinLots || []).filter(l => l?.raw_inventory_id && (Number(l.actual_lbs) || 0) > 0);
-          const res = await base44.functions.invoke("deductRawInventoryOnBatchComplete", {
-            stage_id: stage.id,
-            ingredients: [{
-              bucket_id: proteinBucketId,
-              bucket_name: proteinBucketName,
-              actual_lbs: proteinToConsume,
-              lot_allocations: explicitLots.length ? explicitLots : null,
-            }],
-          });
-          const shortfall = Number(res?.data?.total_shortfall) || 0;
-          if (shortfall > 0) {
-            throw new Error(`Not enough protein inventory — short ${shortfall} lbs. Receive more stock, then retry.`);
-          }
-        }
-
-        // Build per-racking-card list. Use the internal tumble batches if present (each
-        // carries its own batch_lbs + spice_lbs); otherwise fall back to a single card
-        // with this tumble card's own quantity.
-        const tumbleBatches = form.spice_mix?.batches?.length ? form.spice_mix.batches : null;
-        const rackingCards = tumbleBatches
-          ? tumbleBatches.map(b => ({
-              qty: parseFloat(((b.batch_lbs || 0) + (b.spice_lbs || 0)).toFixed(2)),
-              lot: `${tumbledLotBase}-B${b.batch_number}`,
-            }))
-          : [{ qty: tumbledQty, lot: tumbledLotBase }];
-
-        const sorted = [...(wizardFlow?.steps || [])].sort((a, b) => a.step_number - b.step_number);
-        const rackingStep = sorted.find(s => s.step_number > stage.step_number);
-        if (rackingStep) {
-          const existing = await base44.entities.ProductionStage.filter({
-            order_id: stage.order_id,
-            capability_key: rackingStep.capability_key,
-          });
-          // Reuse a pre-seeded, still-unclaimed locked racking stage for the FIRST card only;
-          // all other cards are always created fresh so batches never overwrite each other.
-          let unclaimedLocked = existing.find(
-            s => s.status === "locked" && !s.input_lot_number && !(s.input_qty_lbs > 0)
-          );
-          for (const card of rackingCards) {
-            if (unclaimedLocked) {
-              await base44.entities.ProductionStage.update(unclaimedLocked.id, {
-                status: "available",
-                input_qty_lbs: card.qty,
-                input_lot_number: card.lot,
-              });
-              unclaimedLocked = null;
-            } else {
-              await base44.entities.ProductionStage.create({
-                order_id: stage.order_id,
-                order_number: stage.order_number,
-                product_name: stage.product_name,
-                step_number: rackingStep.step_number,
-                capability_id: rackingStep.capability_id,
-                capability_key: rackingStep.capability_key,
-                capability_name: rackingStep.capability_name,
-                work_profile_id: rackingStep.work_profile_id || "",
-                work_profile_name: rackingStep.work_profile_name || "",
-                status: "available",
-                input_qty_lbs: card.qty,
-                input_lot_number: card.lot,
-              });
-            }
-          }
-        }
-
-        queryClient.invalidateQueries({ queryKey: ["allStages"] });
-        queryClient.invalidateQueries({ queryKey: ["productionOrders"] });
-        onCompleted?.();
-        onClose();
-      } else if ((capKey === "tumble" || capKey === "tumbling") && cookPlan) {
-        // ── Tumble: complete stage, then create one cooking stage per cook batch ──
-        const spiceAddedLbs = Number(form.spice_mix_qty_lbs) || 0;
-        // Output = cook-batch protein total + seasoning added (spice absorbs into batch weight)
-        const totalOutputLbs = parseFloat((cookPlan.cookBatches.reduce((s, b) => s + b.lbs, 0) + spiceAddedLbs).toFixed(2));
-        const tumbleOutputLot = cookPlan.lotPrefix || `TUMBLE-${new Date().toISOString().slice(0,10).replace(/-/g,"")}`;
-
-        // Deduct from the assigned SpiceMix inventory (separate from the FIFO cook-batch spice lots)
-        if (form.spice_mix?.lots?.length) {
-          await base44.functions.invoke("deductSpiceMixOnComplete", {
-            stage_id: stage.id,
-            lots: form.spice_mix.lots,
-          });
-        }
-        await base44.entities.ProductionStage.update(stage.id, {
-          status: "completed",
-          completed_at: new Date().toISOString(),
-          output_qty_lbs: totalOutputLbs,
-          output_lot_number: tumbleOutputLot,
-          racks_count: cookPlan.cookBatches.reduce((s, b) => s + b.racks, 0),
-          spice_mix_id: form.spice_mix_id || "",
-          spice_mix_name: form.spice_mix_name || "",
-          spice_mix_lot_number: form.spice_mix_lot_number || "",
-          spice_mix_qty_lbs: form.spice_mix_qty_lbs || 0,
-          duration_minutes: form.duration_minutes || null,
-          temperature_c: form.temperature_c || null,
-        });
-
-        // Deduct protein (+ optional spice) for EVERY cook batch.
-        // Protein is ALWAYS deducted by the batch's lbs — if the operator assigned
-        // explicit FIFO lots we pass them through, otherwise the backend auto-FIFOs
-        // by bucket. This guarantees each batch consumes inventory even when the
-        // operator confirms the cook plan without expanding the lot pickers.
-        const tumbleProteinBucket = product?.blend_ingredients?.[0];
-        if (!tumbleProteinBucket?.bucket_id) {
-          throw new Error("No protein bucket configured on this product — cannot deduct tumble inventory. Set blend ingredients on the product.");
-        }
-        for (const cb of cookPlan.cookBatches) {
-          const ingredients = [];
-
-          // Protein — always deduct the batch's full lbs (explicit lots or FIFO fallback)
-          const proteinLbs = cb.proteinLots?.length
-            ? cb.proteinLots.reduce((s, a) => s + (Number(a.actual_lbs) || 0), 0)
-            : Number(cb.lbs) || 0;
-          if (proteinLbs > 0) {
-            ingredients.push({
-              bucket_id: tumbleProteinBucket.bucket_id,
-              bucket_name: tumbleProteinBucket.bucket_name || "Protein",
-              actual_lbs: parseFloat(proteinLbs.toFixed(2)),
-              lot_allocations: cb.proteinLots?.length ? cb.proteinLots : null,
-            });
-          }
-
-          // Spice — only when explicit FIFO spice lots were assigned
-          if (cb.spiceLots?.length) {
-            ingredients.push({
-              bucket_id: cb.spiceLots[0]?.bucket_id || null,
-              bucket_name: "Spice",
-              actual_lbs: cb.spiceLots.reduce((s, a) => s + (Number(a.actual_lbs) || 0), 0),
-              lot_allocations: cb.spiceLots,
-            });
-          }
-
-          if (ingredients.length) {
-            const res = await base44.functions.invoke("deductRawInventoryOnBatchComplete", {
-              stage_id: stage.id,
-              ingredients,
-            });
-            const shortfall = Number(res?.data?.total_shortfall) || 0;
-            if (shortfall > 0) {
-              throw new Error(`Cook batch ${cb.lotNumber || ""} is short ${shortfall} lbs of inventory. Receive more stock or adjust the batch, then retry.`);
-            }
-          }
-        }
-
-        // Look up the next steps in the flow after tumbling and create independent per-batch stages
-        const order = await base44.entities.ProductionOrder.filter({ id: stage.order_id }).then(r => r?.[0]);
-        if (order) {
-          const nextFlow = await base44.entities.ProductFlow.filter({ id: order.flow_id }).then(r => r?.[0]);
-          if (nextFlow?.steps) {
-            const sortedSteps = [...nextFlow.steps].sort((a, b) => a.step_number - b.step_number);
-            const nextSteps = sortedSteps.filter(s => s.step_number > stage.step_number);
-            if (nextSteps.length > 0) {
-              const firstNextStep = nextSteps[0];
-              // Create one independent stage for this cook batch at the next step
-              for (const cb of cookPlan.cookBatches) {
-                await base44.entities.ProductionStage.create({
-                  order_id: stage.order_id,
-                  order_number: stage.order_number,
-                  product_name: stage.product_name,
-                  step_number: firstNextStep.step_number,
-                  capability_id: firstNextStep.capability_id,
-                  capability_key: firstNextStep.capability_key,
-                  capability_name: firstNextStep.capability_name,
-                  work_profile_id: firstNextStep.work_profile_id || "",
-                  work_profile_name: firstNextStep.work_profile_name || "",
-                  status: "available",
-                  input_qty_lbs: cb.lbs,
-                  racks_count: cb.racks,
-                  cook_batch_lot: cb.lotNumber,
-                  input_lot_number: cb.lotNumber,
-                });
-              }
-            }
-          }
-        }
-
-        queryClient.invalidateQueries({ queryKey: ["allStages"] });
-        queryClient.invalidateQueries({ queryKey: ["productionOrders"] });
-        onCompleted?.();
-        onClose();
       } else if (capKey === "linking" && cookBatch) {
         // ── Linking: complete this stage and mark all selected sibling stages as part of this cook batch ──
         const updates = {
@@ -958,43 +666,6 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
           completed_at: new Date().toISOString(),
           ...form,
         };
-
-        // ── Tumble fallback: deduct protein here when no racking/cook-plan path ran ──
-        // Some tumble flows don't have racking or a cook-batch builder right after the
-        // tumble step, so they fall through to this generic branch. Protein must still
-        // be consumed (single source of truth, same as spice). Deduct the full incoming
-        // weight from the chosen protein bucket (operator override or product default).
-        if (capKey === "tumble" || capKey === "tumbling") {
-          const tProteinBucketId = form.protein_bucket_id || product?.blend_ingredients?.[0]?.bucket_id;
-          const tProteinBucketName = form.protein_bucket_name || product?.blend_ingredients?.[0]?.bucket_name || "Protein";
-          const tProteinLbs = parseFloat((stage.input_qty_lbs || 0).toFixed(2));
-          if (!tProteinBucketId) {
-            throw new Error("No protein bucket configured on this product — cannot deduct tumble inventory. Set blend ingredients on the product.");
-          }
-          if (tProteinLbs > 0) {
-            const tExplicit = (form.protein_lots || []).filter(l => l?.raw_inventory_id && (Number(l.actual_lbs) || 0) > 0);
-            const tRes = await base44.functions.invoke("deductRawInventoryOnBatchComplete", {
-              stage_id: stage.id,
-              ingredients: [{
-                bucket_id: tProteinBucketId,
-                bucket_name: tProteinBucketName,
-                actual_lbs: tProteinLbs,
-                lot_allocations: tExplicit.length ? tExplicit : null,
-              }],
-            });
-            const tShortfall = Number(tRes?.data?.total_shortfall) || 0;
-            if (tShortfall > 0) {
-              throw new Error(`Not enough protein inventory — short ${tShortfall} lbs. Receive more stock, then retry.`);
-            }
-          }
-          // Deduct the assigned spice mix too (same as the specialized tumble paths)
-          if (form.spice_mix?.lots?.length) {
-            await base44.functions.invoke("deductSpiceMixOnComplete", {
-              stage_id: stage.id,
-              lots: form.spice_mix.lots,
-            });
-          }
-        }
 
         // ── Cooking: assemble cook batch from the racks the operator selected ──
         if (capKey === "cooking" && cookBatch) {

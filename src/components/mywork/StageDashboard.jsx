@@ -7,6 +7,7 @@ import { ChevronLeft, Briefcase } from "lucide-react";
 import PageHeader from "@/components/shared/PageHeader";
 import StageWizard from "@/components/production/StageWizard";
 import SousVidePackWizard from "@/components/production/SousVidePackWizard";
+import TumbleWizard from "@/components/production/TumbleWizard";
 
 export default function StageDashboard({ user, profile, onBack, singleProfile = false }) {
   const [activeStage, setActiveStage] = useState(null);
@@ -137,7 +138,17 @@ export default function StageDashboard({ user, profile, onBack, singleProfile = 
         />
       )}
 
-      {activeStage && activeStage.capability_key !== "sous_vide_pack" && (
+      {activeStage && (activeStage.capability_key === "tumble" || activeStage.capability_key === "tumbling") && (
+        <TumbleWizard
+          key={lockedActiveStage.current?.id}
+          stage={lockedActiveStage.current}
+          open={!!activeStage}
+          onClose={() => setActiveStage(null)}
+          onCompleted={handleUpdated}
+        />
+      )}
+
+      {activeStage && activeStage.capability_key !== "sous_vide_pack" && activeStage.capability_key !== "tumble" && activeStage.capability_key !== "tumbling" && (
         <StageWizard
           stage={lockedActiveStage.current}
           open={!!activeStage}

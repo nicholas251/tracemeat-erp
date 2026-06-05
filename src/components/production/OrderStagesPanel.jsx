@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Lock, CheckCircle2, Clock, ChevronRight, AlertCircle } from "lucide-react";
 import StageWizard from "./StageWizard";
 import SousVidePackWizard from "./SousVidePackWizard";
+import TumbleWizard from "./TumbleWizard";
 
 const STATUS_CONFIG = {
   locked:      { icon: Lock,         color: "text-muted-foreground",  bg: "bg-muted/30 border-dashed" },
@@ -112,7 +113,20 @@ export default function OrderStagesPanel({ orderId, allowedCapabilityKeys = null
         />
       )}
 
-      {activeStage && activeStage.capability_key !== "sous_vide_pack" && (
+      {activeStage && (activeStage.capability_key === "tumble" || activeStage.capability_key === "tumbling") && (
+        <TumbleWizard
+          stage={activeStage}
+          open={!!activeStage}
+          onClose={() => setActiveStage(null)}
+          onCompleted={() => {
+            queryClient.invalidateQueries({ queryKey: ["orderStages", orderId] });
+            queryClient.invalidateQueries({ queryKey: ["productionStages"] });
+            setActiveStage(null);
+          }}
+        />
+      )}
+
+      {activeStage && activeStage.capability_key !== "sous_vide_pack" && activeStage.capability_key !== "tumble" && activeStage.capability_key !== "tumbling" && (
         <StageWizard
           stage={activeStage}
           open={!!activeStage}

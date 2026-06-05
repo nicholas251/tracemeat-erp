@@ -9,11 +9,9 @@ import { Switch } from "@/components/ui/switch";
 import { CheckCircle2, ChevronRight, ChevronLeft, Play, AlertCircle } from "lucide-react";
 import IngredientLotPicker from "../blending/IngredientLotPicker";
 import LinkingCookBatchBuilder from "./LinkingCookBatchBuilder";
-import TumbleCookBatchBuilder from "./TumbleCookBatchBuilder";
 import RackReleaseBuilder from "./RackReleaseBuilder";
 import SmokehouseCookBatchBuilder from "./SmokehouseCookBatchBuilder";
 import SpiceMixLotPicker from "./SpiceMixLotPicker";
-import TumbleLotTracking from "./TumbleLotTracking";
 import ProductSplitAllocator from "./ProductSplitAllocator";
 
 export function IntroStep({ stage, capKey, stageLabel, resolvedBatches, measureSteps, product, saving, onStart, usesIngredientBatches }) {
@@ -144,8 +142,6 @@ export function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form,
     }
   }, [stepDef.id]);
   const isLinking = capKey === "linking" && stepDef.id === "linking";
-  const isTumble = (capKey === "tumble" || capKey === "tumbling") && stepDef.id === "tumble" && !stepDef.simpleTumble;
-  const isSimpleTumble = (capKey === "tumble" || capKey === "tumbling") && stepDef.id === "tumble" && stepDef.simpleTumble;
   const isRacking = (capKey === "racking" || capKey === "racking_product") && stepDef.id === "racking";
   const isPackaging = capKey === "packaging" && stepDef.id === "packaging" && product?.varied_weights;
   const isMixerInputs = capKey === "mixer" && stepDef.id === "mixer_inputs";
@@ -166,11 +162,6 @@ export function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form,
   const cookNeedsBatch = isCookStage && !cookBatch;
 
   const canProceed = isLinking ? !!cookBatch
-     : isTumble ? !!cookPlan
-     : isSimpleTumble ? (
-          !!form.protein_confirmed &&
-          (Number(form.spice_mix_qty_lbs) > 0 || !product?.chop_spice_mix_id)
-        )
      : isRacking ? (cookPlan?.racks?.some(r => r.released))
      : isPackaging ? (form.case_count > 0 && caseWeights.length === parseInt(form.case_count))
      : isMixerInputs ? (!!form.pork_lot_confirmed && (stage?.binder_lot_number ? !!form.binder_lot_confirmed : false))
@@ -260,40 +251,6 @@ export function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form,
           stage={stage}
           cookBatch={cookBatch}
           onChange={setCookBatch}
-        />
-      )}
-
-      {isTumble && (
-        <TumbleCookBatchBuilder
-          totalLbs={stage?.input_qty_lbs || 0}
-          product={product}
-          cookPlan={cookPlan}
-          onChange={setCookPlan}
-        />
-      )}
-
-      {isSimpleTumble && (
-        <TumbleLotTracking
-          totalLbs={stage?.input_qty_lbs || 0}
-          product={product}
-          stageId={stage?.id}
-          value={form.tumble_tracking || {}}
-          notes={form.notes}
-          onNotesChange={val => setForm(f => ({ ...f, notes: val }))}
-          onChange={val => setForm(f => ({
-            ...f,
-            tumble_tracking: val,
-            protein_lots: val.proteinLots || null,
-            protein_confirmed: val.proteinConfirmed || false,
-            protein_bucket_id: val.proteinBucketId || "",
-            protein_bucket_name: val.proteinBucketName || "",
-            spice_mix: val.spice_mix || {},
-            spice_mix_id: val.spice_mix_id || "",
-            spice_mix_name: val.spice_mix_name || "",
-            spice_mix_lot_number: val.spice_mix_lot_number || "",
-            spice_mix_qty_lbs: val.spice_mix_qty_lbs || 0,
-            tumble_batches: val.batches || [],
-          }))}
         />
       )}
 
@@ -494,7 +451,6 @@ export function FieldInput({ field, value, onChange, casingBuckets = [], cureInv
 
 export function FinalStep({ stage, capKey, stageLabel, resolvedBatches, form, cookBatch, cookPlan, saving, onBack, onComplete }) {
   const isLinking = capKey === "linking";
-  const isTumble = capKey === "tumble" || capKey === "tumbling";
   const isRacking = capKey === "racking" || capKey === "racking_product";
   const isCooking = capKey === "cooking";
   const isPackaging = capKey === "packaging" && form.case_weights;
@@ -502,24 +458,18 @@ export function FinalStep({ stage, capKey, stageLabel, resolvedBatches, form, co
   const releasedRacks = isRacking && cookPlan?.racks ? cookPlan.racks.filter(r => r.released) : [];
   const releasedLbs = parseFloat(releasedRacks.reduce((s, r) => s + (r.lbs || 0), 0).toFixed(2));
 
-  // Tumbling absorbs the added seasoning into the batch weight, so output = protein in + spice.
-  const tumbleSpiceLbs = isTumble ? (Number(form.spice_mix_qty_lbs) || 0) : 0;
   const outputLbs = resolvedBatches
     ? resolvedBatches.reduce((s, b) => s + b.batchLbs, 0)
     : isRacking
       ? releasedLbs
       : isCooking && cookBatch
         ? cookBatch.totalLbs
-        : isTumble && cookPlan
-          ? parseFloat((cookPlan.cookBatches.reduce((s, b) => s + b.lbs, 0) + tumbleSpiceLbs).toFixed(2))
-          : isTumble
-            ? parseFloat(((stage?.input_qty_lbs || 0) + tumbleSpiceLbs).toFixed(2))
-            : form.output_qty_lbs || stage?.input_qty_lbs || 0;
+        : form.output_qty_lbs || stage?.input_qty_lbs || 0;
 
   const canComplete = isLinking ? !!cookBatch
     : isRacking ? releasedRacks.length > 0
     : isCooking ? !!cookBatch
-    : (isTumble && cookPlan ? !!cookPlan : isTumble ? true : isPackaging ? form.case_weights?.length > 0 : true);
+    : (isPackaging ? form.case_weights?.length > 0 : true);
 
   return (
     <div className="space-y-5">
@@ -579,31 +529,6 @@ export function FinalStep({ stage, capKey, stageLabel, resolvedBatches, form, co
             )}
           </div>
         )}
-        {isTumble && cookPlan?.cookBatches && (
-          <div className="space-y-1.5 pt-1">
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Cook Batches</span>
-              <span className="font-semibold">{cookPlan.cookBatches.length}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Total Racks</span>
-              <span className="font-semibold">{cookPlan.cookBatches.reduce((s, b) => s + b.racks, 0)}</span>
-            </div>
-            <div className="space-y-1 pt-1">
-              {cookPlan.cookBatches.map((b, i) => (
-                <div key={i} className="flex items-center justify-between bg-white/60 rounded px-2.5 py-1.5 text-xs">
-                  <span className="font-mono font-semibold">{b.lotNumber}</span>
-                  <div className="flex gap-2 text-muted-foreground">
-                    <span>{b.racks} racks</span>
-                    <span>·</span>
-                    <span>{b.lbs} lbs</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
         {/* Racking: list released racks (each goes individually to the smokehouse) */}
         {isRacking && (
           releasedRacks.length > 0 ? (
