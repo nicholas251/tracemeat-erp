@@ -572,7 +572,10 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
         const spiceAddedLbs = Number(form.spice_mix_qty_lbs) || 0;
         const tumbledQty = parseFloat(((stage.input_qty_lbs || 0) + spiceAddedLbs).toFixed(2));
         const tumbledLotBase = form.output_lot_number || `TUMBLE-${new Date().toISOString().slice(0,10).replace(/-/g,"")}`;
-        const proteinLotRefs = (form.protein_lots || []).filter(l => l.lot_number).map(l => l.lot_number);
+        // Protein was already deducted per-batch as each batch was confirmed.
+        // Flatten all batch lot allocations here purely for traceability.
+        const allProteinLots = (form.protein_batches || []).flatMap(b => b.lot_allocations || []);
+        const proteinLotRefs = allProteinLots.filter(l => l.lot_number).map(l => l.lot_number);
         await base44.entities.ProductionStage.update(stage.id, {
           status: "completed",
           completed_at: new Date().toISOString(),
@@ -584,12 +587,12 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
           spice_mix_lot_number: form.spice_mix_lot_number || "",
           spice_mix_qty_lbs: form.spice_mix_qty_lbs || 0,
           duration_minutes: form.duration_minutes || null,
-          sub_batches: form.protein_lots?.length ? [{
+          sub_batches: allProteinLots.length ? [{
             sub_batch_id: `tumble-${Date.now()}`,
             label: "Tumble Protein Lots",
             qty_lbs: tumbledQty,
             lot_number: tumbledLotBase,
-            lot_allocations: form.protein_lots,
+            lot_allocations: allProteinLots,
             raw_lots: proteinLotRefs,
             status: "completed",
           }] : stage.sub_batches,
@@ -609,23 +612,8 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
           }
         }
 
-        // Deduct the picked protein FIFO lots from raw inventory (full traceability).
-        // Awaited (like spice) so the deduction reliably lands before the stage closes.
-        if (form.protein_lots?.length && form.protein_bucket_id) {
-          try {
-            await base44.functions.invoke("deductRawInventoryOnBatchComplete", {
-              stage_id: stage.id,
-              ingredients: [{
-                bucket_id: form.protein_bucket_id,
-                bucket_name: form.protein_bucket_name || "Protein",
-                actual_lbs: form.protein_lots.reduce((s, a) => s + (Number(a.actual_lbs) || 0), 0),
-                lot_allocations: form.protein_lots,
-              }],
-            });
-          } catch (err) {
-            console.warn("Protein inventory deduction failed:", err);
-          }
-        }
+        // Protein was already deducted per-batch as each batch was confirmed in
+        // TumbleLotTracking — no stage-level protein deduction needed here.
 
         // Build per-racking-card list. Use the internal tumble batches if present (each
         // carries its own batch_lbs + spice_lbs); otherwise fall back to a single card
