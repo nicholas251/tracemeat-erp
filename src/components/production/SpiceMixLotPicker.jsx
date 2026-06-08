@@ -62,24 +62,28 @@ export default function SpiceMixLotPicker({ label, requiredLbs, value = {}, onCh
   const isShort = requiredLbs > 0 && totalAllocated < requiredLbs - 0.001 && totalAllocated > 0;
   const isOver = requiredLbs > 0 && totalAllocated > requiredLbs + 0.001;
 
-  // Detect any lot whose entered qty exceeds the live available stock for that mix.
-  const hasOverDraw = lots.some((l) => {
-    if (!l.spice_mix_id) return false;
-    const mix = spiceMixes.find((m) => m.id === l.spice_mix_id);
-    const avail = mix?.available_qty_lbs ?? mix?.quantity_lbs ?? null;
-    return avail !== null && (Number(l.spice_mix_qty_lbs) || 0) > avail + 0.001;
-  });
+  // Detect over-draw by summing all rows that use the SAME mix and comparing
+  // the combined total against that mix's live available stock.
+  const computeOverDraw = (lotList) => {
+    const totalsByMix = new Map();
+    for (const l of lotList) {
+      if (!l.spice_mix_id) continue;
+      totalsByMix.set(l.spice_mix_id, (totalsByMix.get(l.spice_mix_id) || 0) + (Number(l.spice_mix_qty_lbs) || 0));
+    }
+    for (const [mixId, total] of totalsByMix.entries()) {
+      const mix = spiceMixes.find((m) => m.id === mixId);
+      const avail = mix?.available_qty_lbs ?? mix?.quantity_lbs ?? null;
+      if (avail !== null && total > avail + 0.001) return true;
+    }
+    return false;
+  };
+  const hasOverDraw = computeOverDraw(lots);
 
   const emitChange = (newLots) => {
     // Emit multi-lot shape, plus flatten first lot fields for backwards-compat
     const first = newLots[0] || {};
     // Recompute over-draw against the new lots so the parent gets an accurate flag.
-    const overDraw = newLots.some((l) => {
-      if (!l.spice_mix_id) return false;
-      const mix = spiceMixes.find((m) => m.id === l.spice_mix_id);
-      const avail = mix?.available_qty_lbs ?? mix?.quantity_lbs ?? null;
-      return avail !== null && (Number(l.spice_mix_qty_lbs) || 0) > avail + 0.001;
-    });
+    const overDraw = computeOverDraw(newLots);
     onChange({
       lots: newLots,
       has_over_draw: overDraw,
@@ -99,7 +103,14 @@ export default function SpiceMixLotPicker({ label, requiredLbs, value = {}, onCh
   const handleSelectMix = (index, mixId) => {
     const mix = spiceMixes.find(m => m.id === mixId);
     if (!mix) return;
-    const available = mix.available_qty_lbs ?? mix.quantity_lbs ?? 0;
+    const rawAvailable = mix.available_qty_lbs ?? mix.quantity_lbs ?? 0;
+    // Subtract any qty already allocated to this same mix in OTHER rows so the
+    // same leftover can't be suggested again and again.
+    const sameMixOther = lots.reduce(
+      (s, l, i) => (i !== index && l.spice_mix_id === mixId ? s + (Number(l.spice_mix_qty_lbs) || 0) : s),
+      0
+    );
+    const available = Math.max(0, parseFloat((rawAvailable - sameMixOther).toFixed(2)));
     // Suggest the REQUIRED amount (capped at what's available), never the full available qty.
     // Falls back to available only when no required amount is configured.
     const suggestedQty = requiredLbs > 0
@@ -124,10 +135,19 @@ export default function SpiceMixLotPicker({ label, requiredLbs, value = {}, onCh
       // Never allow negatives
       value = Math.max(0, value);
       if (requiredLbs > 0) {
-        // Cap at per-lot available qty (if known)
-        const mix = spiceMixes.find(m => m.id === lots[index]?.spice_mix_id);
+        const mixId = lots[index]?.spice_mix_id;
+        const mix = spiceMixes.find(m => m.id === mixId);
         const available = mix?.available_qty_lbs ?? mix?.quantity_lbs ?? null;
-        if (available !== null) value = Math.min(value, available);
+        // Cap at this lot's available stock, MINUS whatever the same mix is already
+        // allocated for in other rows. This stops the same small leftover from being
+        // re-added over and over across multiple rows.
+        if (available !== null) {
+          const sameMixOther = lots.reduce(
+            (s, l, i) => (i !== index && l.spice_mix_id === mixId ? s + (Number(l.spice_mix_qty_lbs) || 0) : s),
+            0
+          );
+          value = Math.min(value, Math.max(0, available - sameMixOther));
+        }
         // Cap total across all lots at requiredLbs
         const otherTotal = lots.reduce((s, l, i) => i === index ? s : s + (Number(l.spice_mix_qty_lbs) || 0), 0);
         value = Math.min(value, Math.max(0, requiredLbs - otherTotal));
