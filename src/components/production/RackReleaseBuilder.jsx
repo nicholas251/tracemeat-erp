@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, Layers, Plus, Send, Combine } from "lucide-react";
+import { CheckCircle2, Layers, Plus, Send, Combine, Trash2 } from "lucide-react";
 
 const DEFAULT_LBS_PER_RACK = 320;
 
@@ -249,9 +249,6 @@ export default function RackReleaseBuilder({ totalLbs, capacityLbs, openPartialR
     try {
       // Persist this single rack to the smokehouse right now, so it survives closing the card.
       if (onReleaseRack) await onReleaseRack(rack, lotNumber);
-      // When the carried-over rack is consumed (released), clear the open partial on the
-      // order so it never carries over again — it's now on its way to the smokehouse.
-      if (rack.carried_over && onDiscardPartial) await onDiscardPartial();
       sync(racks.map(r => r.rackNumber === rackNumber ? { ...r, released: true, persisted: true } : r), lotNumber);
     } finally {
       setReleasing(null);
@@ -268,6 +265,18 @@ export default function RackReleaseBuilder({ totalLbs, capacityLbs, openPartialR
     }], lotNumber);
   };
 
+  // Discard the carried-over partial rack: drop it from the card and clear it on the order
+  // so it stops re-appearing. Used when there's nothing left to top it up with.
+  const discardCarriedOver = async () => {
+    const ok = window.confirm(
+      `Discard the carried-over rack (${openPartialRack?.lbs || 0} lbs from a previous tumble)? ` +
+      `It will be removed from this card and won't carry over again.`
+    );
+    if (!ok) return;
+    if (onDiscardPartial) await onDiscardPartial();
+    sync(racks.filter(r => !r.carried_over), lotNumber);
+  };
+
   const hasCarriedOver = racks.some(r => r.carried_over && !r.released);
   const anyReleased = racks.some(r => r.released);
   const releasedCount = racks.filter(r => r.released).length;
@@ -277,13 +286,23 @@ export default function RackReleaseBuilder({ totalLbs, capacityLbs, openPartialR
     <div className="space-y-4">
       {/* Carry-over notice */}
       {openPartialRack && (openPartialRack.lbs || 0) > 0 && hasCarriedOver && (
-        <div className="flex items-start gap-2 rounded-xl border-2 border-chart-3/30 bg-chart-3/5 px-3 py-2.5 text-xs text-chart-3">
-          <Combine className="w-4 h-4 shrink-0 mt-0.5" />
-          <span>
-            Carried over an open rack with <strong>{openPartialRack.lbs} lbs</strong> from the previous
-            tumble (Lot {openPartialRack.lot_contributions?.[0]?.lot_number || "—"}). It's pre-loaded as
-            Rack #1 below — top it up and release it; it clears automatically once released.
-          </span>
+        <div className="rounded-xl border-2 border-chart-3/30 bg-chart-3/5 px-3 py-2.5 text-xs text-chart-3 space-y-2">
+          <div className="flex items-start gap-2">
+            <Combine className="w-4 h-4 shrink-0 mt-0.5" />
+            <span>
+              Carried over an open rack with <strong>{openPartialRack.lbs} lbs</strong> from the previous
+              tumble (Lot {openPartialRack.lot_contributions?.[0]?.lot_number || "—"}). It's pre-loaded as
+              Rack #1 below — top it up to fill it, or discard it if there's nothing left to add.
+            </span>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={discardCarriedOver}
+            className="h-7 text-xs gap-1.5 text-destructive hover:bg-destructive/10"
+          >
+            <Trash2 className="w-3.5 h-3.5" /> Discard carried-over rack
+          </Button>
         </div>
       )}
 
