@@ -111,9 +111,12 @@ export default function SmokehouseCookBatchBuilder({ stage, cookBatch, onChange 
             </div>
           )}
 
-          {releasedRacks.map((rack) => {
+          {releasedRacks.map((rack, idx) => {
             const isSelected = selectedIds.includes(rack.id);
             const atCap = !isSelected && selectedIds.length >= MAX_RACKS_PER_BATCH;
+            // Number sequentially across all released racks (per-card rack_number repeats
+            // across tumble batches and looks confusing here).
+            const displayNumber = idx + 1;
             return (
               <button
                 key={rack.id}
@@ -135,7 +138,7 @@ export default function SmokehouseCookBatchBuilder({ stage, cookBatch, onChange 
                     {isSelected && <CheckCircle2 className="w-4 h-4 text-white" />}
                   </div>
                   <div className="min-w-0">
-                    <p className="font-bold text-sm">Rack #{rack.rack_number} · {rack.lbs} lbs</p>
+                    <p className="font-bold text-sm">Rack #{displayNumber} · {rack.lbs} lbs</p>
                     <p className="text-[11px] text-muted-foreground font-mono truncate">
                       {rack.lot_contributions?.length > 1
                         ? `Lots: ${rack.lot_contributions.map(c => `${c.lot_number} (${c.lbs})`).join(" + ")}`

@@ -258,6 +258,34 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
     enabled: open && isRackingStage && !!stage?.id,
   });
 
+  // Ensure ONE open smokehouse cooking stage exists for this order, so the operator gets a
+  // card to build cook batches from released racks. Safe to call repeatedly (it dedups).
+  const ensureCookingStage = async (order) => {
+    if (!order?.flow_id) return;
+    const rackFlow = await base44.entities.ProductFlow.filter({ id: order.flow_id }).then(r => r?.[0]);
+    const cookStep = rackFlow?.steps?.find(s => s.capability_key === "cooking");
+    if (!cookStep) return;
+    const existingCook = await base44.entities.ProductionStage.filter({
+      order_id: stage.order_id,
+      capability_key: "cooking",
+    });
+    const openCook = existingCook.find(s => s.status === "available" || s.status === "in_progress");
+    if (openCook) return;
+    await base44.entities.ProductionStage.create({
+      order_id: stage.order_id,
+      order_number: stage.order_number,
+      product_name: stage.product_name,
+      step_number: cookStep.step_number,
+      capability_id: cookStep.capability_id,
+      capability_key: cookStep.capability_key,
+      capability_name: cookStep.capability_name,
+      work_profile_id: cookStep.work_profile_id || "",
+      work_profile_name: cookStep.work_profile_name || "",
+      status: "available",
+      input_qty_lbs: 0,
+    });
+  };
+
   // Persist a single rack to the smokehouse the moment it's released in the wizard.
   const handleReleaseRack = async (rack, lotNumber) => {
     const contributions = (rack.lot_contributions || []).filter(c => (c.lbs || 0) > 0);
@@ -293,6 +321,9 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
       });
       queryClient.invalidateQueries({ queryKey: ["rackingOrder", stage.order_id] });
     }
+    // Spawn the smokehouse cooking card NOW (on first release) so released racks flow over
+    // one at a time, instead of waiting for the whole racking stage to be completed.
+    await ensureCookingStage(order);
     queryClient.invalidateQueries({ queryKey: ["persistedRacks", stage.id] });
     queryClient.invalidateQueries({ queryKey: ["releasedRacks"] });
     queryClient.invalidateQueries({ queryKey: ["allStages"] });
@@ -715,34 +746,9 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
           notes: form.notes || stage.notes || "",
         });
 
-        // Ensure ONE smokehouse cooking stage exists for this order so the operator has a
-        // card to open and build cook batches from released racks.
-        if (order?.flow_id) {
-          const rackFlow = await base44.entities.ProductFlow.filter({ id: order.flow_id }).then(r => r?.[0]);
-          const cookStep = rackFlow?.steps?.find(s => s.capability_key === "cooking");
-          if (cookStep) {
-            const existingCook = await base44.entities.ProductionStage.filter({
-              order_id: stage.order_id,
-              capability_key: "cooking",
-            });
-            const openCook = existingCook.find(s => s.status === "available" || s.status === "in_progress");
-            if (!openCook) {
-              await base44.entities.ProductionStage.create({
-                order_id: stage.order_id,
-                order_number: stage.order_number,
-                product_name: stage.product_name,
-                step_number: cookStep.step_number,
-                capability_id: cookStep.capability_id,
-                capability_key: cookStep.capability_key,
-                capability_name: cookStep.capability_name,
-                work_profile_id: cookStep.work_profile_id || "",
-                work_profile_name: cookStep.work_profile_name || "",
-                status: "available",
-                input_qty_lbs: 0,
-              });
-            }
-          }
-        }
+        // Safety net: ensure the smokehouse cooking stage exists (normally already created
+        // on first rack release above).
+        await ensureCookingStage(order);
 
         queryClient.invalidateQueries({ queryKey: ["allStages"] });
         queryClient.invalidateQueries({ queryKey: ["releasedRacks"] });
