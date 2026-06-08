@@ -58,6 +58,29 @@
       "default": 0,
       "description": "Index of current stage"
     },
+    "open_partial_rack": {
+      "type": "object",
+      "description": "A not-yet-full rack left over from the previous racking card for this order. The next racking card pre-loads it as Rack #1 and tops it up, so racks are never released half-empty.",
+      "properties": {
+        "lbs": {
+          "type": "number"
+        },
+        "lot_contributions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "lot_number": {
+                "type": "string"
+              },
+              "lbs": {
+                "type": "number"
+              }
+            }
+          }
+        }
+      }
+    },
     "stages": {
       "type": "array",
       "items": {

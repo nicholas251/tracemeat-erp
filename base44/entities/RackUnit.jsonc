@@ -30,7 +30,22 @@
     },
     "lot_number": {
       "type": "string",
-      "description": "Tumble/racking lot number this rack came from (for traceability)"
+      "description": "Tumble/racking lot number this rack came from (for traceability). For mixed-lot racks this holds the primary/first lot; see lot_contributions for the full breakdown."
+    },
+    "lot_contributions": {
+      "type": "array",
+      "description": "Per-lot weight breakdown when a rack is filled from more than one tumble lot. Each entry is { lot_number, lbs }.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "lot_number": {
+            "type": "string"
+          },
+          "lbs": {
+            "type": "number"
+          }
+        }
+      }
     },
     "status": {
       "type": "string",

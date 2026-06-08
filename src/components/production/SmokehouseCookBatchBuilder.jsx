@@ -137,7 +137,9 @@ export default function SmokehouseCookBatchBuilder({ stage, cookBatch, onChange 
                   <div className="min-w-0">
                     <p className="font-bold text-sm">Rack #{rack.rack_number} · {rack.lbs} lbs</p>
                     <p className="text-[11px] text-muted-foreground font-mono truncate">
-                      Lot: {rack.lot_number || "—"} · Order #{rack.order_number}
+                      {rack.lot_contributions?.length > 1
+                        ? `Lots: ${rack.lot_contributions.map(c => `${c.lot_number} (${c.lbs})`).join(" + ")}`
+                        : `Lot: ${rack.lot_number || "—"}`} · Order #{rack.order_number}
                     </p>
                   </div>
                 </div>

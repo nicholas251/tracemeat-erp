@@ -644,9 +644,9 @@ export default function ProductSetupWizard({ open, onClose, onSave }) {
                   <p className="text-xs text-muted-foreground">How many lbs fit in one tumble.</p>
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Lbs per Rack</Label>
-                  <Input type="number" value={form.tumble_lbs_per_rack} onChange={e => up("tumble_lbs_per_rack", e.target.value)} placeholder="e.g. 100" />
-                  <p className="text-xs text-muted-foreground">Used to calculate rack counts per cook batch.</p>
+                  <Label>Lbs per Rack (rack capacity)</Label>
+                  <Input type="number" value={form.tumble_lbs_per_rack} onChange={e => up("tumble_lbs_per_rack", e.target.value)} placeholder="e.g. 320" />
+                  <p className="text-xs text-muted-foreground">Rack capacity. A partial rack carries over to the next tumble so racks fill completely.</p>
                 </div>
               </div>
               <div className="space-y-1.5">

@@ -229,6 +229,23 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
     enabled: open && capKey === "linking",
   });
 
+  // For racking: the order may carry an "open partial rack" left by a previous
+  // racking card so the next card tops it up instead of releasing it half-empty.
+  const isRackingStage = capKey === "racking" || capKey === "racking_product";
+  const { data: rackingOrder = null } = useQuery({
+    queryKey: ["rackingOrder", stage?.order_id],
+    queryFn: async () => {
+      const orders = await base44.entities.ProductionOrder.filter({ id: stage.order_id });
+      return orders[0] || null;
+    },
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnMount: "always",
+    enabled: open && isRackingStage && !!stage?.order_id,
+  });
+  const openPartialRack = rackingOrder?.open_partial_rack || null;
+  const rackCapacityLbs = Number(product?.tumble_lbs_per_rack) || 0;
+
   const { data: cureBucket = null } = useQuery({
     queryKey: ["cureBucket", product?.cure_bucket_id],
     queryFn: async () => {
@@ -598,8 +615,10 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
 
         const order = await base44.entities.ProductionOrder.filter({ id: stage.order_id }).then(r => r?.[0]);
 
-        // Create a RackUnit per released rack.
+        // Create a RackUnit per released rack. Multi-lot racks (topped up from a
+        // carried-over partial) record each lot's weight in lot_contributions.
         for (const r of released) {
+          const contributions = (r.lot_contributions || []).filter(c => (c.lbs || 0) > 0);
           await base44.entities.RackUnit.create({
             order_id: stage.order_id,
             order_number: stage.order_number,
@@ -608,11 +627,21 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
             racking_stage_id: stage.id,
             rack_number: r.rackNumber,
             lbs: parseFloat((r.lbs || 0).toFixed(2)),
-            lot_number: cookPlan.lotNumber || stage.input_lot_number || "",
+            // Primary lot = the largest contribution (or this card's lot).
+            lot_number: contributions.length
+              ? contributions.slice().sort((a, b) => (b.lbs || 0) - (a.lbs || 0))[0].lot_number
+              : (cookPlan.lotNumber || stage.input_lot_number || ""),
+            lot_contributions: contributions.length > 1 ? contributions : undefined,
             status: "released",
             released_at: new Date().toISOString(),
           });
         }
+
+        // Persist the leftover open partial rack on the order so the NEXT racking
+        // card for this order tops it up instead of releasing it half-empty.
+        await base44.entities.ProductionOrder.update(stage.order_id, {
+          open_partial_rack: cookPlan.openPartial || null,
+        });
 
         await base44.entities.ProductionStage.update(stage.id, {
           status: "completed",
@@ -1318,6 +1347,8 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
              setCookBatch={setCookBatch}
              cookPlan={cookPlan}
              setCookPlan={setCookPlan}
+             openPartialRack={openPartialRack}
+             rackCapacityLbs={rackCapacityLbs}
              onBack={() => setStep(s => s - 1)}
              onNext={() => setStep(s => s + 1)}
              isLast={step === totalMeasureSteps}
