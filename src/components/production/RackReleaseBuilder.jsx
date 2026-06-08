@@ -124,6 +124,43 @@ export default function RackReleaseBuilder({ totalLbs, capacityLbs, openPartialR
     return built;
   });
 
+  // openPartialRack resolves AFTER mount (it comes from an async order query). If the
+  // initial state was built before it arrived, Rack #1 won't be pre-loaded with the
+  // carried-over leftover. When it shows up (and nothing's been released/persisted yet),
+  // rebuild the layout so the next batch auto-fills the carried-over partial as Rack #1.
+  useEffect(() => {
+    if (!openPartialRack || (openPartialRack.lbs || 0) <= 0) return;
+    if (persistedRacks && persistedRacks.length > 0) return; // handled by the persisted effect
+    if (racks.some(r => r.carried_over || r.released || r.persisted)) return; // already reflected
+
+    const myLot = lotNumber || "";
+    const built = [];
+    let remaining = totalLbs;
+    let rackNumber = 1;
+
+    // Rack #1 = carried-over partial, topped up with this batch's product first.
+    const room = Math.max(0, RACK_CAP - openPartialRack.lbs);
+    const topUp = parseFloat(Math.min(room, remaining).toFixed(2));
+    remaining = parseFloat((remaining - topUp).toFixed(2));
+    const contributions = [...(openPartialRack.lot_contributions || [])];
+    if (topUp > 0) contributions.push({ lot_number: myLot, lbs: topUp });
+    built.push({
+      rackNumber: rackNumber++,
+      lbs: parseFloat((openPartialRack.lbs + topUp).toFixed(2)),
+      released: false,
+      carried_over: true,
+      lot_contributions: contributions,
+    });
+
+    while (remaining > 0.001) {
+      const rackLbs = parseFloat(Math.min(RACK_CAP, remaining).toFixed(2));
+      remaining = parseFloat((remaining - rackLbs).toFixed(2));
+      built.push({ rackNumber: rackNumber++, lbs: rackLbs, released: false, lot_contributions: [{ lot_number: myLot, lbs: rackLbs }] });
+    }
+    sync(built, myLot);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openPartialRack]);
+
   // persistedRacks can resolve AFTER mount (async query). If they arrive and none of
   // our current racks are marked persisted yet, rebuild the layout to show them released.
   useEffect(() => {
