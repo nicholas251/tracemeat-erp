@@ -123,7 +123,7 @@ export function BatchConfirmStep({ batch, batchIdx, totalBatches, progressPct, o
   );
 }
 
-export function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form, setForm, casingBuckets, cureInventory = [], compatibleHotdogProducts = [], capKey, stage, product, cookBatch, setCookBatch, cookPlan, setCookPlan, openPartialRack = null, rackCapacityLbs = 0, persistedRacks = [], onReleaseRack, onBack, onNext, isLast, autoCalculatedCases = 0 }) {
+export function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form, setForm, casingBuckets, cureInventory = [], compatibleHotdogProducts = [], capKey, stage, product, cookBatch, setCookBatch, cookPlan, setCookPlan, openPartialRack = null, rackCapacityLbs = 0, persistedRacks = [], onReleaseRack, onDiscardPartial, onBack, onNext, isLast, autoCalculatedCases = 0 }) {
   const [spiceShortNotes, setSpiceShortNotes] = React.useState("");
   const [caseWeights, setCaseWeights] = React.useState(form.case_weights || []);
 
@@ -261,6 +261,7 @@ export function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form,
           openPartialRack={openPartialRack}
           persistedRacks={persistedRacks}
           onReleaseRack={onReleaseRack}
+          onDiscardPartial={onDiscardPartial}
           plan={cookPlan}
           onChange={setCookPlan}
         />

@@ -151,7 +151,7 @@ function buildMeasurementSteps(stage, product, capKey, casingBuckets = []) {
       id: "chill",
       label: "Chill Check",
       fields: [
-        { key: "temperature_c", label: "Exit Temp (°C)", type: "number" },
+        { key: "temperature_f", label: "Exit Temp (°F)", type: "number" },
         { key: "duration_minutes", label: "Chill Duration (minutes)", type: "number" },
         { key: "output_lot_number", label: "Chilled Lot #", type: "text", placeholder: "e.g. CHILL-2024-001", defaultValue: chillLotDefault },
         { key: "notes", label: "Notes / Observations", type: "textarea" },
@@ -284,6 +284,14 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
       status: "available",
       input_qty_lbs: 0,
     });
+  };
+
+  // Discard the carried-over open partial rack. Used when the operator has nothing
+  // left to top it up with and just wants to clear the leftover off the card.
+  const handleDiscardPartial = async () => {
+    await base44.entities.ProductionOrder.update(stage.order_id, { open_partial_rack: null });
+    setCookPlan(p => (p ? { ...p, openPartial: null } : p));
+    queryClient.invalidateQueries({ queryKey: ["rackingOrder", stage.order_id] });
   };
 
   // Persist a single rack to the smokehouse the moment it's released in the wizard.
@@ -1420,6 +1428,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
              rackCapacityLbs={rackCapacityLbs}
              persistedRacks={persistedRacks}
              onReleaseRack={handleReleaseRack}
+             onDiscardPartial={handleDiscardPartial}
              onBack={() => setStep(s => s - 1)}
              onNext={() => setStep(s => s + 1)}
              isLast={step === totalMeasureSteps}
