@@ -272,8 +272,11 @@ export default function RackReleaseBuilder({ totalLbs, capacityLbs, openPartialR
   };
 
   const releaseRack = async (rackNumber) => {
+    // Guardrail: ignore taps while ANY release is in-flight, and never re-release a
+    // rack that's already released/persisted. Prevents double-send on rapid taps.
+    if (releasing !== null) return;
     const rack = racks.find(r => r.rackNumber === rackNumber);
-    if (!rack || rack.released) return;
+    if (!rack || rack.released || rack.persisted) return;
     // Releasing a non-full rack means it won't be carried over to top up later. Confirm.
     if (rack.lbs < RACK_CAP - 0.001) {
       const ok = window.confirm(
@@ -413,7 +416,7 @@ export default function RackReleaseBuilder({ totalLbs, capacityLbs, openPartialR
                       <Button
                         size="sm"
                         variant={isFull ? "default" : "destructive"}
-                        disabled={releasing === rack.rackNumber}
+                        disabled={releasing !== null}
                         onClick={() => releaseRack(rack.rackNumber)}
                         className="h-8 text-xs font-semibold gap-1.5"
                       >
