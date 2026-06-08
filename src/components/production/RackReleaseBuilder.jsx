@@ -352,6 +352,7 @@ export default function RackReleaseBuilder({ totalLbs, capacityLbs, openPartialR
                     ) : (
                       <Button
                         size="sm"
+                        variant={isFull ? "default" : "destructive"}
                         disabled={releasing === rack.rackNumber}
                         onClick={() => releaseRack(rack.rackNumber)}
                         className="h-8 text-xs font-semibold gap-1.5"
