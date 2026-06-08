@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -37,9 +37,10 @@ const DEFAULT_LBS_PER_RACK = 320;
  *   plan             – current value | null
  *   onChange         – (plan) => void
  */
-export default function RackReleaseBuilder({ totalLbs, capacityLbs, openPartialRack, plan, onChange }) {
+export default function RackReleaseBuilder({ totalLbs, capacityLbs, openPartialRack, persistedRacks = [], onReleaseRack, plan, onChange }) {
   const RACK_CAP = Number(capacityLbs) > 0 ? Number(capacityLbs) : DEFAULT_LBS_PER_RACK;
-  const [lotNumber, setLotNumber] = useState(plan?.lotNumber || "");
+  const [lotNumber, setLotNumber] = useState(plan?.lotNumber || persistedRacks?.[0]?.lot_number || "");
+  const [releasing, setReleasing] = useState(null); // rackNumber currently being persisted
 
   // Build the initial rack layout. If an open partial rack was carried over, it
   // becomes Rack #1 (pre-filled with the prior lot's lbs); this batch's lbs fill
@@ -47,10 +48,42 @@ export default function RackReleaseBuilder({ totalLbs, capacityLbs, openPartialR
   const [racks, setRacks] = useState(() => {
     if (plan?.racks) return plan.racks;
 
-    const myLot = plan?.lotNumber || "";
+    const myLot = plan?.lotNumber || persistedRacks?.[0]?.lot_number || "";
     const built = [];
     let remaining = totalLbs;
     let rackNumber = 1;
+
+    // Racks already released to the smokehouse for this card → pre-mark as released.
+    if (persistedRacks && persistedRacks.length > 0) {
+      const sorted = persistedRacks.slice().sort((a, b) => (a.rack_number || 0) - (b.rack_number || 0));
+      for (const r of sorted) {
+        built.push({
+          rackNumber: r.rack_number,
+          lbs: parseFloat((r.lbs || 0).toFixed(2)),
+          released: true,
+          persisted: true,
+          lot_contributions: r.lot_contributions?.length
+            ? r.lot_contributions
+            : [{ lot_number: r.lot_number || "", lbs: parseFloat((r.lbs || 0).toFixed(2)) }],
+        });
+        rackNumber = Math.max(rackNumber, (r.rack_number || 0) + 1);
+      }
+      // The persisted racks already account for some of this batch's weight.
+      const persistedLbs = sorted.reduce((s, r) => s + (r.lbs || 0), 0);
+      remaining = parseFloat(Math.max(0, totalLbs - persistedLbs).toFixed(2));
+      // Fill any remaining weight into new unreleased racks.
+      while (remaining > 0.001) {
+        const rackLbs = parseFloat(Math.min(RACK_CAP, remaining).toFixed(2));
+        remaining = parseFloat((remaining - rackLbs).toFixed(2));
+        built.push({
+          rackNumber: rackNumber++,
+          lbs: rackLbs,
+          released: false,
+          lot_contributions: [{ lot_number: myLot, lbs: rackLbs }],
+        });
+      }
+      return built;
+    }
 
     // Rack #1 = carried-over partial, if any
     if (openPartialRack && (openPartialRack.lbs || 0) > 0) {
@@ -90,6 +123,35 @@ export default function RackReleaseBuilder({ totalLbs, capacityLbs, openPartialR
     }
     return built;
   });
+
+  // persistedRacks can resolve AFTER mount (async query). If they arrive and none of
+  // our current racks are marked persisted yet, rebuild the layout to show them released.
+  useEffect(() => {
+    if (!persistedRacks || persistedRacks.length === 0) return;
+    if (racks.some(r => r.persisted)) return; // already reflected
+    const sorted = persistedRacks.slice().sort((a, b) => (a.rack_number || 0) - (b.rack_number || 0));
+    const built = sorted.map(r => ({
+      rackNumber: r.rack_number,
+      lbs: parseFloat((r.lbs || 0).toFixed(2)),
+      released: true,
+      persisted: true,
+      lot_contributions: r.lot_contributions?.length
+        ? r.lot_contributions
+        : [{ lot_number: r.lot_number || "", lbs: parseFloat((r.lbs || 0).toFixed(2)) }],
+    }));
+    const persistedLbs = sorted.reduce((s, r) => s + (r.lbs || 0), 0);
+    let remaining = parseFloat(Math.max(0, totalLbs - persistedLbs).toFixed(2));
+    let rackNumber = Math.max(...sorted.map(r => r.rack_number || 0)) + 1;
+    const myLot = sorted[0]?.lot_number || lotNumber || "";
+    while (remaining > 0.001) {
+      const rackLbs = parseFloat(Math.min(RACK_CAP, remaining).toFixed(2));
+      remaining = parseFloat((remaining - rackLbs).toFixed(2));
+      built.push({ rackNumber: rackNumber++, lbs: rackLbs, released: false, lot_contributions: [{ lot_number: myLot, lbs: rackLbs }] });
+    }
+    setLotNumber(myLot);
+    sync(built, myLot);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [persistedRacks]);
 
   // Compute the leftover open partial rack (last rack that is NOT full and NOT released).
   const computeOpenPartial = (rackList) => {
@@ -141,8 +203,17 @@ export default function RackReleaseBuilder({ totalLbs, capacityLbs, openPartialR
     );
   };
 
-  const releaseRack = (rackNumber) => {
-    sync(racks.map(r => r.rackNumber === rackNumber ? { ...r, released: true } : r), lotNumber);
+  const releaseRack = async (rackNumber) => {
+    const rack = racks.find(r => r.rackNumber === rackNumber);
+    if (!rack || rack.released) return;
+    setReleasing(rackNumber);
+    try {
+      // Persist this single rack to the smokehouse right now, so it survives closing the card.
+      if (onReleaseRack) await onReleaseRack(rack, lotNumber);
+      sync(racks.map(r => r.rackNumber === rackNumber ? { ...r, released: true, persisted: true } : r), lotNumber);
+    } finally {
+      setReleasing(null);
+    }
   };
 
   const addRack = () => {
@@ -155,6 +226,7 @@ export default function RackReleaseBuilder({ totalLbs, capacityLbs, openPartialR
     }], lotNumber);
   };
 
+  const anyReleased = racks.some(r => r.released);
   const releasedCount = racks.filter(r => r.released).length;
   const releasedLbs = parseFloat(racks.filter(r => r.released).reduce((s, r) => s + r.lbs, 0).toFixed(2));
 
@@ -177,6 +249,7 @@ export default function RackReleaseBuilder({ totalLbs, capacityLbs, openPartialR
         <Label className="text-sm font-semibold">Racking Lot # (for traceability)</Label>
         <Input
           value={lotNumber}
+          disabled={anyReleased}
           onChange={(e) => handleLotChange(e.target.value)}
           placeholder="e.g. TUMBLE-20240601-B1"
           className="h-10 text-sm font-medium"
@@ -240,10 +313,12 @@ export default function RackReleaseBuilder({ totalLbs, capacityLbs, openPartialR
                     ) : (
                       <Button
                         size="sm"
+                        disabled={releasing === rack.rackNumber}
                         onClick={() => releaseRack(rack.rackNumber)}
                         className="h-8 text-xs font-semibold gap-1.5"
                       >
-                        <Send className="w-3.5 h-3.5" /> Release Rack
+                        <Send className="w-3.5 h-3.5" />
+                        {releasing === rack.rackNumber ? "Sending…" : "Release Rack"}
                       </Button>
                     )}
                   </div>
