@@ -129,6 +129,7 @@ export default function RackReleaseBuilder({ totalLbs, capacityLbs, openPartialR
   useEffect(() => {
     if (!persistedRacks || persistedRacks.length === 0) return;
     if (racks.some(r => r.persisted)) return; // already reflected
+
     const sorted = persistedRacks.slice().sort((a, b) => (a.rack_number || 0) - (b.rack_number || 0));
     const built = sorted.map(r => ({
       rackNumber: r.rack_number,
@@ -139,16 +140,46 @@ export default function RackReleaseBuilder({ totalLbs, capacityLbs, openPartialR
         ? r.lot_contributions
         : [{ lot_number: r.lot_number || "", lbs: parseFloat((r.lbs || 0).toFixed(2)) }],
     }));
+
+    // The persisted racks consume some of this batch's weight. If a partial rack was
+    // carried over, its lbs belong to the PREVIOUS batch and must NOT count against
+    // this batch's remaining weight — preserve it as an unreleased Rack so it isn't
+    // dropped on reopen (#2/#3).
     const persistedLbs = sorted.reduce((s, r) => s + (r.lbs || 0), 0);
-    let remaining = parseFloat(Math.max(0, totalLbs - persistedLbs).toFixed(2));
+    const carriedLbs = persistedRacks.some(r => r.persisted) ? 0 : (openPartialRack?.lbs || 0);
+    // Has the carried partial already been persisted (its lot already on a released rack)?
+    const carriedLot = openPartialRack?.lot_contributions?.[0]?.lot_number;
+    const carriedAlreadyPersisted = carriedLot
+      ? sorted.some(r => (r.lot_contributions || []).some(c => c.lot_number === carriedLot))
+      : false;
+
     let rackNumber = Math.max(...sorted.map(r => r.rack_number || 0)) + 1;
-    const myLot = sorted[0]?.lot_number || lotNumber || "";
+    const myLot = lotNumber || "";
+
+    // Re-insert the carried-over partial (if any) that hasn't been released yet.
+    let remaining = totalLbs;
+    if (openPartialRack && (openPartialRack.lbs || 0) > 0 && !carriedAlreadyPersisted) {
+      const room = Math.max(0, RACK_CAP - openPartialRack.lbs);
+      const topUp = parseFloat(Math.min(room, Math.max(0, totalLbs - persistedLbs)).toFixed(2));
+      const contributions = [...(openPartialRack.lot_contributions || [])];
+      if (topUp > 0) contributions.push({ lot_number: myLot, lbs: topUp });
+      built.push({
+        rackNumber: rackNumber++,
+        lbs: parseFloat((openPartialRack.lbs + topUp).toFixed(2)),
+        released: false,
+        carried_over: true,
+        lot_contributions: contributions,
+      });
+      remaining = parseFloat((totalLbs - persistedLbs - topUp).toFixed(2));
+    } else {
+      remaining = parseFloat(Math.max(0, totalLbs - persistedLbs).toFixed(2));
+    }
+
     while (remaining > 0.001) {
       const rackLbs = parseFloat(Math.min(RACK_CAP, remaining).toFixed(2));
       remaining = parseFloat((remaining - rackLbs).toFixed(2));
       built.push({ rackNumber: rackNumber++, lbs: rackLbs, released: false, lot_contributions: [{ lot_number: myLot, lbs: rackLbs }] });
     }
-    setLotNumber(myLot);
     sync(built, myLot);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [persistedRacks]);
@@ -206,6 +237,14 @@ export default function RackReleaseBuilder({ totalLbs, capacityLbs, openPartialR
   const releaseRack = async (rackNumber) => {
     const rack = racks.find(r => r.rackNumber === rackNumber);
     if (!rack || rack.released) return;
+    // Releasing a non-full rack means it won't be carried over to top up later. Confirm.
+    if (rack.lbs < RACK_CAP - 0.001) {
+      const ok = window.confirm(
+        `Rack #${rackNumber} is only ${rack.lbs.toFixed(1)} / ${RACK_CAP} lbs. ` +
+        `Releasing it now sends it to the smokehouse partially full (it won't carry over to the next batch). Release anyway?`
+      );
+      if (!ok) return;
+    }
     setReleasing(rackNumber);
     try {
       // Persist this single rack to the smokehouse right now, so it survives closing the card.

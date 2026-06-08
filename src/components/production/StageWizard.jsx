@@ -261,7 +261,8 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
   // Persist a single rack to the smokehouse the moment it's released in the wizard.
   const handleReleaseRack = async (rack, lotNumber) => {
     const contributions = (rack.lot_contributions || []).filter(c => (c.lbs || 0) > 0);
-    const order = await base44.entities.ProductionOrder.filter({ id: stage.order_id }).then(r => r?.[0]);
+    // Reuse the already-loaded racking order (cached) instead of re-fetching per rack (#7).
+    const order = rackingOrder || await base44.entities.ProductionOrder.filter({ id: stage.order_id }).then(r => r?.[0]);
     await base44.entities.RackUnit.create({
       order_id: stage.order_id,
       order_number: stage.order_number,
@@ -283,6 +284,14 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
         status: "in_progress",
         started_at: stage.started_at || new Date().toISOString(),
       });
+    }
+    // Keep the order's carried-over partial current even before the stage completes,
+    // so closing the card mid-way never loses or duplicates the leftover (#3).
+    if (cookPlan && Object.prototype.hasOwnProperty.call(cookPlan, "openPartial")) {
+      await base44.entities.ProductionOrder.update(stage.order_id, {
+        open_partial_rack: cookPlan.openPartial || null,
+      });
+      queryClient.invalidateQueries({ queryKey: ["rackingOrder", stage.order_id] });
     }
     queryClient.invalidateQueries({ queryKey: ["persistedRacks", stage.id] });
     queryClient.invalidateQueries({ queryKey: ["releasedRacks"] });
@@ -656,7 +665,26 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
         // the stage from the racks that are now on record.
         const order = await base44.entities.ProductionOrder.filter({ id: stage.order_id }).then(r => r?.[0]);
         const racksOnRecord = await base44.entities.RackUnit.filter({ racking_stage_id: stage.id });
-        const releasedLbs = parseFloat(racksOnRecord.reduce((s, r) => s + (r.lbs || 0), 0).toFixed(2));
+
+        // Total lbs physically on racks this stage produced.
+        const totalRackLbs = parseFloat(racksOnRecord.reduce((s, r) => s + (r.lbs || 0), 0).toFixed(2));
+
+        // A carried-over partial rack holds lbs from the PREVIOUS batch. Those lbs were
+        // already this order's output once — they must NOT be counted again as THIS
+        // stage's output (#1). Subtract every carried lot's contribution from the racks.
+        const carriedLots = new Set(
+          (openPartialRack?.lot_contributions || []).map(c => c.lot_number).filter(Boolean)
+        );
+        const carriedLbsTotal = carriedLots.size
+          ? parseFloat(
+              racksOnRecord.reduce((s, r) =>
+                s + (r.lot_contributions || [])
+                  .filter(c => carriedLots.has(c.lot_number))
+                  .reduce((ss, c) => ss + (c.lbs || 0), 0)
+              , 0).toFixed(2)
+            )
+          : 0;
+        const releasedLbs = parseFloat(Math.max(0, totalRackLbs - carriedLbsTotal).toFixed(2));
 
         // Persist the leftover open partial rack on the order so the NEXT racking
         // card for this order tops it up instead of releasing it half-empty.
