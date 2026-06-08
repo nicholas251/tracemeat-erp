@@ -660,6 +660,19 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
         onCompleted?.();
         onClose();
       } else if ((capKey === "racking" || capKey === "racking_product") && cookPlan?.racks) {
+        // Guard: a rack is only sent to the smokehouse when the operator taps "Release Rack".
+        // If they try to complete the stage with filled-but-unreleased racks still on the card,
+        // that product would be silently lost. Block completion and tell them to release first.
+        const unreleasedFilled = (cookPlan.racks || []).filter(r => !r.released && (r.lbs || 0) > 0);
+        if (unreleasedFilled.length > 0) {
+          setSaving(false);
+          alert(
+            `${unreleasedFilled.length} rack(s) still have product on them but haven't been released to the smokehouse.\n\n` +
+            `Release every filled rack before completing this stage, otherwise that product will be lost.`
+          );
+          return;
+        }
+
         // ── Racking: each rack was already persisted to the smokehouse the moment
         // the operator tapped "Release Rack" (handleReleaseRack). Here we just finalize
         // the stage from the racks that are now on record.
