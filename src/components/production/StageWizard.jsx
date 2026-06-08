@@ -701,13 +701,19 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
       } else if ((capKey === "racking" || capKey === "racking_product") && cookPlan?.racks) {
         // Guard: a rack is only sent to the smokehouse when the operator taps "Release Rack".
         // If they try to complete the stage with filled-but-unreleased racks still on the card,
-        // that product would be silently lost. Block completion and tell them to release first.
+        // that product would be silently lost. EXCEPTION: a single trailing PARTIAL rack is
+        // allowed to stay unreleased — it's intentionally left in limbo to carry over to the
+        // next tumble batch (which tops it up). Block only if a FULL rack, or more than one
+        // partial, is left unreleased.
         const unreleasedFilled = (cookPlan.racks || []).filter(r => !r.released && (r.lbs || 0) > 0);
-        if (unreleasedFilled.length > 0) {
+        const rackCapForCheck = Number(rackCapacityLbs) > 0 ? Number(rackCapacityLbs) : 320;
+        const unreleasedFull = unreleasedFilled.filter(r => (r.lbs || 0) >= rackCapForCheck - 0.001);
+        const unreleasedPartial = unreleasedFilled.filter(r => (r.lbs || 0) < rackCapForCheck - 0.001);
+        if (unreleasedFull.length > 0 || unreleasedPartial.length > 1) {
           setSaving(false);
           alert(
-            `${unreleasedFilled.length} rack(s) still have product on them but haven't been released to the smokehouse.\n\n` +
-            `Release every filled rack before completing this stage, otherwise that product will be lost.`
+            `${unreleasedFull.length + Math.max(0, unreleasedPartial.length - 1)} full rack(s) still have product on them but haven't been released to the smokehouse.\n\n` +
+            `Release every FULL rack before completing this stage. A single partial rack may stay to carry over to the next tumble batch.`
           );
           return;
         }

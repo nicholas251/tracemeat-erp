@@ -321,6 +321,8 @@ export default function RackReleaseBuilder({ totalLbs, capacityLbs, openPartialR
   const anyReleased = racks.some(r => r.released);
   const releasedCount = racks.filter(r => r.released).length;
   const releasedLbs = parseFloat(racks.filter(r => r.released).reduce((s, r) => s + r.lbs, 0).toFixed(2));
+  // A single trailing partial rack can stay in "limbo" to carry over to the next tumble batch.
+  const trailingPartial = computeOpenPartial(racks);
 
   return (
     <div className="space-y-4">
@@ -449,6 +451,17 @@ export default function RackReleaseBuilder({ totalLbs, capacityLbs, openPartialR
           >
             <Plus className="w-3.5 h-3.5" /> Add Another Rack
           </Button>
+
+          {trailingPartial && !hasCarriedOver && (
+            <div className="rounded-lg border border-chart-1/30 bg-chart-1/5 px-3 py-2 text-[11px] text-chart-1 flex items-start gap-2">
+              <Combine className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+              <span>
+                The last rack is partial ({trailingPartial.lbs} lbs). Release your full racks and
+                complete this stage — this partial stays in limbo and carries over to the next tumble
+                batch, which tops it up.
+              </span>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
