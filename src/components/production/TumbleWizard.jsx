@@ -141,7 +141,7 @@ export default function TumbleWizard({ stage, open, onClose, onCompleted }) {
       if (!chosenBucket?.bucket_id) {
         throw new Error("Pick a protein bucket for this batch before releasing — inventory can't be deducted without one.");
       }
-      await base44.functions.invoke("deductRawInventoryOnBatchComplete", {
+      const proteinRes = await base44.functions.invoke("deductRawInventoryOnBatchComplete", {
         stage_id: stage.id,
         ingredients: [{
           bucket_id: chosenBucket.bucket_id,
@@ -150,13 +150,25 @@ export default function TumbleWizard({ stage, open, onClose, onCompleted }) {
           lot_allocations: proteinLots.length ? proteinLots : null,
         }],
       });
+      const proteinShort = Number(proteinRes?.data?.total_shortfall) || 0;
+      if (proteinShort > 0.01) {
+        throw new Error(
+          `Protein inventory was ${proteinShort} lbs short — nothing was racked. Add inventory or adjust lots, then retry.`
+        );
+      }
 
       // 2. Deduct spice mix for THIS batch.
       if (spiceLots.length) {
-        await base44.functions.invoke("deductSpiceMixOnComplete", {
+        const spiceRes = await base44.functions.invoke("deductSpiceMixOnComplete", {
           stage_id: stage.id,
           lots: spiceLots,
         });
+        const spiceShort = Number(spiceRes?.data?.total_shortfall) || 0;
+        if (spiceShort > 0.01) {
+          throw new Error(
+            `Spice mix was ${spiceShort} lbs short — nothing was racked. Add spice mix or adjust lots, then retry.`
+          );
+        }
       }
 
       // 3. Create a racking card carrying this batch's weight.

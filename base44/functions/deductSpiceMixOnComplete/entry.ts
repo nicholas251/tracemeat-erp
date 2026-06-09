@@ -93,7 +93,11 @@ Deno.serve(async (req) => {
       }
     }
 
-    return Response.json({ success: true, stage_id, results });
+    const total_shortfall = parseFloat(
+      results.reduce((s, r) => s + (Number(r.shortfall) || 0), 0).toFixed(2)
+    );
+
+    return Response.json({ success: true, stage_id, results, total_shortfall });
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });
   }
