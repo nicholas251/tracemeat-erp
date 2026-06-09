@@ -215,15 +215,22 @@ export default function TumbleWizard({ stage, open, onClose, onCompleted }) {
         source_tumble_stage_id: stage.id,
       });
 
-      const nextReleased = {
-        ...releasedBatches,
-        [batch.batch_number]: {
-          bucketName: chosenBucket?.bucket_name || "Protein",
-          proteinLots,
-          spiceLots,
-        },
-      };
-      setReleasedBatches(nextReleased);
+      // Record THIS batch as released using a functional update so rapid successive
+      // releases never read a stale `releasedBatches` snapshot (which previously let
+      // batch 2 & 3 go unmarked and the operator re-release "batch 1" repeatedly →
+      // every card ended up tagged -B1).
+      let nextReleased;
+      setReleasedBatches((prev) => {
+        nextReleased = {
+          ...prev,
+          [batch.batch_number]: {
+            bucketName: chosenBucket?.bucket_name || "Protein",
+            proteinLots,
+            spiceLots,
+          },
+        };
+        return nextReleased;
+      });
 
       // If that was the last batch, complete the tumble stage.
       if (batches.every((b) => nextReleased[b.batch_number])) {
