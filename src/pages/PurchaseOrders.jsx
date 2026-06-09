@@ -37,23 +37,27 @@ export default function PurchaseOrders() {
   const createMutation = useMutation({
     mutationFn: async (data) => {
       const created = await base44.entities.PurchaseOrder.create({ ...data, status: "active" });
-      // Send email notification with created PO data and logo URL
+      // Send email notification — but DON'T fail the whole PO creation if email fails.
+      // The PO is already saved; a failed email shouldn't trigger a retry that duplicates it.
+      let emailSent = true;
       try {
         const logoUrl = 'https://media.base44.com/images/public/69fa3d25d6b48b9b300a8c3a/abc6cd33d_MittysFoods_GroteWiegel_MuckesLogos.png';
         await base44.functions.invoke('sendPOEmail', { po: created, logoUrl });
       } catch (error) {
         console.error('Failed to send PO email:', error);
-        throw error; // Re-throw to show error to user
+        emailSent = false;
       }
-      return created;
+      return { created, emailSent };
     },
-    onSuccess: () => {
+    onSuccess: ({ emailSent }) => {
       queryClient.invalidateQueries({ queryKey: ["purchase_orders"] });
       setShowForm(false);
       toast({
         title: "Purchase Order Created",
-        description: "Your purchase order has been successfully created and email sent.",
-        duration: 3000,
+        description: emailSent
+          ? "Your purchase order has been successfully created and email sent."
+          : "Purchase order created, but the email could not be sent. You can resend it later.",
+        duration: 4000,
       });
       setTimeout(() => navigate("/"), 3500);
     },

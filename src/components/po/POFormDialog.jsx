@@ -74,16 +74,8 @@ export default function POFormDialog({ open, onClose, onSave, po, isSaving }) {
           ship_to_contact_phone: po.ship_to_contact_phone || "",
         });
       } else {
-        // Reset form for new PO — assign next sequential PO number
-        base44.entities.PurchaseOrder.list("-created_date", 1000).then(existing => {
-          let maxNum = 0;
-          existing.forEach(p => {
-            const m = (p.po_number || "").match(/PO-(\d+)/);
-            if (m) maxNum = Math.max(maxNum, parseInt(m[1], 10));
-          });
-          const next = `PO-${String(maxNum + 1).padStart(6, "0")}`;
-          setForm(prev => ({ ...prev, po_number: next }));
-        });
+        // Reset form for new PO first, then assign next sequential PO number
+        // once existing POs are fetched (avoids a race that could leave po_number empty).
         setForm({
           po_number: "",
           supplier: "",
@@ -97,6 +89,15 @@ export default function POFormDialog({ open, onClose, onSave, po, isSaving }) {
           ship_to_address: "",
           ship_to_contact_name: "",
           ship_to_contact_phone: "",
+        });
+        base44.entities.PurchaseOrder.list("-created_date", 1000).then(existing => {
+          let maxNum = 0;
+          existing.forEach(p => {
+            const m = (p.po_number || "").match(/PO-(\d+)/);
+            if (m) maxNum = Math.max(maxNum, parseInt(m[1], 10));
+          });
+          const next = `PO-${String(maxNum + 1).padStart(6, "0")}`;
+          setForm(prev => ({ ...prev, po_number: next }));
         });
       }
     }
