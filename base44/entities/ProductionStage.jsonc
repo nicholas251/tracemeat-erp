@@ -122,6 +122,29 @@
     "racks_count": {
       "type": "number"
     },
+    "carried_partial_rack": {
+      "type": "object",
+      "description": "A not-yet-full rack handed from the previous sibling racking card. The next racking card pre-loads it as Rack #1 and tops it up, so partials never get stranded in limbo or race on the shared order field.",
+      "properties": {
+        "lbs": {
+          "type": "number"
+        },
+        "lot_contributions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "lot_number": {
+                "type": "string"
+              },
+              "lbs": {
+                "type": "number"
+              }
+            }
+          }
+        }
+      }
+    },
     "expiry_date": {
       "type": "string",
       "format": "date",

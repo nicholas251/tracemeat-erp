@@ -243,7 +243,10 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
     refetchOnMount: "always",
     enabled: open && isRackingStage && !!stage?.order_id,
   });
-  const openPartialRack = rackingOrder?.open_partial_rack || null;
+  // Prefer the partial handed directly to THIS card by the previous sibling racking
+  // card (stage-local, race-free). Fall back to the order-level partial only when no
+  // sibling handed one over (i.e. this is the first/only racking card or a future run).
+  const openPartialRack = stage?.carried_partial_rack || rackingOrder?.open_partial_rack || null;
   const rackCapacityLbs = Number(product?.tumble_lbs_per_rack) || 0;
 
   // Racks already persisted to the smokehouse for THIS racking card. Used to
@@ -744,10 +747,38 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
           : 0;
         const releasedLbs = parseFloat(Math.max(0, totalRackLbs - carriedLbsTotal).toFixed(2));
 
-        // Persist the leftover open partial rack on the order so the NEXT racking
-        // card for this order tops it up instead of releasing it half-empty.
+        // Hand the trailing partial (un-released, not-full rack) to the NEXT sibling
+        // racking card so it pre-loads as that card's Rack #1 and tops it up there.
+        // This lets THIS card complete cleanly with nothing left in limbo, and avoids
+        // the shared order.open_partial_rack race when multiple racking cards are open.
+        const trailingPartial = cookPlan.openPartial || null;
+        let handedToSibling = false;
+        if (trailingPartial && (trailingPartial.lbs || 0) > 0) {
+          // Next sibling = another racking card for this order, still open, not this one.
+          const siblingRackingCards = await base44.entities.ProductionStage.filter({
+            order_id: stage.order_id,
+            capability_key: stage.capability_key,
+          });
+          const nextSibling = siblingRackingCards
+            .filter(s => s.id !== stage.id && (s.status === "available" || s.status === "in_progress"))
+            .sort((a, b) => (a.input_lot_number || "").localeCompare(b.input_lot_number || ""))[0];
+
+          if (nextSibling) {
+            // Bump the sibling's incoming weight by the partial's lbs and stamp the
+            // carried partial onto it (stage-local, NOT the shared order field).
+            await base44.entities.ProductionStage.update(nextSibling.id, {
+              input_qty_lbs: parseFloat(((nextSibling.input_qty_lbs || 0) + trailingPartial.lbs).toFixed(2)),
+              carried_partial_rack: trailingPartial,
+            });
+            handedToSibling = true;
+          }
+        }
+
+        // Only fall back to the order-level carry-over when there's NO sibling to hand
+        // the partial to (i.e. this is the last racking card). Otherwise clear it so a
+        // stale partial never lingers on the order.
         await base44.entities.ProductionOrder.update(stage.order_id, {
-          open_partial_rack: cookPlan.openPartial || null,
+          open_partial_rack: handedToSibling ? null : (trailingPartial || null),
         });
 
         const released = racksOnRecord;
