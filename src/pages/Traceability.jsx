@@ -32,37 +32,77 @@ export default function Traceability() {
     queryFn: () => base44.entities.Product.list(),
   });
 
-  const normalizedSearch = searchTerm.toLowerCase().trim();
-  
-  // Search by lot number or order number
-  const matchedOrder = productionOrders.find(o =>
-    o.order_number?.toLowerCase().includes(normalizedSearch) ||
-    o.product_name?.toLowerCase().includes(normalizedSearch)
-  );
+  const { data: rackUnits = [] } = useQuery({
+    queryKey: ["rackUnits"],
+    queryFn: () => base44.entities.RackUnit.list("-created_date"),
+  });
 
-  const matchedByLot = !matchedOrder
-    ? productionStages.find(s =>
-        s.input_lot_number?.toLowerCase().includes(normalizedSearch) ||
-        s.output_lot_number?.toLowerCase().includes(normalizedSearch) ||
-        s.cook_batch_lot?.toLowerCase().includes(normalizedSearch)
-      )
+  const { data: fgBuckets = [] } = useQuery({
+    queryKey: ["fgBuckets"],
+    queryFn: () => base44.entities.FinishedGoodsBucket.list(),
+  });
+
+  const normalizedSearch = searchTerm.toLowerCase().trim();
+
+  const hit = (val) => val?.toLowerCase().includes(normalizedSearch);
+
+  // Search by order number or product name
+  const matchedOrder = normalizedSearch
+    ? productionOrders.find(o => hit(o.order_number) || hit(o.product_name))
     : null;
 
+  // Search EVERY lot-number field on a production stage, including nested
+  // sub_batches, gaylords and cases, so any lot in the system is searchable.
+  const stageHasLot = (s) => {
+    if (
+      hit(s.input_lot_number) || hit(s.output_lot_number) || hit(s.cook_batch_lot) ||
+      hit(s.pork_lot_number) || hit(s.binder_lot_number) ||
+      hit(s.spice_mix_lot_number) || hit(s.cure_lot_number)
+    ) return true;
+    if ((s.sub_batches || []).some(sb => hit(sb.lot_number) || (sb.raw_lots || []).some(rl => hit(rl)))) return true;
+    if ((s.gaylords || []).some(g => hit(g.lot_number))) return true;
+    if ((s.cases || []).some(c => hit(c.lot_number))) return true;
+    return false;
+  };
+
+  // Resolve a search to an order via stages, racks, or finished-goods lots.
+  const matchedStage = !matchedOrder && normalizedSearch
+    ? productionStages.find(stageHasLot)
+    : null;
+
+  const matchedRack = !matchedOrder && !matchedStage && normalizedSearch
+    ? rackUnits.find(r => hit(r.lot_number) || hit(r.cook_batch_lot) || (r.lot_contributions || []).some(lc => hit(lc.lot_number)))
+    : null;
+
+  const matchedFgBucket = !matchedOrder && !matchedStage && !matchedRack && normalizedSearch
+    ? fgBuckets.find(b => (b.lots || []).some(l => hit(l.lot_number)))
+    : null;
+
+  // Determine the resolved order id from whichever source matched.
+  const resolvedOrderId =
+    matchedOrder?.id ||
+    matchedStage?.order_id ||
+    matchedRack?.order_id ||
+    (matchedFgBucket
+      ? productionOrders.find(o =>
+          o.order_number &&
+          (matchedFgBucket.lots || []).some(l => hit(l.lot_number) && l.order_number === o.order_number)
+        )?.id
+      : null);
+
+  const matchedByLot = matchedStage || matchedRack || (resolvedOrderId && !matchedOrder ? { order_id: resolvedOrderId } : null);
+
   const selectedOrder = matchedOrder;
-  const relatedStages = selectedOrder
-    ? productionStages.filter(s => s.order_id === selectedOrder.id).sort((a, b) => (a.step_number || 0) - (b.step_number || 0))
-    : matchedByLot
-    ? productionStages.filter(s => s.order_id === matchedByLot.order_id).sort((a, b) => (a.step_number || 0) - (b.step_number || 0))
+  const relatedStages = resolvedOrderId
+    ? productionStages.filter(s => s.order_id === resolvedOrderId).sort((a, b) => (a.step_number || 0) - (b.step_number || 0))
     : [];
 
   const linkedHolds = selectedOrder || matchedByLot
-    ? holds.filter(h => (selectedOrder?.id || matchedByLot?.order_id) && h.batch_id)
+    ? holds.filter(h => (selectedOrder?.id || resolvedOrderId) && h.batch_id)
     : [];
 
-  const linkedProduct = selectedOrder
-    ? products.find(p => p.id === selectedOrder.product_id)
-    : matchedByLot
-    ? products.find(p => p.id === (productionOrders.find(o => o.id === matchedByLot.order_id)?.product_id))
+  const linkedProduct = resolvedOrderId
+    ? products.find(p => p.id === (productionOrders.find(o => o.id === resolvedOrderId)?.product_id))
     : null;
 
   return (
