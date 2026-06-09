@@ -60,6 +60,14 @@ export default function TumbleWizard({ stage, open, onClose, onCompleted }) {
   });
 
   const totalLbs = stage?.input_qty_lbs || 0;
+  // This tumble STAGE is itself one batch in a set ("Tumble Batch N of M", stored in
+  // notes when the order was split into multiple tumble stages). That N is the real
+  // batch number for traceability — it must drive the racking lot's -B<n> suffix so
+  // each tumble produces -B1 / -B2 / -B3 instead of every card showing -B1.
+  const stageBatchNumber = (() => {
+    const m = (stage?.notes || "").match(/Tumble Batch (\d+)/i);
+    return m ? parseInt(m[1], 10) : null;
+  })();
   const batchSize = Number(product?.tumble_batch_lbs) || Number(product?.blend_batch_lbs) || 0;
   const spicePerBatch = Number(product?.chop_spice_qty_lbs) || 0;
   const spicePct = batchSize > 0 ? spicePerBatch / batchSize : 0;
@@ -198,7 +206,11 @@ export default function TumbleWizard({ stage, open, onClose, onCompleted }) {
       const datePart = new Date().toISOString().slice(0, 10).replace(/-/g, "");
       const orderPart = (stage.order_number || "").replace(/[^A-Za-z0-9]/g, "") || "ORD";
       const stagePart = (stage.id || "").slice(-4).toUpperCase();
-      const lot = `TUMBLE-${datePart}-${orderPart}-${stagePart}-B${batch.batch_number}`;
+      // Use the parent tumble stage's batch number (N of M) when present, so each
+      // separate tumble batch yields -B1 / -B2 / -B3. Fall back to the internal index
+      // for single-batch tumble stages that aren't part of a split set.
+      const lotBatchNum = stageBatchNumber || batch.batch_number;
+      const lot = `TUMBLE-${datePart}-${orderPart}-${stagePart}-B${lotBatchNum}`;
 
       // Authoritative dedupe against the DB (not local state). A refetch race in the
       // seeding effect could leave a batch looking un-released locally, letting the
@@ -211,7 +223,7 @@ export default function TumbleWizard({ stage, open, onClose, onCompleted }) {
         source_tumble_stage_id: stage.id,
       });
       const alreadyRacked = liveCards.some(
-        (c) => new RegExp(`-B${batch.batch_number}$`).test(c.input_lot_number || "")
+        (c) => new RegExp(`-B${lotBatchNum}$`).test(c.input_lot_number || "")
       );
       if (!alreadyRacked) {
         await base44.entities.ProductionStage.create({
