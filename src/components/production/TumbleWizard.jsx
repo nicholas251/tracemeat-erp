@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -26,6 +26,18 @@ export default function TumbleWizard({ stage, open, onClose, onCompleted }) {
   const [releasedBatches, setReleasedBatches] = useState({}); // { [batch_number]: { proteinLots, spiceLots, bucketName } }
   const [releasingBatch, setReleasingBatch] = useState(null);
   const [error, setError] = useState("");
+
+  // Racking cards already created by THIS tumble stage. Used to detect batches
+  // that were released in a prior session so we never double-deduct/double-create
+  // when the operator closes ("resume later") and reopens the wizard.
+  const { data: existingRackingCards = [] } = useQuery({
+    queryKey: ["tumbleRackingCards", stage?.id],
+    queryFn: () => base44.entities.ProductionStage.filter({ order_id: stage.order_id }),
+    enabled: open && !!stage,
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnMount: "always",
+  });
 
   const { data: product } = useQuery({
     queryKey: ["tumbleProduct", stage?.order_id],
@@ -75,6 +87,28 @@ export default function TumbleWizard({ stage, open, onClose, onCompleted }) {
     return rows;
   }, [totalLbs, batchSize, spicePct]);
 
+  // Seed already-released batches from racking cards created in a prior session.
+  // Each release creates a racking ProductionStage with input_lot_number
+  // "TUMBLE-<date>-B<batch_number>". Detect those so re-opening the wizard shows
+  // them as released and the operator can't release them again (double-deduct).
+  useEffect(() => {
+    if (!open || existingRackingCards.length === 0) return;
+    const seeded = {};
+    for (const card of existingRackingCards) {
+      const m = (card.input_lot_number || "").match(/^TUMBLE-\d+-B(\d+)$/);
+      if (m) {
+        const batchNum = parseInt(m[1], 10);
+        if (!seeded[batchNum]) {
+          seeded[batchNum] = { bucketName: "Protein", proteinLots: [], spiceLots: [], restored: true };
+        }
+      }
+    }
+    if (Object.keys(seeded).length > 0) {
+      setReleasedBatches((prev) => ({ ...seeded, ...prev }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [existingRackingCards, open]);
+
   const allReleased = batches.length > 0 && batches.every((b) => releasedBatches[b.batch_number]);
 
   const rackingStep = useMemo(() => {
@@ -82,6 +116,20 @@ export default function TumbleWizard({ stage, open, onClose, onCompleted }) {
     const sorted = [...flow.steps].sort((a, b) => a.step_number - b.step_number);
     return sorted.find((s) => s.step_number > stage.step_number) || null;
   }, [flow, stage]);
+
+  // Mark the tumble stage completed (shared by the last-batch release path and the
+  // manual "Complete Tumble Stage" recovery button).
+  const finalizeStage = async () => {
+    await base44.entities.ProductionStage.update(stage.id, {
+      status: "completed",
+      completed_at: new Date().toISOString(),
+      output_qty_lbs: parseFloat(batches.reduce((s, b) => s + b.total_lbs, 0).toFixed(2)),
+    });
+    queryClient.invalidateQueries({ queryKey: ["allStages"] });
+    queryClient.invalidateQueries({ queryKey: ["productionOrders"] });
+    onCompleted?.();
+    onClose();
+  };
 
   // Release a single batch: deduct protein + spice, create a racking card.
   const handleReleaseBatch = async (batch, { proteinBucket: chosenBucket, proteinLots, spiceLots }) => {
@@ -142,15 +190,7 @@ export default function TumbleWizard({ stage, open, onClose, onCompleted }) {
 
       // If that was the last batch, complete the tumble stage.
       if (batches.every((b) => nextReleased[b.batch_number])) {
-        await base44.entities.ProductionStage.update(stage.id, {
-          status: "completed",
-          completed_at: new Date().toISOString(),
-          output_qty_lbs: parseFloat(batches.reduce((s, b) => s + b.total_lbs, 0).toFixed(2)),
-        });
-        queryClient.invalidateQueries({ queryKey: ["allStages"] });
-        queryClient.invalidateQueries({ queryKey: ["productionOrders"] });
-        onCompleted?.();
-        onClose();
+        await finalizeStage();
         return;
       }
 
@@ -245,6 +285,14 @@ export default function TumbleWizard({ stage, open, onClose, onCompleted }) {
                 <div className="flex items-center justify-center gap-2 text-sm font-semibold text-chart-2 py-2">
                   <CheckCircle2 className="w-5 h-5" /> All batches released
                 </div>
+              )}
+
+              {/* If every batch is released but the stage was never finalized
+                  (e.g. closed/crashed before completion), allow finalizing now. */}
+              {allReleased && stage?.status !== "completed" && (
+                <Button className="w-full h-11 bg-chart-2 hover:bg-chart-2/90" onClick={finalizeStage}>
+                  <CheckCircle2 className="w-4 h-4 mr-1" /> Complete Tumble Stage
+                </Button>
               )}
 
               <Button variant="outline" className="w-full h-11" onClick={onClose}>
