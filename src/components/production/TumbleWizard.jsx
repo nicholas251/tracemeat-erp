@@ -140,6 +140,11 @@ export default function TumbleWizard({ stage, open, onClose, onCompleted }) {
     setError("");
     setReleasingBatch(batch.batch_number);
     try {
+      // 0. A racking step is REQUIRED — without it the deducted weight would have
+      //    nowhere to go and would silently vanish. Abort before any deduction.
+      if (!rackingStep) {
+        throw new Error("No racking step found after tumbling in this product's flow — add one in the Flow Builder before releasing.");
+      }
       // 1. Deduct protein for THIS batch from the selected bucket.
       //    A bucket is REQUIRED — without it we cannot deduct inventory.
       if (!chosenBucket?.bucket_id) {
@@ -181,23 +186,21 @@ export default function TumbleWizard({ stage, open, onClose, onCompleted }) {
       }
 
       // 3. Create a racking card carrying this batch's weight.
-      if (rackingStep) {
-        const lot = `TUMBLE-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-B${batch.batch_number}`;
-        await base44.entities.ProductionStage.create({
-          order_id: stage.order_id,
-          order_number: stage.order_number,
-          product_name: stage.product_name,
-          step_number: rackingStep.step_number,
-          capability_id: rackingStep.capability_id,
-          capability_key: rackingStep.capability_key,
-          capability_name: rackingStep.capability_name,
-          work_profile_id: rackingStep.work_profile_id || "",
-          work_profile_name: rackingStep.work_profile_name || "",
-          status: "available",
-          input_qty_lbs: batch.total_lbs,
-          input_lot_number: lot,
-        });
-      }
+      const lot = `TUMBLE-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-B${batch.batch_number}`;
+      await base44.entities.ProductionStage.create({
+        order_id: stage.order_id,
+        order_number: stage.order_number,
+        product_name: stage.product_name,
+        step_number: rackingStep.step_number,
+        capability_id: rackingStep.capability_id,
+        capability_key: rackingStep.capability_key,
+        capability_name: rackingStep.capability_name,
+        work_profile_id: rackingStep.work_profile_id || "",
+        work_profile_name: rackingStep.work_profile_name || "",
+        status: "available",
+        input_qty_lbs: batch.total_lbs,
+        input_lot_number: lot,
+      });
 
       const nextReleased = {
         ...releasedBatches,

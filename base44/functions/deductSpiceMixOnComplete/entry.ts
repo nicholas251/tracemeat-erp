@@ -43,10 +43,23 @@ Deno.serve(async (req) => {
       }
       if (!mix) {
         console.warn(`SpiceMix not found: ${mixId}`);
+        // Treat a missing mix as a full shortfall so the caller aborts the batch
+        // rather than silently racking unseasoned product.
+        results.push({ spice_mix_id: mixId, spice_mix_name: 'Unknown', deducted_lbs: 0, remaining_lbs: 0, shortfall: qty, committed: false });
         continue;
       }
 
       const current = mix.available_qty_lbs ?? mix.quantity_lbs ?? 0;
+
+      // CHECK-THEN-COMMIT: if there isn't enough, deduct NOTHING and report the
+      // shortfall. Previously we deducted down to 0 and reported a shortfall after
+      // the write had already committed, so a retry double-deducted.
+      if (qty - current > 0.01) {
+        console.warn(`Spice mix "${mix.name}" short by ${(qty - current).toFixed(2)} lbs — NO deduction written.`);
+        results.push({ spice_mix_id: mix.id, spice_mix_name: mix.name, deducted_lbs: 0, remaining_lbs: current, shortfall: parseFloat((qty - current).toFixed(2)), committed: false });
+        continue;
+      }
+
       const newQty = parseFloat(Math.max(0, current - qty).toFixed(2));
 
       await base44.asServiceRole.entities.SpiceMix.update(mix.id, {
@@ -85,12 +98,9 @@ Deno.serve(async (req) => {
         spice_mix_name: mix.name,
         deducted_lbs: qty,
         remaining_lbs: newQty,
-        shortfall: parseFloat(Math.max(0, qty - current).toFixed(2)),
+        shortfall: 0,
+        committed: true,
       });
-
-      if (qty > current) {
-        console.warn(`Spice mix "${mix.name}" short by ${(qty - current).toFixed(2)} lbs`);
-      }
     }
 
     const total_shortfall = parseFloat(
