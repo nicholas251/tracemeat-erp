@@ -199,21 +199,37 @@ export default function TumbleWizard({ stage, open, onClose, onCompleted }) {
       const orderPart = (stage.order_number || "").replace(/[^A-Za-z0-9]/g, "") || "ORD";
       const stagePart = (stage.id || "").slice(-4).toUpperCase();
       const lot = `TUMBLE-${datePart}-${orderPart}-${stagePart}-B${batch.batch_number}`;
-      await base44.entities.ProductionStage.create({
+
+      // Authoritative dedupe against the DB (not local state). A refetch race in the
+      // seeding effect could leave a batch looking un-released locally, letting the
+      // operator release it again and spawn a duplicate racking card. Re-read this
+      // tumble stage's racking cards right before creating and bail if THIS batch
+      // number already produced one — guaranteeing exactly one card per batch number,
+      // each with its own -B<n> lot.
+      const liveCards = await base44.entities.ProductionStage.filter({
         order_id: stage.order_id,
-        order_number: stage.order_number,
-        product_name: stage.product_name,
-        step_number: rackingStep.step_number,
-        capability_id: rackingStep.capability_id,
-        capability_key: rackingStep.capability_key,
-        capability_name: rackingStep.capability_name,
-        work_profile_id: rackingStep.work_profile_id || "",
-        work_profile_name: rackingStep.work_profile_name || "",
-        status: "available",
-        input_qty_lbs: batch.total_lbs,
-        input_lot_number: lot,
         source_tumble_stage_id: stage.id,
       });
+      const alreadyRacked = liveCards.some(
+        (c) => new RegExp(`-B${batch.batch_number}$`).test(c.input_lot_number || "")
+      );
+      if (!alreadyRacked) {
+        await base44.entities.ProductionStage.create({
+          order_id: stage.order_id,
+          order_number: stage.order_number,
+          product_name: stage.product_name,
+          step_number: rackingStep.step_number,
+          capability_id: rackingStep.capability_id,
+          capability_key: rackingStep.capability_key,
+          capability_name: rackingStep.capability_name,
+          work_profile_id: rackingStep.work_profile_id || "",
+          work_profile_name: rackingStep.work_profile_name || "",
+          status: "available",
+          input_qty_lbs: batch.total_lbs,
+          input_lot_number: lot,
+          source_tumble_stage_id: stage.id,
+        });
+      }
 
       // Record THIS batch as released using a functional update so rapid successive
       // releases never read a stale `releasedBatches` snapshot (which previously let
