@@ -99,7 +99,7 @@ export default function TumbleWizard({ stage, open, onClose, onCompleted }) {
       // a racking card created by a sibling tumble stage (same order, same B-number
       // lot pattern) would falsely mark this stage's batch as released → auto-complete.
       if (card.source_tumble_stage_id !== stage.id) continue;
-      const m = (card.input_lot_number || "").match(/^TUMBLE-\d+-B(\d+)$/);
+      const m = (card.input_lot_number || "").match(/-B(\d+)$/);
       if (m) {
         const batchNum = parseInt(m[1], 10);
         if (!seeded[batchNum]) {
@@ -190,7 +190,15 @@ export default function TumbleWizard({ stage, open, onClose, onCompleted }) {
       }
 
       // 3. Create a racking card carrying this batch's weight.
-      const lot = `TUMBLE-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-B${batch.batch_number}`;
+      //    The lot must be UNIQUE per tumble batch across the whole plant — date + batch
+      //    number alone collide when two orders (or a re-run) release "Batch 1" the same
+      //    day. We embed the order number and a short slice of this tumble stage's id so
+      //    every tumble batch is uniquely identified and carried through racking → cook.
+      //    Keep the "-B<n>" suffix LAST so the resume-seeding regex below still matches.
+      const datePart = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+      const orderPart = (stage.order_number || "").replace(/[^A-Za-z0-9]/g, "") || "ORD";
+      const stagePart = (stage.id || "").slice(-4).toUpperCase();
+      const lot = `TUMBLE-${datePart}-${orderPart}-${stagePart}-B${batch.batch_number}`;
       await base44.entities.ProductionStage.create({
         order_id: stage.order_id,
         order_number: stage.order_number,
