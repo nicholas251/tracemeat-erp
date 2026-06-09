@@ -95,6 +95,10 @@ export default function TumbleWizard({ stage, open, onClose, onCompleted }) {
     if (!open || existingRackingCards.length === 0) return;
     const seeded = {};
     for (const card of existingRackingCards) {
+      // Only seed from racking cards THIS tumble stage produced. Without this guard,
+      // a racking card created by a sibling tumble stage (same order, same B-number
+      // lot pattern) would falsely mark this stage's batch as released → auto-complete.
+      if (card.source_tumble_stage_id !== stage.id) continue;
       const m = (card.input_lot_number || "").match(/^TUMBLE-\d+-B(\d+)$/);
       if (m) {
         const batchNum = parseInt(m[1], 10);
@@ -200,6 +204,7 @@ export default function TumbleWizard({ stage, open, onClose, onCompleted }) {
         status: "available",
         input_qty_lbs: batch.total_lbs,
         input_lot_number: lot,
+        source_tumble_stage_id: stage.id,
       });
 
       const nextReleased = {

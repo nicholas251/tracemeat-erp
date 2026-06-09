@@ -80,6 +80,10 @@
       "type": "string",
       "description": "For chilling stages: the ID of the cooking ProductionStage that produced this chilling stage. Ensures each cook batch maps to exactly one cooling batch even when cook lot numbers are reused."
     },
+    "source_tumble_stage_id": {
+      "type": "string",
+      "description": "For racking stages: the ID of the tumble ProductionStage that released this racking card. Lets the TumbleWizard seed only racking cards produced by THIS tumble stage, so opening one tumble card never reads another tumble card's batches and falsely auto-completes."
+    },
     "batch_tag": {
       "type": "string",
       "description": "Stable per-blend-batch tag (e.g. blend-batch-1) used to pair chopping/mixer/linking stages across steps in the kielbasa flow"
