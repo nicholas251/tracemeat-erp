@@ -229,22 +229,10 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
     enabled: open && capKey === "linking",
   });
 
-  // For racking: the order may carry an "open partial rack" left by a previous
-  // racking card so the next card tops it up instead of releasing it half-empty.
-  const isRackingStage = capKey === "racking" || capKey === "racking_product";
-  const { data: rackingOrder = null } = useQuery({
-    queryKey: ["rackingOrder", stage?.order_id],
-    queryFn: async () => {
-      const orders = await base44.entities.ProductionOrder.filter({ id: stage.order_id });
-      return orders[0] || null;
-    },
-    staleTime: 0,
-    gcTime: 0,
-    refetchOnMount: "always",
-    enabled: open && isRackingStage && !!stage?.order_id,
-  });
   // Each racking card is independent — it never inherits a partial rack from another
-  // card. Cross-card carry-over is disabled so completing one card can't affect another.
+  // card. The old cross-card carry-over (order.open_partial_rack) is fully removed so
+  // completing or releasing on one card can never affect another card.
+  const isRackingStage = capKey === "racking" || capKey === "racking_product";
   const openPartialRack = null;
   const rackCapacityLbs = Number(product?.tumble_lbs_per_rack) || 0;
 
@@ -288,19 +276,10 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
     });
   };
 
-  // Discard the carried-over open partial rack. Used when the operator has nothing
-  // left to top it up with and just wants to clear the leftover off the card.
-  const handleDiscardPartial = async () => {
-    await base44.entities.ProductionOrder.update(stage.order_id, { open_partial_rack: null });
-    setCookPlan(p => (p ? { ...p, openPartial: null } : p));
-    queryClient.invalidateQueries({ queryKey: ["rackingOrder", stage.order_id] });
-  };
-
   // Persist a single rack to the smokehouse the moment it's released in the wizard.
   const handleReleaseRack = async (rack, lotNumber) => {
     const contributions = (rack.lot_contributions || []).filter(c => (c.lbs || 0) > 0);
-    // Reuse the already-loaded racking order (cached) instead of re-fetching per rack (#7).
-    const order = rackingOrder || await base44.entities.ProductionOrder.filter({ id: stage.order_id }).then(r => r?.[0]);
+    const order = await base44.entities.ProductionOrder.filter({ id: stage.order_id }).then(r => r?.[0]);
     await base44.entities.RackUnit.create({
       order_id: stage.order_id,
       order_number: stage.order_number,
@@ -322,14 +301,6 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
         status: "in_progress",
         started_at: stage.started_at || new Date().toISOString(),
       });
-    }
-    // Keep the order's carried-over partial current even before the stage completes,
-    // so closing the card mid-way never loses or duplicates the leftover (#3).
-    if (cookPlan && Object.prototype.hasOwnProperty.call(cookPlan, "openPartial")) {
-      await base44.entities.ProductionOrder.update(stage.order_id, {
-        open_partial_rack: cookPlan.openPartial || null,
-      });
-      queryClient.invalidateQueries({ queryKey: ["rackingOrder", stage.order_id] });
     }
     // Spawn the smokehouse cooking card NOW (on first release) so released racks flow over
     // one at a time, instead of waiting for the whole racking stage to be completed.
@@ -1402,11 +1373,11 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
              setCookBatch={setCookBatch}
              cookPlan={cookPlan}
              setCookPlan={setCookPlan}
-             openPartialRack={openPartialRack}
+             openPartialRack={null}
              rackCapacityLbs={rackCapacityLbs}
              persistedRacks={persistedRacks}
              onReleaseRack={handleReleaseRack}
-             onDiscardPartial={handleDiscardPartial}
+             onDiscardPartial={undefined}
              onBack={() => setStep(s => s - 1)}
              onNext={() => setStep(s => s + 1)}
              isLast={step === totalMeasureSteps}
