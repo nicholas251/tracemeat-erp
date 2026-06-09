@@ -703,20 +703,32 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
         onClose();
       } else if ((capKey === "racking" || capKey === "racking_product") && cookPlan?.racks) {
         // Guard: a rack is only sent to the smokehouse when the operator taps "Release Rack".
-        // If they try to complete the stage with filled-but-unreleased racks still on the card,
-        // that product would be silently lost. EXCEPTION: a single trailing PARTIAL rack is
-        // allowed to stay unreleased — it's intentionally left in limbo to carry over to the
-        // next tumble batch (which tops it up). Block only if a FULL rack, or more than one
-        // partial, is left unreleased.
+        // If they try to complete with filled-but-unreleased racks still on the card, that
+        // product would be silently lost. A single trailing PARTIAL rack MAY stay unreleased
+        // ONLY if there's a next sibling racking card to hand it to (it tops it up there).
+        // On the LAST card (no sibling) the operator must release that partial themselves.
         const unreleasedFilled = (cookPlan.racks || []).filter(r => !r.released && (r.lbs || 0) > 0);
         const rackCapForCheck = Number(rackCapacityLbs) > 0 ? Number(rackCapacityLbs) : 320;
         const unreleasedFull = unreleasedFilled.filter(r => (r.lbs || 0) >= rackCapForCheck - 0.001);
         const unreleasedPartial = unreleasedFilled.filter(r => (r.lbs || 0) < rackCapForCheck - 0.001);
-        if (unreleasedFull.length > 0 || unreleasedPartial.length > 1) {
+
+        // Is there another open racking card for this order to hand a partial to?
+        const siblingCards = await base44.entities.ProductionStage.filter({
+          order_id: stage.order_id,
+          capability_key: stage.capability_key,
+        });
+        const hasNextSibling = siblingCards.some(
+          s => s.id !== stage.id && (s.status === "available" || s.status === "in_progress")
+        );
+        // Allowed to leave one partial unreleased only when a sibling will absorb it.
+        const allowedUnreleasedPartials = hasNextSibling ? 1 : 0;
+
+        if (unreleasedFull.length > 0 || unreleasedPartial.length > allowedUnreleasedPartials) {
           setSaving(false);
           alert(
-            `${unreleasedFull.length + Math.max(0, unreleasedPartial.length - 1)} full rack(s) still have product on them but haven't been released to the smokehouse.\n\n` +
-            `Release every FULL rack before completing this stage. A single partial rack may stay to carry over to the next tumble batch.`
+            hasNextSibling
+              ? `Some racks still have product but haven't been released.\n\nRelease every FULL rack before completing. A single partial rack may stay to carry over to the next batch's card.`
+              : `Some racks still have product but haven't been released to the smokehouse.\n\nThis is the last racking card — release every rack (including the partial) before completing, or its product will be lost.`
           );
           return;
         }
@@ -774,11 +786,12 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
           }
         }
 
-        // Only fall back to the order-level carry-over when there's NO sibling to hand
-        // the partial to (i.e. this is the last racking card). Otherwise clear it so a
-        // stale partial never lingers on the order.
+        // Never persist a leftover partial to the order. If it was handed to a sibling
+        // card, it lives there now; if this is the LAST card (no sibling), the operator
+        // releases that partial rack to the smokehouse themselves. Always clear the
+        // order-level field so nothing lingers.
         await base44.entities.ProductionOrder.update(stage.order_id, {
-          open_partial_rack: handedToSibling ? null : (trailingPartial || null),
+          open_partial_rack: null,
         });
 
         const released = racksOnRecord;
