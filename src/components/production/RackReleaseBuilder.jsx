@@ -296,7 +296,7 @@ export default function RackReleaseBuilder({ totalLbs, capacityLbs, openPartialR
                   <div>
                     <p className="font-bold text-sm flex items-center gap-1.5">
                       Rack #{rack.rackNumber}
-                      {rack.carried_over && (
+                      {rack.carried_over && !isFull && (
                         <Badge variant="secondary" className="text-[10px] gap-1 h-5"><Combine className="w-3 h-3" /> Carried in</Badge>
                       )}
                     </p>
