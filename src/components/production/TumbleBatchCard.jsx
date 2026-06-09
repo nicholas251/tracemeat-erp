@@ -76,10 +76,13 @@ export default function TumbleBatchCard({
     });
   };
 
+  // Spice is only required when the product actually has a spice mix configured.
+  // If chop_spice_qty_lbs is set but no mix is selectable, never block release on it.
+  const spiceRequired = !!spiceMixId && batch.spice_lbs > 0;
   const spiceTotal = spice?.lots
     ? spice.lots.reduce((s, l) => s + (Number(l.spice_mix_qty_lbs) || 0), 0)
     : 0;
-  const spiceReady = batch.spice_lbs <= 0 || Math.abs(spiceTotal - batch.spice_lbs) < 0.01;
+  const spiceReady = !spiceRequired || Math.abs(spiceTotal - batch.spice_lbs) < 0.01;
   // Hard guard: never release if any spice lot pulls more than is in stock right now.
   const spiceOverDraw = !!spice?.has_over_draw;
 
@@ -156,6 +159,13 @@ export default function TumbleBatchCard({
               ))}
             </div>
           )}
+          {/* Resumed batches re-seed from racking cards without lot detail —
+              inventory was already deducted, so just note that. */}
+          {releaseDetails?.restored && (
+            <p className="text-[11px] text-muted-foreground italic px-1">
+              Released &amp; deducted in a prior session.
+            </p>
+          )}
         </div>
       ) : (
         <>
@@ -200,7 +210,7 @@ export default function TumbleBatchCard({
           </div>
 
           {/* Spice mix picker */}
-          {batch.spice_lbs > 0 && (
+          {spiceRequired && (
             <div className="space-y-2">
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Spice Mix

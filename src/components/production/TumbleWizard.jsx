@@ -117,9 +117,13 @@ export default function TumbleWizard({ stage, open, onClose, onCompleted }) {
     return sorted.find((s) => s.step_number > stage.step_number) || null;
   }, [flow, stage]);
 
+  const [finalizing, setFinalizing] = useState(false);
+
   // Mark the tumble stage completed (shared by the last-batch release path and the
-  // manual "Complete Tumble Stage" recovery button).
+  // manual "Complete Tumble Stage" recovery button). Guarded so it can only run once.
   const finalizeStage = async () => {
+    if (finalizing) return;
+    setFinalizing(true);
     await base44.entities.ProductionStage.update(stage.id, {
       status: "completed",
       completed_at: new Date().toISOString(),
@@ -141,6 +145,25 @@ export default function TumbleWizard({ stage, open, onClose, onCompleted }) {
       if (!chosenBucket?.bucket_id) {
         throw new Error("Pick a protein bucket for this batch before releasing — inventory can't be deducted without one.");
       }
+      // 1. Deduct spice mix FIRST. Spice is the smaller, more commonly-short
+      //    deduction — validating it before committing protein means a spice
+      //    shortfall never strands an already-deducted protein batch (which would
+      //    double-deduct protein on retry).
+      if (spiceLots.length) {
+        const spiceRes = await base44.functions.invoke("deductSpiceMixOnComplete", {
+          stage_id: stage.id,
+          lots: spiceLots,
+        });
+        const spiceShort = Number(spiceRes?.data?.total_shortfall) || 0;
+        if (spiceShort > 0.01) {
+          throw new Error(
+            `Spice mix was ${spiceShort} lbs short — nothing was racked. Add spice mix or adjust lots, then retry.`
+          );
+        }
+      }
+
+      // 2. Deduct protein for THIS batch from the selected bucket. Committed last
+      //    so it only runs once spice is confirmed available.
       const proteinRes = await base44.functions.invoke("deductRawInventoryOnBatchComplete", {
         stage_id: stage.id,
         ingredients: [{
@@ -155,20 +178,6 @@ export default function TumbleWizard({ stage, open, onClose, onCompleted }) {
         throw new Error(
           `Protein inventory was ${proteinShort} lbs short — nothing was racked. Add inventory or adjust lots, then retry.`
         );
-      }
-
-      // 2. Deduct spice mix for THIS batch.
-      if (spiceLots.length) {
-        const spiceRes = await base44.functions.invoke("deductSpiceMixOnComplete", {
-          stage_id: stage.id,
-          lots: spiceLots,
-        });
-        const spiceShort = Number(spiceRes?.data?.total_shortfall) || 0;
-        if (spiceShort > 0.01) {
-          throw new Error(
-            `Spice mix was ${spiceShort} lbs short — nothing was racked. Add spice mix or adjust lots, then retry.`
-          );
-        }
       }
 
       // 3. Create a racking card carrying this batch's weight.
