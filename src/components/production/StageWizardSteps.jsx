@@ -123,7 +123,7 @@ export function BatchConfirmStep({ batch, batchIdx, totalBatches, progressPct, o
   );
 }
 
-export function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form, setForm, casingBuckets, cureInventory = [], compatibleHotdogProducts = [], capKey, stage, product, cookBatch, setCookBatch, cookPlan, setCookPlan, openPartialRack = null, rackCapacityLbs = 0, persistedRacks = [], onReleaseRack, onDiscardPartial, onBack, onNext, isLast, autoCalculatedCases = 0 }) {
+export function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form, setForm, casingBuckets, cureInventory = [], compatibleHotdogProducts = [], capKey, stage, product, cookBatch, setCookBatch, cookPlan, setCookPlan, openPartialRack = null, rackCapacityLbs = 0, rackDefaultLot = "", persistedRacks = [], onReleaseRack, onBack, onNext, isLast, autoCalculatedCases = 0 }) {
   const [spiceShortNotes, setSpiceShortNotes] = React.useState("");
   const [caseWeights, setCaseWeights] = React.useState(form.case_weights || []);
 
@@ -162,7 +162,7 @@ export function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form,
   const cookNeedsBatch = isCookStage && !cookBatch;
 
   const canProceed = isLinking ? !!cookBatch
-     : isRacking ? (cookPlan?.racks?.some(r => r.released))
+     : isRacking ? (cookPlan?.racks?.some(r => r.released) || !!cookPlan?.carriedPartial)
      : isPackaging ? (form.case_count > 0 && caseWeights.length === parseInt(form.case_count))
      : isMixerInputs ? (!!form.pork_lot_confirmed && (stage?.binder_lot_number ? !!form.binder_lot_confirmed : false))
      : isCookStage ? (!lowTempBlocksNext && !cookNeedsBatch)
@@ -259,9 +259,9 @@ export function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form,
           totalLbs={form.output_qty_lbs || stage?.input_qty_lbs || 0}
           capacityLbs={rackCapacityLbs}
           openPartialRack={openPartialRack}
+          defaultLot={rackDefaultLot}
           persistedRacks={persistedRacks}
           onReleaseRack={onReleaseRack}
-          onDiscardPartial={onDiscardPartial}
           plan={cookPlan}
           onChange={setCookPlan}
         />
@@ -472,7 +472,7 @@ export function FinalStep({ stage, capKey, stageLabel, resolvedBatches, form, co
         : form.output_qty_lbs || stage?.input_qty_lbs || 0;
 
   const canComplete = isLinking ? !!cookBatch
-    : isRacking ? releasedRacks.length > 0
+    : isRacking ? (releasedRacks.length > 0 || !!cookPlan?.carriedPartial)
     : isCooking ? !!cookBatch
     : (isPackaging ? form.case_weights?.length > 0 : true);
 
@@ -555,9 +555,15 @@ export function FinalStep({ stage, capKey, stageLabel, resolvedBatches, form, co
                 ))}
               </div>
             </div>
+          ) : cookPlan?.carriedPartial ? (
+            <div className="space-y-1.5 pt-1">
+              <p className="text-sm text-chart-1 font-medium flex items-center gap-1.5">
+                <CheckCircle2 className="w-4 h-4" /> Partial carried over to next card ({cookPlan.carriedPartial.lbs} lbs).
+              </p>
+            </div>
           ) : (
             <p className="text-sm text-destructive font-medium flex items-center gap-1.5">
-              <AlertCircle className="w-4 h-4" /> No racks released — go back and release at least one rack.
+              <AlertCircle className="w-4 h-4" /> No racks resolved — release a rack or carry over the partial.
             </p>
           )
         )}

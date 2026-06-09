@@ -229,11 +229,12 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
     enabled: open && capKey === "linking",
   });
 
-  // Each racking card is independent — it never inherits a partial rack from another
-  // card. The old cross-card carry-over (order.open_partial_rack) is fully removed so
-  // completing or releasing on one card can never affect another card.
+  // A racking card may receive a partial rack handed forward from the PREVIOUS racking
+  // card (stored on THIS stage's carried_partial_rack field — a directed hand-off, not a
+  // shared order field, so exactly one card receives it). It pre-loads as Rack #1 and is
+  // topped up. The operator decides each trailing partial's fate with Carry Over / Release.
   const isRackingStage = capKey === "racking" || capKey === "racking_product";
-  const openPartialRack = null;
+  const openPartialRack = isRackingStage ? (stage?.carried_partial_rack || null) : null;
   const rackCapacityLbs = Number(product?.tumble_lbs_per_rack) || 0;
 
   // Racks already persisted to the smokehouse for THIS racking card. Used to
@@ -672,36 +673,69 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
         onCompleted?.();
         onClose();
       } else if ((capKey === "racking" || capKey === "racking_product") && cookPlan?.racks) {
-        // Guard: a rack is only sent to the smokehouse when the operator taps "Release Rack".
-        // Each racking card is fully INDEPENDENT — completing one card must never touch,
-        // auto-complete, or hand product to any other card. So EVERY rack on this card
-        // (full or partial) must be released by the operator before the card can complete.
-        const unreleasedFilled = (cookPlan.racks || []).filter(r => !r.released && (r.lbs || 0) > 0);
-        if (unreleasedFilled.length > 0) {
+        // Guard: every rack on this card must be RESOLVED before completing — either
+        // released to the smokehouse, OR (for the trailing partial) explicitly carried
+        // over to the next card. A rack still holding product that is neither released
+        // nor carried away would be stranded, so block completion until it's resolved.
+        const unresolved = (cookPlan.racks || []).filter(
+          r => !r.released && !r.carried_away && (r.lbs || 0) > 0
+        );
+        if (unresolved.length > 0) {
           setSaving(false);
           alert(
-            `${unreleasedFilled.length} rack(s) still have product but haven't been released to the smokehouse.\n\n` +
-            `Review and release every rack one at a time before completing this card, or their product will be lost.`
+            `${unresolved.length} rack(s) still hold product.\n\n` +
+            `Release each full rack, and for the last partial rack tap "Carry Over" ` +
+            `(to top it up on the next card) or "Release" (to send it to the smokehouse) ` +
+            `before completing.`
           );
           return;
         }
 
-        // ── Racking: each rack was already persisted to the smokehouse the moment
-        // the operator tapped "Release Rack" (handleReleaseRack). Here we just finalize
-        // this card from its OWN racks — no cross-card carry-over.
+        // ── Racking: full racks were already persisted to the smokehouse the moment the
+        // operator tapped Release (handleReleaseRack). Here we finalize this card from its
+        // OWN persisted racks, then hand any carried-over partial to the NEXT racking card.
         const order = await base44.entities.ProductionOrder.filter({ id: stage.order_id }).then(r => r?.[0]);
         const racksOnRecord = await base44.entities.RackUnit.filter({ racking_stage_id: stage.id });
         const releasedLbs = parseFloat(racksOnRecord.reduce((s, r) => s + (r.lbs || 0), 0).toFixed(2));
 
-        const released = racksOnRecord;
         await base44.entities.ProductionStage.update(stage.id, {
           status: "completed",
           completed_at: new Date().toISOString(),
           output_qty_lbs: releasedLbs,
           output_lot_number: cookPlan.lotNumber || stage.input_lot_number || "",
-          racks_count: released.length,
+          racks_count: racksOnRecord.length,
           notes: form.notes || stage.notes || "",
         });
+
+        // Directed hand-off: if the operator chose "Carry Over" for the trailing partial,
+        // write it onto the NEXT racking card for this order (the next sibling racking
+        // stage that hasn't started and doesn't already hold a carried partial). Carried
+        // lbs were already deducted at tumble — they ride along only as lot_contributions.
+        const carried = cookPlan.carriedPartial;
+        if (carried && (carried.lbs || 0) > 0) {
+          const siblings = await base44.entities.ProductionStage.filter({
+            order_id: stage.order_id,
+            capability_key: capKey,
+          });
+          const nextCard = siblings
+            .filter(s => s.id !== stage.id && s.status !== "completed" && !s.carried_partial_rack)
+            .sort((a, b) => (a.created_date || "") < (b.created_date || "") ? -1 : 1)[0];
+          if (nextCard) {
+            await base44.entities.ProductionStage.update(nextCard.id, {
+              carried_partial_rack: {
+                lbs: parseFloat((carried.lbs || 0).toFixed(2)),
+                lot_contributions: (carried.lot_contributions || []).filter(c => (c.lbs || 0) > 0),
+              },
+            });
+          } else {
+            // No next card to receive it — the partial would be stranded. Warn, but the
+            // card still completes (operator can release it on the final card instead).
+            alert(
+              `This partial (${carried.lbs} lbs) was set to carry over, but there is no ` +
+              `next racking card to receive it. Release it on the final card instead.`
+            );
+          }
+        }
 
         // Safety net: ensure the smokehouse cooking stage exists (normally already created
         // on first rack release above).
@@ -1373,11 +1407,11 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
              setCookBatch={setCookBatch}
              cookPlan={cookPlan}
              setCookPlan={setCookPlan}
-             openPartialRack={null}
+             openPartialRack={openPartialRack}
              rackCapacityLbs={rackCapacityLbs}
+             rackDefaultLot={stage?.input_lot_number || ""}
              persistedRacks={persistedRacks}
              onReleaseRack={handleReleaseRack}
-             onDiscardPartial={undefined}
              onBack={() => setStep(s => s - 1)}
              onNext={() => setStep(s => s + 1)}
              isLast={step === totalMeasureSteps}

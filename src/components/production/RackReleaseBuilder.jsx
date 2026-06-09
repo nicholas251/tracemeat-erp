@@ -11,44 +11,49 @@ const DEFAULT_LBS_PER_RACK = 320;
 /**
  * RackReleaseBuilder
  *
- * Racking finishes ONE rack at a time. The operator taps "Release Rack" for each
- * rack (weight auto-filled to capacity, editable). Each released rack is sent to
- * the smokehouse individually — no cook-batch grouping here.
+ * Racking finishes ONE rack at a time. Full racks have a single "Release Rack"
+ * action that sends them to the smokehouse individually.
  *
- * Carry-over: a previous racking card may leave its LAST rack partially full. That
- * "open partial rack" is passed in via `openPartialRack` and pre-loaded here as
- * Rack #1, already holding the prior lot's lbs. The operator tops it up with this
- * batch's product, producing a multi-lot rack (lot_contributions). Whatever rack is
- * still not full at the end of THIS card is emitted back out as the new open partial.
+ * The LAST rack on a card is often partial (not full). The operator decides what
+ * happens to it with TWO explicit buttons:
+ *   • "Carry Over" — hand this partial forward to the NEXT racking card, where it
+ *     pre-loads as Rack #1 and gets topped up. Nothing is sent to the smokehouse.
+ *   • "Release"    — send the partial to the smokehouse now as a short rack (used on
+ *     the very last card, when there is no next card to top it up).
+ * This keeps partials from being stranded in limbo.
  *
- * Each rack tracks `lot_contributions: [{ lot_number, lbs }]` so mixed-lot racks are
- * fully traceable.
+ * A previous card may hand THIS card a carried partial via `openPartialRack`. It is
+ * pre-loaded as Rack #1 (already holding the prior lot's lbs) and topped up with this
+ * batch's product → a multi-lot rack (lot_contributions) for full traceability.
  *
  * Emits a plan: {
  *   lotNumber,
  *   racks: [{ rackNumber, lbs, released, lot_contributions:[{lot_number,lbs}] }],
- *   openPartial: { lbs, lot_contributions } | null   // leftover not-full, not-released rack
+ *   carriedPartial: { lbs, lot_contributions } | null   // partial the operator chose to carry over
  * }
  *
  * Props:
  *   totalLbs         – tumbled lbs entering racking (this batch)
  *   capacityLbs      – per-product rack capacity (falls back to 320)
  *   openPartialRack  – { lbs, lot_contributions:[{lot_number,lbs}] } | null carried from prior card
+ *   defaultLot       – default racking lot (e.g. the tumble input lot) for fresh cards
  *   plan             – current value | null
  *   onChange         – (plan) => void
  */
-export default function RackReleaseBuilder({ totalLbs, capacityLbs, openPartialRack, persistedRacks = [], onReleaseRack, onDiscardPartial, plan, onChange }) {
+export default function RackReleaseBuilder({ totalLbs, capacityLbs, openPartialRack, defaultLot = "", persistedRacks = [], onReleaseRack, plan, onChange }) {
   const RACK_CAP = Number(capacityLbs) > 0 ? Number(capacityLbs) : DEFAULT_LBS_PER_RACK;
-  const [lotNumber, setLotNumber] = useState(plan?.lotNumber || persistedRacks?.[0]?.lot_number || "");
+  const initialLot = plan?.lotNumber || persistedRacks?.[0]?.lot_number || defaultLot || "";
+  const [lotNumber, setLotNumber] = useState(initialLot);
   const [releasing, setReleasing] = useState(null); // rackNumber currently being persisted
+  const [carriedOver, setCarriedOver] = useState(plan?.carriedPartial || null);
 
-  // Build the initial rack layout. If an open partial rack was carried over, it
-  // becomes Rack #1 (pre-filled with the prior lot's lbs); this batch's lbs fill
-  // the rest, topping up that partial first.
+  // Build the initial rack layout. If an open partial rack was carried over from the
+  // prior card, it becomes Rack #1 (pre-filled with the prior lot's lbs); this batch's
+  // lbs fill the rest, topping up that partial first.
   const [racks, setRacks] = useState(() => {
     if (plan?.racks) return plan.racks;
 
-    const myLot = plan?.lotNumber || persistedRacks?.[0]?.lot_number || "";
+    const myLot = initialLot;
     const built = [];
     let remaining = totalLbs;
     let rackNumber = 1;
@@ -68,10 +73,8 @@ export default function RackReleaseBuilder({ totalLbs, capacityLbs, openPartialR
         });
         rackNumber = Math.max(rackNumber, (r.rack_number || 0) + 1);
       }
-      // The persisted racks already account for some of this batch's weight.
       const persistedLbs = sorted.reduce((s, r) => s + (r.lbs || 0), 0);
       remaining = parseFloat(Math.max(0, totalLbs - persistedLbs).toFixed(2));
-      // Fill any remaining weight into new unreleased racks.
       while (remaining > 0.001) {
         const rackLbs = parseFloat(Math.min(RACK_CAP, remaining).toFixed(2));
         remaining = parseFloat((remaining - rackLbs).toFixed(2));
@@ -124,21 +127,18 @@ export default function RackReleaseBuilder({ totalLbs, capacityLbs, openPartialR
     return built;
   });
 
-  // openPartialRack resolves AFTER mount (it comes from an async order query). If the
-  // initial state was built before it arrived, Rack #1 won't be pre-loaded with the
-  // carried-over leftover. When it shows up (and nothing's been released/persisted yet),
-  // rebuild the layout so the next batch auto-fills the carried-over partial as Rack #1.
+  // openPartialRack resolves AFTER mount (async order query). If the initial state was
+  // built before it arrived, rebuild so Rack #1 pre-loads the carried-over leftover.
   useEffect(() => {
     if (!openPartialRack || (openPartialRack.lbs || 0) <= 0) return;
-    if (persistedRacks && persistedRacks.length > 0) return; // handled by the persisted effect
-    if (racks.some(r => r.carried_over || r.released || r.persisted)) return; // already reflected
+    if (persistedRacks && persistedRacks.length > 0) return;
+    if (racks.some(r => r.carried_over || r.released || r.persisted)) return;
 
     const myLot = lotNumber || "";
     const built = [];
     let remaining = totalLbs;
     let rackNumber = 1;
 
-    // Rack #1 = carried-over partial, topped up with this batch's product first.
     const room = Math.max(0, RACK_CAP - openPartialRack.lbs);
     const topUp = parseFloat(Math.min(room, remaining).toFixed(2));
     remaining = parseFloat((remaining - topUp).toFixed(2));
@@ -157,15 +157,14 @@ export default function RackReleaseBuilder({ totalLbs, capacityLbs, openPartialR
       remaining = parseFloat((remaining - rackLbs).toFixed(2));
       built.push({ rackNumber: rackNumber++, lbs: rackLbs, released: false, lot_contributions: [{ lot_number: myLot, lbs: rackLbs }] });
     }
-    sync(built, myLot);
+    sync(built, myLot, carriedOver);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openPartialRack]);
 
-  // persistedRacks can resolve AFTER mount (async query). If they arrive and none of
-  // our current racks are marked persisted yet, rebuild the layout to show them released.
+  // persistedRacks can resolve AFTER mount (async query). Rebuild to show them released.
   useEffect(() => {
     if (!persistedRacks || persistedRacks.length === 0) return;
-    if (racks.some(r => r.persisted)) return; // already reflected
+    if (racks.some(r => r.persisted)) return;
 
     const sorted = persistedRacks.slice().sort((a, b) => (a.rack_number || 0) - (b.rack_number || 0));
     const built = sorted.map(r => ({
@@ -178,13 +177,7 @@ export default function RackReleaseBuilder({ totalLbs, capacityLbs, openPartialR
         : [{ lot_number: r.lot_number || "", lbs: parseFloat((r.lbs || 0).toFixed(2)) }],
     }));
 
-    // The persisted racks consume some of this batch's weight. If a partial rack was
-    // carried over, its lbs belong to the PREVIOUS batch and must NOT count against
-    // this batch's remaining weight — preserve it as an unreleased Rack so it isn't
-    // dropped on reopen (#2/#3).
     const persistedLbs = sorted.reduce((s, r) => s + (r.lbs || 0), 0);
-    const carriedLbs = persistedRacks.some(r => r.persisted) ? 0 : (openPartialRack?.lbs || 0);
-    // Has the carried partial already been persisted (its lot already on a released rack)?
     const carriedLot = openPartialRack?.lot_contributions?.[0]?.lot_number;
     const carriedAlreadyPersisted = carriedLot
       ? sorted.some(r => (r.lot_contributions || []).some(c => c.lot_number === carriedLot))
@@ -193,7 +186,6 @@ export default function RackReleaseBuilder({ totalLbs, capacityLbs, openPartialR
     let rackNumber = Math.max(...sorted.map(r => r.rack_number || 0)) + 1;
     const myLot = lotNumber || "";
 
-    // Re-insert the carried-over partial (if any) that hasn't been released yet.
     let remaining = totalLbs;
     if (openPartialRack && (openPartialRack.lbs || 0) > 0 && !carriedAlreadyPersisted) {
       const room = Math.max(0, RACK_CAP - openPartialRack.lbs);
@@ -217,48 +209,41 @@ export default function RackReleaseBuilder({ totalLbs, capacityLbs, openPartialR
       remaining = parseFloat((remaining - rackLbs).toFixed(2));
       built.push({ rackNumber: rackNumber++, lbs: rackLbs, released: false, lot_contributions: [{ lot_number: myLot, lbs: rackLbs }] });
     }
-    sync(built, myLot);
+    sync(built, myLot, carriedOver);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [persistedRacks]);
 
-  // Compute the leftover open partial rack (last rack that is NOT full and NOT released).
-  const computeOpenPartial = (rackList) => {
-    const open = rackList.find(r => !r.released && r.lbs < RACK_CAP - 0.001 && r.lbs > 0);
+  // The trailing partial = last rack that is NOT full, NOT released, NOT yet carried over.
+  const computeTrailingPartial = (rackList) => {
+    const open = rackList.find(r => !r.released && !r.carried_away && r.lbs < RACK_CAP - 0.001 && r.lbs > 0);
     if (!open) return null;
-    return {
-      lbs: parseFloat(open.lbs.toFixed(2)),
-      lot_contributions: open.lot_contributions || [],
-    };
+    return open;
   };
 
-  const sync = (nextRacks, nextLot) => {
+  const sync = (nextRacks, nextLot, nextCarried) => {
     setRacks(nextRacks);
     onChange({
       lotNumber: nextLot,
       racks: nextRacks,
-      openPartial: computeOpenPartial(nextRacks),
+      carriedPartial: nextCarried || null,
     });
   };
 
-  // Re-stamp this batch's lot onto contributions that reference the current batch.
   const handleLotChange = (val) => {
     setLotNumber(val);
     const restamped = racks.map(r => ({
       ...r,
       lot_contributions: (r.lot_contributions || []).map(c =>
-        // Only rename contributions that belonged to "this batch" (empty or previous self lot)
         c.lot_number === lotNumber || !c.lot_number ? { ...c, lot_number: val } : c
       ),
     }));
-    sync(restamped, val);
+    sync(restamped, val, carriedOver);
   };
 
   const handleWeightChange = (rackNumber, lbs) => {
     sync(
       racks.map(r => {
         if (r.rackNumber !== rackNumber) return r;
-        // Keep the contribution breakdown proportional-simple: adjust THIS batch's
-        // contribution to absorb the weight change (carried-over lots stay fixed).
         const carriedLbs = (r.lot_contributions || [])
           .filter(c => c.lot_number !== lotNumber)
           .reduce((s, c) => s + (c.lbs || 0), 0);
@@ -267,32 +252,49 @@ export default function RackReleaseBuilder({ totalLbs, capacityLbs, openPartialR
         const contributions = myLbs > 0 ? [...carried, { lot_number: lotNumber, lbs: myLbs }] : carried;
         return { ...r, lbs, lot_contributions: contributions };
       }),
-      lotNumber
+      lotNumber,
+      carriedOver
     );
   };
 
   const releaseRack = async (rackNumber) => {
-    // Guardrail: ignore taps while ANY release is in-flight, and never re-release a
-    // rack that's already released/persisted. Prevents double-send on rapid taps.
     if (releasing !== null) return;
     const rack = racks.find(r => r.rackNumber === rackNumber);
     if (!rack || rack.released || rack.persisted) return;
-    // Releasing a non-full rack means it won't be carried over to top up later. Confirm.
-    if (rack.lbs < RACK_CAP - 0.001) {
-      const ok = window.confirm(
-        `Rack #${rackNumber} is only ${rack.lbs.toFixed(1)} / ${RACK_CAP} lbs. ` +
-        `Releasing it now sends it to the smokehouse partially full (it won't carry over to the next batch). Release anyway?`
-      );
-      if (!ok) return;
-    }
     setReleasing(rackNumber);
     try {
-      // Persist this single rack to the smokehouse right now, so it survives closing the card.
       if (onReleaseRack) await onReleaseRack(rack, lotNumber);
-      sync(racks.map(r => r.rackNumber === rackNumber ? { ...r, released: true, persisted: true } : r), lotNumber);
+      sync(racks.map(r => r.rackNumber === rackNumber ? { ...r, released: true, persisted: true } : r), lotNumber, carriedOver);
     } finally {
       setReleasing(null);
     }
+  };
+
+  // Carry the trailing partial forward to the NEXT racking card. It leaves this card
+  // (marked carried_away so it no longer blocks completion) and is emitted in the plan
+  // as carriedPartial for StageWizard to write onto the next card.
+  const carryOverRack = (rackNumber) => {
+    const rack = racks.find(r => r.rackNumber === rackNumber);
+    if (!rack || rack.released || rack.persisted) return;
+    const carried = {
+      lbs: parseFloat((rack.lbs || 0).toFixed(2)),
+      lot_contributions: (rack.lot_contributions || []).filter(c => (c.lbs || 0) > 0),
+    };
+    setCarriedOver(carried);
+    sync(
+      racks.map(r => r.rackNumber === rackNumber ? { ...r, carried_away: true } : r),
+      lotNumber,
+      carried
+    );
+  };
+
+  const undoCarryOver = (rackNumber) => {
+    setCarriedOver(null);
+    sync(
+      racks.map(r => r.rackNumber === rackNumber ? { ...r, carried_away: false } : r),
+      lotNumber,
+      null
+    );
   };
 
   const addRack = () => {
@@ -302,14 +304,13 @@ export default function RackReleaseBuilder({ totalLbs, capacityLbs, openPartialR
       lbs: RACK_CAP,
       released: false,
       lot_contributions: [{ lot_number: lotNumber, lbs: RACK_CAP }],
-    }], lotNumber);
+    }], lotNumber, carriedOver);
   };
 
   const anyReleased = racks.some(r => r.released);
   const releasedCount = racks.filter(r => r.released).length;
   const releasedLbs = parseFloat(racks.filter(r => r.released).reduce((s, r) => s + r.lbs, 0).toFixed(2));
-  // A single trailing partial rack can stay in "limbo" to carry over to the next tumble batch.
-  const trailingPartial = computeOpenPartial(racks);
+  const trailingPartial = computeTrailingPartial(racks);
 
   return (
     <div className="space-y-4">
@@ -340,13 +341,16 @@ export default function RackReleaseBuilder({ totalLbs, capacityLbs, openPartialR
           {racks.map((rack) => {
             const isFull = rack.lbs >= RACK_CAP - 0.001;
             const isMixed = (rack.lot_contributions || []).filter(c => (c.lbs || 0) > 0).length > 1;
+            const isTrailingPartial = !isFull && !rack.released && trailingPartial?.rackNumber === rack.rackNumber;
             return (
               <div
                 key={rack.rackNumber}
                 className={`flex flex-col gap-2 p-3 rounded-lg border-2 transition-all ${
                   rack.released
                     ? "bg-chart-2/5 border-chart-2/40"
-                    : "bg-white border-border hover:border-chart-1/30"
+                    : rack.carried_away
+                      ? "bg-chart-1/5 border-chart-1/40"
+                      : "bg-white border-border hover:border-chart-1/30"
                 }`}
               >
                 <div className="flex items-center justify-between gap-3">
@@ -354,7 +358,7 @@ export default function RackReleaseBuilder({ totalLbs, capacityLbs, openPartialR
                     <p className="font-bold text-sm flex items-center gap-1.5">
                       Rack #{rack.rackNumber}
                       {rack.carried_over && (
-                        <Badge variant="secondary" className="text-[10px] gap-1 h-5"><Combine className="w-3 h-3" /> Carried over</Badge>
+                        <Badge variant="secondary" className="text-[10px] gap-1 h-5"><Combine className="w-3 h-3" /> Carried in</Badge>
                       )}
                     </p>
                     <span className="text-[11px] text-muted-foreground font-medium">
@@ -367,7 +371,7 @@ export default function RackReleaseBuilder({ totalLbs, capacityLbs, openPartialR
                       <input
                         type="number"
                         step="0.1"
-                        disabled={rack.released}
+                        disabled={rack.released || rack.carried_away}
                         value={rack.lbs}
                         onChange={(e) => handleWeightChange(rack.rackNumber, parseFloat(e.target.value) || 0)}
                         className="w-16 h-6 text-sm text-right font-bold bg-transparent border-0 focus:outline-none focus:ring-0"
@@ -379,10 +383,41 @@ export default function RackReleaseBuilder({ totalLbs, capacityLbs, openPartialR
                       <Badge className="bg-chart-2/15 text-chart-2 border-chart-2/30 border gap-1 h-8">
                         <CheckCircle2 className="w-3.5 h-3.5" /> Released
                       </Badge>
+                    ) : rack.carried_away ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => undoCarryOver(rack.rackNumber)}
+                        className="h-8 text-xs font-semibold gap-1.5"
+                      >
+                        <Combine className="w-3.5 h-3.5" /> Carried — Undo
+                      </Button>
+                    ) : isTrailingPartial ? (
+                      // Trailing partial: TWO explicit choices.
+                      <div className="flex items-center gap-1.5">
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => carryOverRack(rack.rackNumber)}
+                          className="h-8 text-xs font-semibold gap-1.5"
+                        >
+                          <Combine className="w-3.5 h-3.5" /> Carry Over
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          disabled={releasing !== null}
+                          onClick={() => releaseRack(rack.rackNumber)}
+                          className="h-8 text-xs font-semibold gap-1.5"
+                        >
+                          <Send className="w-3.5 h-3.5" />
+                          {releasing === rack.rackNumber ? "Sending…" : "Release"}
+                        </Button>
+                      </div>
                     ) : (
                       <Button
                         size="sm"
-                        variant={isFull ? "default" : "destructive"}
+                        variant="default"
                         disabled={releasing !== null}
                         onClick={() => releaseRack(rack.rackNumber)}
                         className="h-8 text-xs font-semibold gap-1.5"
@@ -421,8 +456,18 @@ export default function RackReleaseBuilder({ totalLbs, capacityLbs, openPartialR
             <div className="rounded-lg border border-chart-1/30 bg-chart-1/5 px-3 py-2 text-[11px] text-chart-1 flex items-start gap-2">
               <Combine className="w-3.5 h-3.5 shrink-0 mt-0.5" />
               <span>
-                The last rack is partial ({trailingPartial.lbs} lbs). This card is independent —
-                release every rack (including this partial) before completing, or its product will be lost.
+                Rack #{trailingPartial.rackNumber} is partial ({trailingPartial.lbs} lbs).
+                Tap <b>Carry Over</b> to top it up on the next card, or <b>Release</b> to send it
+                to the smokehouse now (use Release on the final batch).
+              </span>
+            </div>
+          )}
+
+          {carriedOver && (
+            <div className="rounded-lg border border-chart-1/40 bg-chart-1/10 px-3 py-2 text-[11px] text-chart-1 flex items-start gap-2">
+              <Combine className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+              <span>
+                {carriedOver.lbs} lbs will carry over to the next racking card. You can complete this card now.
               </span>
             </div>
           )}
