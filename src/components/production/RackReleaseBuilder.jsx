@@ -8,6 +8,78 @@ import { CheckCircle2, Layers, Plus, Send, Combine } from "lucide-react";
 
 const DEFAULT_LBS_PER_RACK = 320;
 
+// Single source of truth for laying out a card's racks.
+// 1. Keep racks already released to the smokehouse for this card.
+// 2. Pre-load any carried-over partial as Rack #1 and TOP IT UP to capacity FIRST.
+// 3. Pack the rest into as many FULL racks as possible.
+// 4. Only ONE trailing partial may remain (the final leftover) — middle racks are
+//    always full, so partials only ever appear on the first (carried-in) and last cards.
+function buildRacks({ totalLbs, rackCap, openPartialRack, persistedRacks, myLot }) {
+  const built = [];
+  let rackNumber = 1;
+  let remaining = parseFloat((totalLbs || 0).toFixed(2));
+
+  const sortedPersisted = (persistedRacks || []).slice().sort((a, b) => (a.rack_number || 0) - (b.rack_number || 0));
+  let persistedLbs = 0;
+  for (const r of sortedPersisted) {
+    built.push({
+      rackNumber: r.rack_number,
+      lbs: parseFloat((r.lbs || 0).toFixed(2)),
+      released: true,
+      persisted: true,
+      lot_contributions: r.lot_contributions?.length
+        ? r.lot_contributions
+        : [{ lot_number: r.lot_number || "", lbs: parseFloat((r.lbs || 0).toFixed(2)) }],
+    });
+    persistedLbs += r.lbs || 0;
+    rackNumber = Math.max(rackNumber, (r.rack_number || 0) + 1);
+  }
+  remaining = parseFloat(Math.max(0, remaining - persistedLbs).toFixed(2));
+
+  const carriedLot = openPartialRack?.lot_contributions?.[0]?.lot_number;
+  const carriedAlreadyPersisted = carriedLot
+    ? sortedPersisted.some(r => (r.lot_contributions || []).some(c => c.lot_number === carriedLot))
+    : false;
+
+  // Rack #1 = carried partial, topped up to capacity FIRST.
+  if (openPartialRack && (openPartialRack.lbs || 0) > 0 && !carriedAlreadyPersisted) {
+    const room = Math.max(0, rackCap - openPartialRack.lbs);
+    const topUp = parseFloat(Math.min(room, remaining).toFixed(2));
+    remaining = parseFloat((remaining - topUp).toFixed(2));
+    const contributions = [...(openPartialRack.lot_contributions || [])];
+    if (topUp > 0) contributions.push({ lot_number: myLot, lbs: topUp });
+    built.push({
+      rackNumber: rackNumber++,
+      lbs: parseFloat((openPartialRack.lbs + topUp).toFixed(2)),
+      released: false,
+      carried_over: true,
+      lot_contributions: contributions,
+    });
+  }
+
+  // Remaining weight → full racks, with a single trailing partial at the end.
+  while (remaining > 0.001) {
+    const rackLbs = parseFloat(Math.min(rackCap, remaining).toFixed(2));
+    remaining = parseFloat((remaining - rackLbs).toFixed(2));
+    built.push({
+      rackNumber: rackNumber++,
+      lbs: rackLbs,
+      released: false,
+      lot_contributions: [{ lot_number: myLot, lbs: rackLbs }],
+    });
+  }
+
+  if (built.length === 0) {
+    built.push({
+      rackNumber: 1,
+      lbs: parseFloat((totalLbs || 0).toFixed(2)),
+      released: false,
+      lot_contributions: [{ lot_number: myLot, lbs: parseFloat((totalLbs || 0).toFixed(2)) }],
+    });
+  }
+  return built;
+}
+
 /**
  * RackReleaseBuilder
  *
@@ -52,112 +124,18 @@ export default function RackReleaseBuilder({ totalLbs, capacityLbs, openPartialR
   // lbs fill the rest, topping up that partial first.
   const [racks, setRacks] = useState(() => {
     if (plan?.racks) return plan.racks;
-
-    const myLot = initialLot;
-    const built = [];
-    let remaining = totalLbs;
-    let rackNumber = 1;
-
-    // Racks already released to the smokehouse for this card → pre-mark as released.
-    if (persistedRacks && persistedRacks.length > 0) {
-      const sorted = persistedRacks.slice().sort((a, b) => (a.rack_number || 0) - (b.rack_number || 0));
-      for (const r of sorted) {
-        built.push({
-          rackNumber: r.rack_number,
-          lbs: parseFloat((r.lbs || 0).toFixed(2)),
-          released: true,
-          persisted: true,
-          lot_contributions: r.lot_contributions?.length
-            ? r.lot_contributions
-            : [{ lot_number: r.lot_number || "", lbs: parseFloat((r.lbs || 0).toFixed(2)) }],
-        });
-        rackNumber = Math.max(rackNumber, (r.rack_number || 0) + 1);
-      }
-      const persistedLbs = sorted.reduce((s, r) => s + (r.lbs || 0), 0);
-      remaining = parseFloat(Math.max(0, totalLbs - persistedLbs).toFixed(2));
-      while (remaining > 0.001) {
-        const rackLbs = parseFloat(Math.min(RACK_CAP, remaining).toFixed(2));
-        remaining = parseFloat((remaining - rackLbs).toFixed(2));
-        built.push({
-          rackNumber: rackNumber++,
-          lbs: rackLbs,
-          released: false,
-          lot_contributions: [{ lot_number: myLot, lbs: rackLbs }],
-        });
-      }
-      return built;
-    }
-
-    // Rack #1 = carried-over partial, if any
-    if (openPartialRack && (openPartialRack.lbs || 0) > 0) {
-      const room = Math.max(0, RACK_CAP - openPartialRack.lbs);
-      const topUp = parseFloat(Math.min(room, remaining).toFixed(2));
-      remaining = parseFloat((remaining - topUp).toFixed(2));
-      const contributions = [...(openPartialRack.lot_contributions || [])];
-      if (topUp > 0) contributions.push({ lot_number: myLot, lbs: topUp });
-      built.push({
-        rackNumber: rackNumber++,
-        lbs: parseFloat((openPartialRack.lbs + topUp).toFixed(2)),
-        released: false,
-        lot_contributions: contributions,
-        carried_over: true,
-      });
-    }
-
-    // Remaining racks filled from this batch
-    while (remaining > 0.001) {
-      const rackLbs = parseFloat(Math.min(RACK_CAP, remaining).toFixed(2));
-      remaining = parseFloat((remaining - rackLbs).toFixed(2));
-      built.push({
-        rackNumber: rackNumber++,
-        lbs: rackLbs,
-        released: false,
-        lot_contributions: [{ lot_number: myLot, lbs: rackLbs }],
-      });
-    }
-
-    if (built.length === 0) {
-      built.push({
-        rackNumber: 1,
-        lbs: parseFloat(totalLbs.toFixed(2)),
-        released: false,
-        lot_contributions: [{ lot_number: myLot, lbs: parseFloat(totalLbs.toFixed(2)) }],
-      });
-    }
-    return built;
+    return buildRacks({ totalLbs, rackCap: RACK_CAP, openPartialRack, persistedRacks, myLot: initialLot });
   });
 
   // openPartialRack resolves AFTER mount (async order query). If the initial state was
-  // built before it arrived, rebuild so Rack #1 pre-loads the carried-over leftover.
+  // built before it arrived, rebuild so Rack #1 pre-loads the carried-over leftover and
+  // tops up to full racks first.
   useEffect(() => {
     if (!openPartialRack || (openPartialRack.lbs || 0) <= 0) return;
     if (persistedRacks && persistedRacks.length > 0) return;
     if (racks.some(r => r.carried_over || r.released || r.persisted)) return;
-
     const myLot = lotNumber || "";
-    const built = [];
-    let remaining = totalLbs;
-    let rackNumber = 1;
-
-    const room = Math.max(0, RACK_CAP - openPartialRack.lbs);
-    const topUp = parseFloat(Math.min(room, remaining).toFixed(2));
-    remaining = parseFloat((remaining - topUp).toFixed(2));
-    const contributions = [...(openPartialRack.lot_contributions || [])];
-    if (topUp > 0) contributions.push({ lot_number: myLot, lbs: topUp });
-    built.push({
-      rackNumber: rackNumber++,
-      lbs: parseFloat((openPartialRack.lbs + topUp).toFixed(2)),
-      released: false,
-      carried_over: true,
-      lot_contributions: contributions,
-    });
-
-    while (remaining > 0.001) {
-      const rackLbs = parseFloat(Math.min(RACK_CAP, remaining).toFixed(2));
-      remaining = parseFloat((remaining - rackLbs).toFixed(2));
-      built.push({ rackNumber: rackNumber++, lbs: rackLbs, released: false, lot_contributions: [{ lot_number: myLot, lbs: rackLbs }] });
-    }
-    sync(built, myLot, carriedOver);
+    sync(buildRacks({ totalLbs, rackCap: RACK_CAP, openPartialRack, persistedRacks: [], myLot }), myLot, carriedOver);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openPartialRack]);
 
@@ -165,59 +143,20 @@ export default function RackReleaseBuilder({ totalLbs, capacityLbs, openPartialR
   useEffect(() => {
     if (!persistedRacks || persistedRacks.length === 0) return;
     if (racks.some(r => r.persisted)) return;
-
-    const sorted = persistedRacks.slice().sort((a, b) => (a.rack_number || 0) - (b.rack_number || 0));
-    const built = sorted.map(r => ({
-      rackNumber: r.rack_number,
-      lbs: parseFloat((r.lbs || 0).toFixed(2)),
-      released: true,
-      persisted: true,
-      lot_contributions: r.lot_contributions?.length
-        ? r.lot_contributions
-        : [{ lot_number: r.lot_number || "", lbs: parseFloat((r.lbs || 0).toFixed(2)) }],
-    }));
-
-    const persistedLbs = sorted.reduce((s, r) => s + (r.lbs || 0), 0);
-    const carriedLot = openPartialRack?.lot_contributions?.[0]?.lot_number;
-    const carriedAlreadyPersisted = carriedLot
-      ? sorted.some(r => (r.lot_contributions || []).some(c => c.lot_number === carriedLot))
-      : false;
-
-    let rackNumber = Math.max(...sorted.map(r => r.rack_number || 0)) + 1;
     const myLot = lotNumber || "";
-
-    let remaining = totalLbs;
-    if (openPartialRack && (openPartialRack.lbs || 0) > 0 && !carriedAlreadyPersisted) {
-      const room = Math.max(0, RACK_CAP - openPartialRack.lbs);
-      const topUp = parseFloat(Math.min(room, Math.max(0, totalLbs - persistedLbs)).toFixed(2));
-      const contributions = [...(openPartialRack.lot_contributions || [])];
-      if (topUp > 0) contributions.push({ lot_number: myLot, lbs: topUp });
-      built.push({
-        rackNumber: rackNumber++,
-        lbs: parseFloat((openPartialRack.lbs + topUp).toFixed(2)),
-        released: false,
-        carried_over: true,
-        lot_contributions: contributions,
-      });
-      remaining = parseFloat((totalLbs - persistedLbs - topUp).toFixed(2));
-    } else {
-      remaining = parseFloat(Math.max(0, totalLbs - persistedLbs).toFixed(2));
-    }
-
-    while (remaining > 0.001) {
-      const rackLbs = parseFloat(Math.min(RACK_CAP, remaining).toFixed(2));
-      remaining = parseFloat((remaining - rackLbs).toFixed(2));
-      built.push({ rackNumber: rackNumber++, lbs: rackLbs, released: false, lot_contributions: [{ lot_number: myLot, lbs: rackLbs }] });
-    }
-    sync(built, myLot, carriedOver);
+    sync(buildRacks({ totalLbs, rackCap: RACK_CAP, openPartialRack, persistedRacks, myLot }), myLot, carriedOver);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [persistedRacks]);
 
-  // The trailing partial = last rack that is NOT full, NOT released, NOT yet carried over.
+  // The trailing partial = the LAST rack that is NOT full, NOT released, NOT carried away.
+  // Scanning from the end guarantees only the final leftover is offered the Carry Over /
+  // Release choice — middle racks are always full, so they never show partial controls.
   const computeTrailingPartial = (rackList) => {
-    const open = rackList.find(r => !r.released && !r.carried_away && r.lbs < RACK_CAP - 0.001 && r.lbs > 0);
-    if (!open) return null;
-    return open;
+    for (let i = rackList.length - 1; i >= 0; i--) {
+      const r = rackList[i];
+      if (!r.released && !r.carried_away && r.lbs > 0 && r.lbs < RACK_CAP - 0.001) return r;
+    }
+    return null;
   };
 
   const sync = (nextRacks, nextLot, nextCarried) => {
