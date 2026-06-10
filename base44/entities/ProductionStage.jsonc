@@ -80,6 +80,10 @@
       "type": "string",
       "description": "For chilling stages: the ID of the cooking ProductionStage that produced this chilling stage. Ensures each cook batch maps to exactly one cooling batch even when cook lot numbers are reused."
     },
+    "source_chilling_stage_id": {
+      "type": "string",
+      "description": "For packaging stages: the ID of the chilling ProductionStage that produced this packaging stage. Ensures each cooling batch maps to exactly one packaging stage even when cook_batch_lot values are reused/empty across batches (prevents two cooling batches collapsing into one packaging stage)."
+    },
     "source_tumble_stage_id": {
       "type": "string",
       "description": "For racking stages: the ID of the tumble ProductionStage that released this racking card. Lets the TumbleWizard seed only racking cards produced by THIS tumble stage, so opening one tumble card never reads another tumble card's batches and falsely auto-completes."

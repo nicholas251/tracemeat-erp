@@ -1115,13 +1115,17 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
               const cooledQty = updates.output_qty_lbs || stage.input_qty_lbs || 0;
               const cooledLot = updates.output_lot_number || stage.input_lot_number || "";
               const cookBatchLotKey = stage.cook_batch_lot || cooledLot;
-              // Only create if no packaging stage for this cook batch already exists (completed or not)
-              const existingPackStages = await base44.entities.ProductionStage.filter({
+              // Dedup on the SOURCE chilling stage id — NOT cook_batch_lot. Operators often
+              // reuse the same default cook lot (or it's empty) across multiple separate
+              // cooling batches; keying on the lot would make the 2nd/3rd cooling batch find
+              // the 1st batch's packaging stage already present and skip creation, silently
+              // collapsing two cooling batches into one packaging stage (a lost batch).
+              const allPackForOrder = await base44.entities.ProductionStage.filter({
                 order_id: stage.order_id,
                 capability_key: "packaging",
-                cook_batch_lot: cookBatchLotKey,
               });
-              if (existingPackStages.length === 0) {
+              const alreadyPackaged = allPackForOrder.some(s => s.source_chilling_stage_id === stage.id);
+              if (!alreadyPackaged) {
                 await base44.entities.ProductionStage.create({
                   order_id: stage.order_id,
                   order_number: stage.order_number,
@@ -1136,6 +1140,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
                   input_qty_lbs: cooledQty,
                   input_lot_number: cooledLot,
                   cook_batch_lot: cookBatchLotKey,
+                  source_chilling_stage_id: stage.id,
                 });
               }
             }
