@@ -178,7 +178,7 @@ function buildMeasurementSteps(stage, product, capKey, casingBuckets = [], usesS
           { key: "output_qty_lbs", label: "Total Output Weight (lbs)", type: "number", defaultValue: stage?.input_qty_lbs, disabled: true },
           { key: "packages_produced", label: "Cases to Package (Finished Product)", type: "number", defaultValue: maxFullCases, hint: `Max: ${maxFullCases} full cases (${remainderLbs.toFixed(2)} lbs remainder)` },
           ...(hideLotField ? [] : [{ key: "lot_number", label: "Finished Goods Lot #", type: "text", defaultValue: stage?.input_lot_number || "" }]),
-          { key: "finished_product_splits", label: "Split Remainder into Other Product (optional)", type: "finished_product_split" },
+          { key: "finished_product_splits", label: "Package Remainder as Other Product (same category)", type: "finished_product_split" },
           { key: "notes", label: "Notes / Observations", type: "textarea" },
         ],
       });
@@ -338,18 +338,22 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
     enabled: open && capKey === "chopping" && !!cureBucket?.id,
   });
 
-  // For packaging: fetch compatible hot dog products (same family) PLUS the original product
+  // For packaging: products eligible to receive the remainder.
+  // Hot dogs split within their family; everything else splits across any ACTIVE product
+  // in the SAME category (e.g. a poultry/chicken product's remainder → other chicken products).
+  // The original product is excluded — its cases are handled by the main FG push.
    const { data: compatibleHotdogProducts = [] } = useQuery({
-     queryKey: ["compatibleHotdogs", product?.id],
+     queryKey: ["compatibleSplitProducts", product?.id],
      queryFn: async () => {
-       if (!product?.is_hotdog || !product?.hotdog_family) return [];
-       const allProducts = await base44.entities.Product.filter({ is_hotdog: true });
-       return allProducts.filter(p =>
-         p.is_hotdog &&
-         p.hotdog_family === product.hotdog_family
-       );
+       if (!product) return [];
+       if (product.is_hotdog && product.hotdog_family) {
+         const allProducts = await base44.entities.Product.filter({ is_hotdog: true });
+         return allProducts.filter(p => p.is_hotdog && p.hotdog_family === product.hotdog_family && p.id !== product.id);
+       }
+       const sameCategory = await base44.entities.Product.filter({ category: product.category, status: "active" });
+       return sameCategory.filter(p => p.id !== product.id);
      },
-     enabled: !!(open && capKey === "packaging" && product?.is_hotdog),
+     enabled: !!(open && capKey === "packaging" && product),
    });
 
   // For ingredient-batch stages (blending)
@@ -1478,6 +1482,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
               form={form}
               cookBatch={cookBatch}
               cookPlan={cookPlan}
+              product={product}
               saving={saving}
               onBack={() => setStep(lastStep - 1)}
               onComplete={handleComplete}

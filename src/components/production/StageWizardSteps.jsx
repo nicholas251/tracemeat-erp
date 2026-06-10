@@ -454,11 +454,28 @@ export function FieldInput({ field, value, onChange, casingBuckets = [], cureInv
   );
 }
 
-export function FinalStep({ stage, capKey, stageLabel, resolvedBatches, form, cookBatch, cookPlan, saving, onBack, onComplete }) {
+export function FinalStep({ stage, capKey, stageLabel, resolvedBatches, form, cookBatch, cookPlan, product, saving, onBack, onComplete }) {
   const isLinking = capKey === "linking";
   const isRacking = capKey === "racking" || capKey === "racking_product";
   const isCooking = capKey === "cooking";
   const isPackaging = capKey === "packaging" && form.case_weights;
+
+  // ── Packaging weight allocation guard ──
+  // The operator must account for ALL incoming weight: original-product cases + any
+  // remainder split into other same-category products. Completion is blocked until the
+  // allocated weight matches the input weight (within a small rounding tolerance).
+  const isPackagingStage = capKey === "packaging";
+  const packTotalLbs = stage?.input_qty_lbs || 0;
+  const packCaseWeight = product?.case_weight_lbs || 0;
+  const packOriginalLbs = (Number(form.packages_produced) || 0) * packCaseWeight;
+  const packSplits = Array.isArray(form.finished_product_splits) ? form.finished_product_splits : [];
+  const packSplitLbs = packSplits.reduce((s, raw) => {
+    const sp = typeof raw === "string" ? JSON.parse(raw) : raw;
+    return s + ((Number(sp?.quantity_cases) || 0) * (Number(sp?.case_weight_lbs) || 0));
+  }, 0);
+  const packAllocatedLbs = parseFloat((packOriginalLbs + packSplitLbs).toFixed(2));
+  const packUnallocatedLbs = parseFloat((packTotalLbs - packAllocatedLbs).toFixed(2));
+  const packFullyAllocated = packTotalLbs > 0 && Math.abs(packUnallocatedLbs) < 0.01;
 
   const releasedRacks = isRacking && cookPlan?.racks ? cookPlan.racks.filter(r => r.released) : [];
   const releasedLbs = parseFloat(releasedRacks.reduce((s, r) => s + (r.lbs || 0), 0).toFixed(2));
@@ -474,7 +491,8 @@ export function FinalStep({ stage, capKey, stageLabel, resolvedBatches, form, co
   const canComplete = isLinking ? !!cookBatch
     : isRacking ? (releasedRacks.length > 0 || !!cookPlan?.carriedPartial)
     : isCooking ? !!cookBatch
-    : (isPackaging ? form.case_weights?.length > 0 : true);
+    : isPackagingStage ? (packFullyAllocated && (!isPackaging || form.case_weights?.length > 0))
+    : true;
 
   return (
     <div className="space-y-5">
@@ -517,6 +535,22 @@ export function FinalStep({ stage, capKey, stageLabel, resolvedBatches, form, co
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Cases (Finished Product)</span>
               <span className="font-semibold">{form.packages_produced || 0}</span>
+            </div>
+            <div className={`rounded-lg border p-2.5 mt-1 ${packFullyAllocated ? "border-chart-2/30 bg-chart-2/5" : "border-amber-300 bg-amber-50"}`}>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Weight Allocated</span>
+                <span className={`font-semibold ${packFullyAllocated ? "text-chart-2" : "text-amber-700"}`}>
+                  {packAllocatedLbs.toFixed(2)} / {packTotalLbs.toFixed(2)} lbs
+                </span>
+              </div>
+              {!packFullyAllocated && (
+                <p className="text-xs text-amber-700 mt-1 flex items-center gap-1.5">
+                  <AlertCircle className="w-3.5 h-3.5" />
+                  {packUnallocatedLbs > 0
+                    ? `${packUnallocatedLbs.toFixed(2)} lbs unallocated — add cases or split the remainder into another ${product?.category || "same-category"} product to complete.`
+                    : `Over-allocated by ${Math.abs(packUnallocatedLbs).toFixed(2)} lbs — reduce cases or splits.`}
+                </p>
+              )}
             </div>
             {form.finished_product_splits && Array.isArray(form.finished_product_splits) && form.finished_product_splits.length > 0 && (
               <div className="space-y-1 pt-1">

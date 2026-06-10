@@ -18,6 +18,7 @@ export default function ProductSplitAllocator({ compatibleProducts = [], splits 
     const newSplit = {
       product_id: compatibleProducts[0]?.id || "",
       product_name: compatibleProducts[0]?.name || "",
+      case_weight_lbs: compatibleProducts[0]?.case_weight_lbs || 0,
       quantity_cases: 0,
     };
     setLocalSplits([...localSplits, newSplit]);
@@ -29,6 +30,8 @@ export default function ProductSplitAllocator({ compatibleProducts = [], splits 
     if (field === "product_id") {
       const product = compatibleProducts.find(p => p.id === value);
       updated[idx].product_name = product?.name || "";
+      // Persist case weight so downstream allocation guards can convert cases→lbs
+      updated[idx].case_weight_lbs = product?.case_weight_lbs || 0;
     }
     setLocalSplits(updated);
   };

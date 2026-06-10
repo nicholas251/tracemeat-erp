@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Thermometer, Layers, AlertCircle, Loader2, CheckCircle2 } from "lucide-react";
 import TumbleBatchCard from "./TumbleBatchCard";
+import { buildStageLot } from "@/lib/stageLot";
 
 /**
  * TumbleWizard — clean, self-contained tumbling flow.
@@ -198,19 +199,19 @@ export default function TumbleWizard({ stage, open, onClose, onCompleted }) {
       }
 
       // 3. Create a racking card carrying this batch's weight.
-      //    The lot must be UNIQUE per tumble batch across the whole plant — date + batch
-      //    number alone collide when two orders (or a re-run) release "Batch 1" the same
-      //    day. We embed the order number and a short slice of this tumble stage's id so
-      //    every tumble batch is uniquely identified and carried through racking → cook.
-      //    Keep the "-B<n>" suffix LAST so the resume-seeding regex below still matches.
-      const datePart = new Date().toISOString().slice(0, 10).replace(/-/g, "");
-      const orderPart = (stage.order_number || "").replace(/[^A-Za-z0-9]/g, "") || "ORD";
-      const stagePart = (stage.id || "").slice(-4).toUpperCase();
+      //    Lot uses the STANDARD plant-wide format <DATE>-<ORDER>-RACK-B<n> (via
+      //    buildStageLot) so racking lots read the same as every other stage. It's
+      //    unique per order + batch + day, and the "-B<n>" suffix stays LAST so the
+      //    resume-seeding regex below still matches.
       // Use the parent tumble stage's batch number (N of M) when present, so each
       // separate tumble batch yields -B1 / -B2 / -B3. Fall back to the internal index
       // for single-batch tumble stages that aren't part of a split set.
       const lotBatchNum = stageBatchNumber || batch.batch_number;
-      const lot = `TUMBLE-${datePart}-${orderPart}-${stagePart}-B${lotBatchNum}`;
+      const lot = buildStageLot({
+        orderNumber: stage.order_number,
+        capabilityKey: "racking",
+        batchNumber: lotBatchNum,
+      });
 
       // Authoritative dedupe against the DB (not local state). A refetch race in the
       // seeding effect could leave a batch looking un-released locally, letting the
