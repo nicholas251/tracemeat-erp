@@ -134,7 +134,10 @@ export default function ProductionOrderFormDialog({ open, onClose, onSave, order
       ...form,
       quantity_to_produce: Number(form.quantity_to_produce),
       flow_id: form.flow_id || "",
-      flow_name: form.flow_name || ""
+      flow_name: form.flow_name || "",
+      // New orders use standardized, auto-generated stage lots. Existing orders being
+      // edited keep whatever flag they already had (don't retroactively change them).
+      uses_standard_lots: order ? form.uses_standard_lots : true,
     });
   };
 

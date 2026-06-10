@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Package, Thermometer, Layers, FlaskConical } from "lucide-react";
 import { IntroStep, BatchConfirmStep, MeasureStep, FinalStep } from "./StageWizardSteps";
+import { buildStageLot } from "@/lib/stageLot";
 
 // ─── Stage icon map ───────────────────────────────────────────────────────────
 const STAGE_ICONS = {
@@ -51,8 +52,11 @@ function buildIngredientBatchesMultiple(stage, product, capKey, numBatches) {
 }
 
 // ─── Build measurement steps for cooking / chilling / linking / packaging ────
-function buildMeasurementSteps(stage, product, capKey, casingBuckets = []) {
+function buildMeasurementSteps(stage, product, capKey, casingBuckets = [], usesStandardLots = false) {
   const steps = [];
+  // When standardized lots are on, every stage's output lot is auto-generated and locked
+  // at completion — so the operator-typed lot fields are hidden from the wizard entirely.
+  const hideLotField = usesStandardLots;
 
   if (capKey === "chopping") {
     steps.push({
@@ -65,7 +69,7 @@ function buildMeasurementSteps(stage, product, capKey, casingBuckets = []) {
         { key: "cure_amount_lbs", label: "Cure Added (lbs)", type: "number" },
         { key: "water_amount_lbs", label: "Water Amount Added (lbs)", type: "number" },
         { key: "output_qty_lbs", label: "Output Qty (lbs)", type: "number" },
-        { key: "output_lot_number", label: "Chopping Output Lot #", type: "text", placeholder: "e.g. CHOP-2024-001" },
+        ...(hideLotField ? [] : [{ key: "output_lot_number", label: "Chopping Output Lot #", type: "text", placeholder: "e.g. CHOP-2024-001" }]),
         { key: "notes", label: "Notes / Observations", type: "textarea" },
       ],
     });
@@ -106,7 +110,7 @@ function buildMeasurementSteps(stage, product, capKey, casingBuckets = []) {
       fields: [
         { key: "duration_minutes", label: "Mix Duration (minutes)", type: "number" },
         { key: "output_qty_lbs", label: "Combined Output Qty (lbs)", type: "number" },
-        { key: "output_lot_number", label: "Linker Batch Lot #", type: "text", placeholder: "e.g. MIX-2024-001" },
+        ...(hideLotField ? [] : [{ key: "output_lot_number", label: "Linker Batch Lot #", type: "text", placeholder: "e.g. MIX-2024-001" }]),
       ],
     });
   }
@@ -135,7 +139,7 @@ function buildMeasurementSteps(stage, product, capKey, casingBuckets = []) {
         fields: [
           { key: "temperature_f", label: "Cook End Temperature (°F)", type: "number" },
           { key: "duration_minutes", label: "Cook Time (minutes)", type: "number" },
-          { key: "output_lot_number", label: "Cooked Lot #", type: "text", placeholder: "e.g. COOK-2024-001", defaultValue: cookLotDefault },
+          ...(hideLotField ? [] : [{ key: "output_lot_number", label: "Cooked Lot #", type: "text", placeholder: "e.g. COOK-2024-001", defaultValue: cookLotDefault }]),
           { key: "notes", label: "Notes / Observations", type: "textarea" },
         ],
       });
@@ -153,7 +157,7 @@ function buildMeasurementSteps(stage, product, capKey, casingBuckets = []) {
       fields: [
         { key: "temperature_f", label: "Exit Temp (°F)", type: "number" },
         { key: "duration_minutes", label: "Chill Duration (minutes)", type: "number" },
-        { key: "output_lot_number", label: "Chilled Lot #", type: "text", placeholder: "e.g. CHILL-2024-001", defaultValue: chillLotDefault },
+        ...(hideLotField ? [] : [{ key: "output_lot_number", label: "Chilled Lot #", type: "text", placeholder: "e.g. CHILL-2024-001", defaultValue: chillLotDefault }]),
         { key: "notes", label: "Notes / Observations", type: "textarea" },
       ],
     });
@@ -173,7 +177,7 @@ function buildMeasurementSteps(stage, product, capKey, casingBuckets = []) {
         fields: [
           { key: "output_qty_lbs", label: "Total Output Weight (lbs)", type: "number", defaultValue: stage?.input_qty_lbs, disabled: true },
           { key: "packages_produced", label: "Cases to Package (Finished Product)", type: "number", defaultValue: maxFullCases, hint: `Max: ${maxFullCases} full cases (${remainderLbs.toFixed(2)} lbs remainder)` },
-          { key: "lot_number", label: "Finished Goods Lot #", type: "text", defaultValue: stage?.input_lot_number || "" },
+          ...(hideLotField ? [] : [{ key: "lot_number", label: "Finished Goods Lot #", type: "text", defaultValue: stage?.input_lot_number || "" }]),
           { key: "finished_product_splits", label: "Split Remainder into Other Product (optional)", type: "finished_product_split" },
           { key: "notes", label: "Notes / Observations", type: "textarea" },
         ],
@@ -211,16 +215,21 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
   const capKey = stage?.capability_key;
   const usesIngredientBatches = capKey === "blending";
 
+  const { data: wizardOrder } = useQuery({
+    queryKey: ["wizardOrder", stage?.order_id],
+    queryFn: () => base44.entities.ProductionOrder.filter({ id: stage.order_id }).then(r => r?.[0] || null),
+    enabled: open && !!stage,
+  });
+  const usesStandardLots = !!wizardOrder?.uses_standard_lots;
+
   const { data: product } = useQuery({
     queryKey: ["wizardProduct", stage?.order_id],
     queryFn: async () => {
-      const orders = await base44.entities.ProductionOrder.filter({ id: stage.order_id });
-      const order = orders[0];
-      if (!order?.product_id) return null;
-      const products = await base44.entities.Product.filter({ id: order.product_id });
+      if (!wizardOrder?.product_id) return null;
+      const products = await base44.entities.Product.filter({ id: wizardOrder.product_id });
       return products[0] || null;
     },
-    enabled: open && !!stage,
+    enabled: open && !!stage && !!wizardOrder,
   });
 
   const { data: casingBuckets = [] } = useQuery({
@@ -359,7 +368,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
 
   // For measurement stages
   const measureSteps = !usesIngredientBatches
-    ? buildMeasurementSteps(stage, product, capKey, casingBuckets)
+    ? buildMeasurementSteps(stage, product, capKey, casingBuckets, usesStandardLots)
     : [];
 
   // ── Navigation boundaries ──
@@ -417,6 +426,29 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
      const today_str = new Date().toISOString().slice(0, 10);
 
      try {
+      // ── Standardized stage lots (new orders only) ──────────────────────────
+      // When the order opted into standardized lots, every stage's output lot is
+      // auto-generated in the format <DATE>-<ORDER>-<STAGE>[-B<n>] and locked.
+      // We override the form's lot value here so all downstream routing (blending,
+      // chopping, mixer, cooking, chilling, packaging) inherits it untouched.
+      {
+        const stdOrder = await base44.entities.ProductionOrder.filter({ id: stage.order_id }).then(r => r?.[0]);
+        if (stdOrder?.uses_standard_lots) {
+          const stdLot = buildStageLot({
+            orderNumber: stage.order_number,
+            capabilityKey: capKey,
+            batchNumber: usesIngredientBatches && currentBatch ? currentBatch.batchNumber : null,
+          });
+          if (capKey === "packaging") {
+            setForm(f => ({ ...f, lot_number: stdLot }));
+            form.lot_number = stdLot;
+          } else {
+            setForm(f => ({ ...f, output_lot_number: stdLot }));
+            form.output_lot_number = stdLot;
+          }
+        }
+      }
+
       if (usesIngredientBatches && currentBatch) {
         // For blending: complete one batch at a time w/ lot traceability
         const batchLbs = currentBatch.batchLbs;
