@@ -434,10 +434,22 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
       {
         const stdOrder = await base44.entities.ProductionOrder.filter({ id: stage.order_id }).then(r => r?.[0]);
         if (stdOrder?.uses_standard_lots) {
+          // Determine this stage's batch number for the -B<n> suffix so multiple batches
+          // of the SAME stage never collide on one lot:
+          //  • blending → the ingredient batch number being completed
+          //  • cooking/chilling/packaging → the cook-batch number (CB<n>) carried on the
+          //    stage's cook_batch_lot, so CB1/CB2/CB3 each get their own -B1/-B2/-B3 lot
+          let stdBatchNumber = null;
+          if (usesIngredientBatches && currentBatch) {
+            stdBatchNumber = currentBatch.batchNumber;
+          } else {
+            const cbMatch = (stage.cook_batch_lot || "").match(/CB(\d+)/i);
+            if (cbMatch) stdBatchNumber = parseInt(cbMatch[1], 10);
+          }
           const stdLot = buildStageLot({
             orderNumber: stage.order_number,
             capabilityKey: capKey,
-            batchNumber: usesIngredientBatches && currentBatch ? currentBatch.batchNumber : null,
+            batchNumber: stdBatchNumber,
           });
           if (capKey === "packaging") {
             setForm(f => ({ ...f, lot_number: stdLot }));
