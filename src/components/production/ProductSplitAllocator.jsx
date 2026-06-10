@@ -75,7 +75,7 @@ export default function ProductSplitAllocator({ compatibleProducts = [], splits 
                 <div className="space-y-1.5">
                   <Label className="text-xs font-medium">Product</Label>
                   <Select value={split.product_id || ""} onValueChange={(val) => updateSplit(idx, "product_id", val)}>
-                    <SelectTrigger className="h-9 text-sm">
+                    <SelectTrigger className="h-9 text-sm bg-slate-200 border-slate-400 text-slate-900">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>

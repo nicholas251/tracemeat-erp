@@ -339,7 +339,7 @@ export function FieldInput({ field, value, onChange, casingBuckets = [], cureInv
       <div className="space-y-1.5">
         <Label className="text-sm font-semibold">{field.label}</Label>
         <Select value={value || ""} onValueChange={onChange}>
-          <SelectTrigger className="h-11">
+          <SelectTrigger className="h-11 bg-slate-200 border-slate-400 text-slate-900">
             <SelectValue placeholder="Same as original product (default)" />
           </SelectTrigger>
           <SelectContent>
@@ -375,7 +375,7 @@ export function FieldInput({ field, value, onChange, casingBuckets = [], cureInv
           const bucket = (field.options || casingBuckets).find(b => b.id === v);
           onCasingSelect(v, bucket?.name || "");
         }}>
-          <SelectTrigger className="h-11"><SelectValue placeholder="Select casings..." /></SelectTrigger>
+          <SelectTrigger className="h-11 bg-slate-200 border-slate-400 text-slate-900"><SelectValue placeholder="Select casings..." /></SelectTrigger>
           <SelectContent>
             {(field.options || casingBuckets).map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
           </SelectContent>
@@ -388,7 +388,7 @@ export function FieldInput({ field, value, onChange, casingBuckets = [], cureInv
       <div className="space-y-1.5">
         <Label className="text-sm font-semibold">{field.label}</Label>
         <Select value={value || ""} onValueChange={onChange}>
-          <SelectTrigger className="h-11">
+          <SelectTrigger className="h-11 bg-slate-200 border-slate-400 text-slate-900">
             <SelectValue placeholder={cureInventory.length === 0 ? "No cure inventory" : "Select cure lot..."} />
           </SelectTrigger>
           <SelectContent>
