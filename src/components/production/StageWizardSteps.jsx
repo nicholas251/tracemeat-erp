@@ -156,16 +156,23 @@ export function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form,
   const spiceBlocksNext = spiceIsShort && !spiceShortNotes?.trim();
 
   const isCookStage = capKey === "cooking" && stepDef.id === "cook";
-  const tempTooLow = isCookStage && form.temperature_f !== undefined && form.temperature_f !== "" && Number(form.temperature_f) < 165;
-  const lowTempBlocksNext = tempTooLow && !form.notes?.trim();
+  const cookTempEntered = isCookStage && form.temperature_f !== undefined && form.temperature_f !== "";
+  // Cooking must reach the 165°F food-safety minimum — hard gate, no override.
+  const cookTempTooLow = cookTempEntered && Number(form.temperature_f) < 165;
   // Cooking now requires the operator to assemble a cook batch from released racks first.
   const cookNeedsBatch = isCookStage && !cookBatch;
+
+  const isChillStage = capKey === "chilling" && stepDef.id === "chill";
+  const chillTempEntered = isChillStage && form.temperature_f !== undefined && form.temperature_f !== "";
+  // Chilling must drop to 40°F or lower — hard gate, no override.
+  const chillTempTooHigh = chillTempEntered && Number(form.temperature_f) > 40;
 
   const canProceed = isLinking ? !!cookBatch
      : isRacking ? (cookPlan?.racks?.some(r => r.released) || !!cookPlan?.carriedPartial)
      : isPackaging ? (form.case_count > 0 && caseWeights.length === parseInt(form.case_count))
      : isMixerInputs ? (!!form.pork_lot_confirmed && (stage?.binder_lot_number ? !!form.binder_lot_confirmed : false))
-     : isCookStage ? (!lowTempBlocksNext && !cookNeedsBatch)
+     : isCookStage ? (cookTempEntered && !cookTempTooLow && !cookNeedsBatch)
+     : isChillStage ? (chillTempEntered && !chillTempTooHigh)
      : !spiceBlocksNext;
 
   return (
@@ -211,13 +218,25 @@ export function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form,
         </div>
       )}
 
-      {isCookStage && tempTooLow && (
-        <div className="rounded-lg border-2 border-amber-400 bg-amber-50 p-3 space-y-2">
+      {isCookStage && cookTempTooLow && (
+        <div className="rounded-lg border-2 border-destructive/50 bg-destructive/5 p-3 space-y-2">
           <div className="flex items-start gap-2">
-            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+            <AlertCircle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
             <div>
-              <p className="text-sm font-semibold text-amber-900">Temperature Below 165°F</p>
-              <p className="text-xs text-amber-800 mt-0.5">Notes are required for temperatures below 165°F safety threshold.</p>
+              <p className="text-sm font-semibold text-destructive">Temperature Below 165°F</p>
+              <p className="text-xs text-destructive/90 mt-0.5">Cook must reach at least 165°F to pass food safety. You can't continue until the end temperature is 165°F or higher.</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isChillStage && chillTempTooHigh && (
+        <div className="rounded-lg border-2 border-destructive/50 bg-destructive/5 p-3 space-y-2">
+          <div className="flex items-start gap-2">
+            <AlertCircle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-semibold text-destructive">Temperature Above 40°F</p>
+              <p className="text-xs text-destructive/90 mt-0.5">Chill must drop to 40°F or lower. You can't continue until the exit temperature is 40°F or below.</p>
             </div>
           </div>
         </div>

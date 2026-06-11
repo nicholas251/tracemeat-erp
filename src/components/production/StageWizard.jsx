@@ -820,6 +820,27 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
             });
           }
         }
+        // ── Food-safety temperature gates (backstop for the UI guards) ──
+        // Cook must reach ≥165°F; chill must drop to ≤40°F. Block completion otherwise.
+        if (capKey === "cooking") {
+          const cookF = Number(updates.temperature_f);
+          if (!updates.temperature_f || isNaN(cookF) || cookF < 165) {
+            await base44.entities.ProductionStage.update(stage.id, { status: "in_progress" });
+            setSaving(false);
+            alert("Cook temperature must reach at least 165°F before this stage can be completed.");
+            return;
+          }
+        }
+        if (capKey === "chilling") {
+          const chillF = Number(updates.temperature_f);
+          if (!updates.temperature_f || isNaN(chillF) || chillF > 40) {
+            await base44.entities.ProductionStage.update(stage.id, { status: "in_progress" });
+            setSaving(false);
+            alert("Chill exit temperature must be 40°F or lower before this stage can be completed.");
+            return;
+          }
+        }
+
         // Convert temperature from Fahrenheit to Celsius for storage if present
         if (capKey === "cooking" && updates.temperature_f) {
           updates.temperature_c = parseFloat(((updates.temperature_f - 32) * 5/9).toFixed(2));
