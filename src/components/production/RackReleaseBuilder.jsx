@@ -36,9 +36,18 @@ function buildRacks({ totalLbs, rackCap, openPartialRack, persistedRacks, myLot 
   }
   remaining = parseFloat(Math.max(0, remaining - persistedLbs).toFixed(2));
 
-  const carriedLot = openPartialRack?.lot_contributions?.[0]?.lot_number;
-  const carriedAlreadyPersisted = carriedLot
-    ? sortedPersisted.some(r => (r.lot_contributions || []).some(c => c.lot_number === carriedLot))
+  // Detect whether the carried-in partial was already released on a prior open of this
+  // card. Match on ANY of its lot contributions against each persisted rack's contributions
+  // OR its primary lot_number (a topped-up carried rack is stored with the dominant lot,
+  // which may be this card's lot rather than the original carried lot).
+  const carriedLots = (openPartialRack?.lot_contributions || [])
+    .map(c => c.lot_number)
+    .filter(Boolean);
+  const carriedAlreadyPersisted = carriedLots.length
+    ? sortedPersisted.some(r =>
+        carriedLots.includes(r.lot_number) ||
+        (r.lot_contributions || []).some(c => carriedLots.includes(c.lot_number))
+      )
     : false;
 
   // Rack #1 = carried partial, topped up to capacity FIRST.

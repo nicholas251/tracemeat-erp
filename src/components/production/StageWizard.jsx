@@ -753,6 +753,10 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
           output_lot_number: cookPlan.lotNumber || stage.input_lot_number || "",
           racks_count: racksOnRecord.length,
           notes: form.notes || stage.notes || "",
+          // Clear any carried-in partial now that this card is finalized — its product was
+          // either released (as a topped-up rack) or re-carried forward. Clearing prevents a
+          // re-open of this completed card from re-seeding the same partial.
+          carried_partial_rack: null,
         });
 
         // Directed hand-off: if the operator chose "Carry Over" for the trailing partial,
@@ -761,13 +765,41 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
         // lbs were already deducted at tumble — they ride along only as lot_contributions.
         const carried = cookPlan.carriedPartial;
         if (carried && (carried.lbs || 0) > 0) {
+          // Deterministic ordering: racking cards from the tumble flow carry a batch index
+          // in their lot (…-RACK-B1 / -B2 / -B3). We hand the partial to the NEXT card by
+          // batch number, never by created_date (sibling cards are created in the same loop
+          // and their timestamps can tie, which previously let a B1 partial jump to B3).
+          const batchNumOf = (s) => {
+            const m = (s?.input_lot_number || "").match(/-B(\d+)\s*$/i);
+            return m ? parseInt(m[1], 10) : null;
+          };
+          const myBatchNum = batchNumOf(stage);
+
           const siblings = await base44.entities.ProductionStage.filter({
             order_id: stage.order_id,
             capability_key: capKey,
           });
-          const nextCard = siblings
-            .filter(s => s.id !== stage.id && s.status !== "completed" && !s.carried_partial_rack)
-            .sort((a, b) => (a.created_date || "") < (b.created_date || "") ? -1 : 1)[0];
+          const candidates = siblings.filter(
+            s => s.id !== stage.id && s.status !== "completed" && !s.carried_partial_rack
+          );
+
+          // Prefer the card with the smallest batch number strictly greater than mine.
+          // If batch numbers aren't parseable (non-standard lots), fall back to the
+          // earliest-created candidate so the hand-off still lands somewhere sensible.
+          let nextCard = null;
+          if (myBatchNum != null) {
+            nextCard = candidates
+              .map(s => ({ s, n: batchNumOf(s) }))
+              .filter(x => x.n != null && x.n > myBatchNum)
+              .sort((a, b) => a.n - b.n)
+              .map(x => x.s)[0] || null;
+          }
+          if (!nextCard) {
+            nextCard = candidates
+              .slice()
+              .sort((a, b) => (a.created_date || "") < (b.created_date || "") ? -1 : 1)[0] || null;
+          }
+
           if (nextCard) {
             await base44.entities.ProductionStage.update(nextCard.id, {
               carried_partial_rack: {
@@ -776,12 +808,17 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
               },
             });
           } else {
-            // No next card to receive it — the partial would be stranded. Warn, but the
-            // card still completes (operator can release it on the final card instead).
+            // No next card to receive it — the partial would be stranded. Block completion
+            // and revert so the operator releases this partial here (final-card path) rather
+            // than silently losing it.
+            await base44.entities.ProductionStage.update(stage.id, { status: "in_progress" });
+            setSaving(false);
             alert(
               `This partial (${carried.lbs} lbs) was set to carry over, but there is no ` +
-              `next racking card to receive it. Release it on the final card instead.`
+              `next racking card to receive it.\n\nTap "Release" on the partial rack to send ` +
+              `it to the smokehouse, then complete this card.`
             );
+            return;
           }
         }
 
