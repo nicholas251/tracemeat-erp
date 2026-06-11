@@ -338,12 +338,12 @@ export function FieldInput({ field, value, onChange, casingBuckets = [], cureInv
     return (
       <div className="space-y-1.5">
         <Label className="text-sm font-semibold">{field.label}</Label>
-        <Select value={value || ""} onValueChange={onChange}>
+        <Select value={value || "__default__"} onValueChange={v => onChange(v === "__default__" ? "" : v)}>
           <SelectTrigger className="h-11 bg-slate-200 border-slate-400 text-slate-900">
             <SelectValue placeholder="Same as original product (default)" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={null}>Same as original product (default)</SelectItem>
+            <SelectItem value="__default__">Same as original product (default)</SelectItem>
             {compatibleHotdogProducts.map(p => (
               <SelectItem key={p.id} value={p.id}>
                 {p.name}
