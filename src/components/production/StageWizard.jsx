@@ -847,7 +847,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
           // Cure: a RawInventory bucket on the product. Deduct the entered cure amount.
           const cureLbs = Number(form.cure_amount_lbs) || 0;
           if (product?.cure_bucket_id && cureLbs > 0) {
-            await base44.functions.invoke("deductRawInventoryOnBatchComplete", {
+            const cureRes = await base44.functions.invoke("deductRawInventoryOnBatchComplete", {
               stage_id: stage.id,
               ingredients: [{
                 bucket_id: product.cure_bucket_id,
@@ -855,13 +855,27 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
                 actual_lbs: cureLbs,
               }],
             });
+            // Abort if cure inventory was short — nothing committed by the function, so
+            // revert the stage to in_progress and let the operator fix it (no double-deduct).
+            if ((cureRes?.data?.total_shortfall || 0) > 0.01) {
+              await base44.entities.ProductionStage.update(stage.id, { status: "in_progress" });
+              setSaving(false);
+              alert(`Not enough cure inventory — short by ${cureRes.data.total_shortfall} lbs. Nothing was deducted. Add cure stock and retry.`);
+              return;
+            }
           }
           // Spice mix: assigned SpiceMix inventory (same shape as tumble).
           if (form.spice_mix?.lots?.length) {
-            await base44.functions.invoke("deductSpiceMixOnComplete", {
+            const spiceRes = await base44.functions.invoke("deductSpiceMixOnComplete", {
               stage_id: stage.id,
               lots: form.spice_mix.lots,
             });
+            if ((spiceRes?.data?.total_shortfall || 0) > 0.01) {
+              await base44.entities.ProductionStage.update(stage.id, { status: "in_progress" });
+              setSaving(false);
+              alert(`Not enough spice mix — short by ${spiceRes.data.total_shortfall} lbs. Nothing was deducted. Add spice stock and retry.`);
+              return;
+            }
           }
         }
 
