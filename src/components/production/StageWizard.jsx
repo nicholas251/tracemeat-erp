@@ -765,16 +765,11 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
         // lbs were already deducted at tumble — they ride along only as lot_contributions.
         const carried = cookPlan.carriedPartial;
         if (carried && (carried.lbs || 0) > 0) {
-          // Deterministic ordering: racking cards from the tumble flow carry a batch index
-          // in their lot (…-RACK-B1 / -B2 / -B3). We hand the partial to the NEXT card by
-          // batch number, never by created_date (sibling cards are created in the same loop
-          // and their timestamps can tie, which previously let a B1 partial jump to B3).
-          const batchNumOf = (s) => {
-            const m = (s?.input_lot_number || "").match(/-B(\d+)\s*$/i);
-            return m ? parseInt(m[1], 10) : null;
-          };
-          const myBatchNum = batchNumOf(stage);
-
+          // Hand the partial to ANY other racking card for this order that is still open
+          // (not completed) and isn't already holding a carried partial. Order does NOT
+          // matter — the operator can finish cards in any sequence (e.g. B1 → B3 → B2), so
+          // we must NOT require the receiver to come "after" this card. We just need a live
+          // card with an empty carried slot. Prefer one that hasn't started yet.
           const siblings = await base44.entities.ProductionStage.filter({
             order_id: stage.order_id,
             capability_key: capKey,
@@ -782,23 +777,12 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
           const candidates = siblings.filter(
             s => s.id !== stage.id && s.status !== "completed" && !s.carried_partial_rack
           );
-
-          // Prefer the card with the smallest batch number strictly greater than mine.
-          // If batch numbers aren't parseable (non-standard lots), fall back to the
-          // earliest-created candidate so the hand-off still lands somewhere sensible.
-          let nextCard = null;
-          if (myBatchNum != null) {
-            nextCard = candidates
-              .map(s => ({ s, n: batchNumOf(s) }))
-              .filter(x => x.n != null && x.n > myBatchNum)
-              .sort((a, b) => a.n - b.n)
-              .map(x => x.s)[0] || null;
-          }
-          if (!nextCard) {
-            nextCard = candidates
-              .slice()
-              .sort((a, b) => (a.created_date || "") < (b.created_date || "") ? -1 : 1)[0] || null;
-          }
+          // Prefer a not-yet-started card so the partial pre-loads cleanly as its Rack #1;
+          // otherwise any open card will still absorb and top it up.
+          const nextCard =
+            candidates.find(s => s.status === "available") ||
+            candidates[0] ||
+            null;
 
           if (nextCard) {
             await base44.entities.ProductionStage.update(nextCard.id, {
@@ -808,15 +792,16 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
               },
             });
           } else {
-            // No next card to receive it — the partial would be stranded. Block completion
-            // and revert so the operator releases this partial here (final-card path) rather
-            // than silently losing it.
+            // No open card can receive it (every other card is completed or already holds a
+            // partial). The partial would be stranded — block completion and revert so the
+            // operator Releases it here instead of silently losing it.
             await base44.entities.ProductionStage.update(stage.id, { status: "in_progress" });
             setSaving(false);
             alert(
               `This partial (${carried.lbs} lbs) was set to carry over, but there is no ` +
-              `next racking card to receive it.\n\nTap "Release" on the partial rack to send ` +
-              `it to the smokehouse, then complete this card.`
+              `open racking card to receive it (the others are done or already hold a carried ` +
+              `rack).\n\nTap "Release" on the partial rack to send it to the smokehouse, then ` +
+              `complete this card.`
             );
             return;
           }
