@@ -78,7 +78,7 @@ export default function ProductSplitAllocator({ compatibleProducts = [], splits 
                     <SelectTrigger className="h-9 text-sm bg-slate-200 border-slate-400 text-slate-900">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="bg-slate-100 border-slate-400">
                       {compatibleProducts.map(p => (
                         <SelectItem key={p.id} value={p.id}>
                           {p.name}

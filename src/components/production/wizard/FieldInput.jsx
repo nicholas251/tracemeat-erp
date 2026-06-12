@@ -27,7 +27,7 @@ export default function FieldInput({ field, value, onChange, casingBuckets = [],
           <SelectTrigger className="h-11 bg-slate-200 border-slate-400 text-slate-900">
             <SelectValue placeholder="Same as original product (default)" />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="bg-slate-100 border-slate-400">
             <SelectItem value="__default__">Same as original product (default)</SelectItem>
             {compatibleHotdogProducts.map(p => (
               <SelectItem key={p.id} value={p.id}>
@@ -61,7 +61,7 @@ export default function FieldInput({ field, value, onChange, casingBuckets = [],
           onCasingSelect(v, bucket?.name || "");
         }}>
           <SelectTrigger className="h-11 bg-slate-200 border-slate-400 text-slate-900"><SelectValue placeholder="Select casings..." /></SelectTrigger>
-          <SelectContent>
+          <SelectContent className="bg-slate-100 border-slate-400">
             {(field.options || casingBuckets).map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
           </SelectContent>
         </Select>
@@ -76,7 +76,7 @@ export default function FieldInput({ field, value, onChange, casingBuckets = [],
           <SelectTrigger className="h-11 bg-slate-200 border-slate-400 text-slate-900">
             <SelectValue placeholder={cureInventory.length === 0 ? "No cure inventory" : "Select cure lot..."} />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="bg-slate-100 border-slate-400">
             {cureInventory.length === 0 ? (
               <div className="px-3 py-2 text-xs text-muted-foreground">No cure inventory available</div>
             ) : (

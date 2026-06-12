@@ -218,10 +218,10 @@ export default function SpiceMixLotPicker({ label, requiredLbs, value = {}, onCh
                 onValueChange={(v) => handleSelectMix(index, v)}
                 disabled={disabled || isLoading}
               >
-                <SelectTrigger className="h-10">
+                <SelectTrigger className="h-10 bg-slate-200 border-slate-400 text-slate-900">
                   <SelectValue placeholder={isLoading ? "Loading..." : "Select a spice mix..."} />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-slate-100 border-slate-400">
                   {spiceMixes.map(mix => {
                     const avail = mix.available_qty_lbs ?? mix.quantity_lbs ?? 0;
                     return (
