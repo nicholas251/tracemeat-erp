@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 import { jsPDF } from 'npm:jspdf@4.2.1';
 
 Deno.serve(async (req) => {
@@ -270,35 +270,61 @@ Best regards,
 Purchase Order System
     `.trim();
 
-    // Send via Resend API with PDF attachment
-    const resendApiKey = Deno.env.get('RESEND_API_KEY');
-    if (!resendApiKey) {
-      return Response.json({ error: 'RESEND_API_KEY not configured' }, { status: 500 });
+    // Send via Gmail (gmail.send connector) with the PDF as a MIME attachment.
+    const { accessToken } = await base44.asServiceRole.connectors.getConnection('gmail');
+    if (!accessToken) {
+      return Response.json({ error: 'Gmail is not connected' }, { status: 500 });
     }
 
-    const response = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${resendApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        from: 'Purchase Orders <orders@mittysfood.com>',
-        to: [po.supplier_email],
-        subject: `Purchase Order ${po.po_number}`,
-        text: emailBody,
-        attachments: [
-          {
-            filename: `PO-${po.po_number}.pdf`,
-            content: pdfBase64,
-          }
-        ],
-      }),
-    });
+    // Build an RFC 2822 multipart MIME message: a plain-text body + the PDF attachment.
+    const boundary = `po_boundary_${Date.now()}`;
+    const subject = `Purchase Order ${po.po_number}`;
+    // RFC 2047 encode the subject so non-ASCII characters render correctly.
+    const encodedSubject = `=?UTF-8?B?${btoa(unescape(encodeURIComponent(subject)))}?=`;
+
+    const mimeMessage = [
+      `To: ${po.supplier_email}`,
+      `Subject: ${encodedSubject}`,
+      'MIME-Version: 1.0',
+      `Content-Type: multipart/mixed; boundary="${boundary}"`,
+      '',
+      `--${boundary}`,
+      'Content-Type: text/plain; charset="UTF-8"',
+      'Content-Transfer-Encoding: 7bit',
+      '',
+      emailBody,
+      '',
+      `--${boundary}`,
+      'Content-Type: application/pdf',
+      'Content-Transfer-Encoding: base64',
+      `Content-Disposition: attachment; filename="PO-${po.po_number}.pdf"`,
+      '',
+      pdfBase64,
+      '',
+      `--${boundary}--`,
+    ].join('\r\n');
+
+    // Gmail expects the raw message base64url-encoded.
+    const rawMessage = btoa(unescape(encodeURIComponent(mimeMessage)))
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '');
+
+    const response = await fetch(
+      'https://gmail.googleapis.com/gmail/v1/users/me/messages/send',
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ raw: rawMessage }),
+      }
+    );
 
     if (!response.ok) {
-      const errorData = await response.json();
-      const errorMessage = errorData.message || 'Failed to send email';
+      const errorData = await response.json().catch(() => ({}));
+      const errorMessage = errorData?.error?.message || 'Failed to send email via Gmail';
       return Response.json({ error: errorMessage }, { status: 500 });
     }
 
