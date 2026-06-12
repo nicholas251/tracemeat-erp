@@ -208,6 +208,10 @@ export default function FinalStep({ stage, capKey, stageLabel, resolvedBatches, 
          <div className="rounded-xl border divide-y text-sm overflow-hidden">
            {Object.entries(form).filter(([, v]) => v !== "" && v !== null && v !== undefined).map(([k, v]) => {
              if (k === 'finished_product_splits') return null;
+             // Racking shows its authoritative batch lot (…-RACK-B<n>) in the "Racking Lot"
+             // row above. The generic form.output_lot_number can hold a non-suffixed value,
+             // so hide it here to avoid a misleading mismatch.
+             if (isRacking && k === 'output_lot_number') return null;
              if (Array.isArray(v)) return null;
              if (typeof v === 'object') return null;
              return (
