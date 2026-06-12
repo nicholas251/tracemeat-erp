@@ -9,22 +9,27 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Admin access required' }, { status: 403 });
     }
 
+    // Helper: delete every record of an entity, looping through all pages.
+    const deleteAll = async (entity) => {
+      let count = 0;
+      while (true) {
+        const batch = await entity.list(undefined, 200);
+        if (!batch.length) break;
+        for (const rec of batch) {
+          await entity.delete(rec.id);
+          count++;
+        }
+        if (batch.length < 200) break;
+      }
+      return count;
+    };
+
     // 1. Delete all production stages
-    const stages = await base44.asServiceRole.entities.ProductionStage.list(undefined, 1000);
-    let deletedStages = 0;
-    for (const stage of stages) {
-      await base44.asServiceRole.entities.ProductionStage.delete(stage.id);
-      deletedStages++;
-    }
+    const deletedStages = await deleteAll(base44.asServiceRole.entities.ProductionStage);
 
     // 2. Delete all released racks (the smokehouse card is built from these — clearing
     //    only stages left released racks behind, so the smokehouse still showed work).
-    const racks = await base44.asServiceRole.entities.RackUnit.list(undefined, 1000);
-    let deletedRacks = 0;
-    for (const rack of racks) {
-      await base44.asServiceRole.entities.RackUnit.delete(rack.id);
-      deletedRacks++;
-    }
+    const deletedRacks = await deleteAll(base44.asServiceRole.entities.RackUnit);
 
     // 3. Clear any carried-over open partial rack left on production orders.
     const orders = await base44.asServiceRole.entities.ProductionOrder.list(undefined, 1000);
