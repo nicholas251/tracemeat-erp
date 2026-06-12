@@ -238,12 +238,21 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
     enabled: open && capKey === "linking",
   });
 
-  // A racking card may receive a partial rack handed forward from the PREVIOUS racking
-  // card (stored on THIS stage's carried_partial_rack field — a directed hand-off, not a
-  // shared order field, so exactly one card receives it). It pre-loads as Rack #1 and is
-  // topped up. The operator decides each trailing partial's fate with Carry Over / Release.
+  // A racking card may receive a partial rack handed forward from a PREVIOUS racking card.
+  // Two sources, in priority order:
+  //   1. THIS stage's carried_partial_rack — a directed hand-off written when a sibling
+  //      racking card existed at carry-over time.
+  //   2. The ORDER's open_partial_rack — a durable queue used when NO sibling racking card
+  //      existed yet (e.g. tumbled-portions flow, where B2/B3 racking cards are created one
+  //      at a time as each tumble batch is released). The first racking card to open with an
+  //      empty directed slot picks it up. This guarantees the partial is never stranded just
+  //      because the receiving card didn't exist when the prior card was completed.
+  // It pre-loads as Rack #1 and is topped up. The operator decides each trailing partial's
+  // fate with Carry Over / Release.
   const isRackingStage = capKey === "racking" || capKey === "racking_product";
-  const openPartialRack = isRackingStage ? (stage?.carried_partial_rack || null) : null;
+  const openPartialRack = isRackingStage
+    ? (stage?.carried_partial_rack || wizardOrder?.open_partial_rack || null)
+    : null;
   const rackCapacityLbs = Number(product?.tumble_lbs_per_rack) || 0;
 
   // Racks already persisted to the smokehouse for THIS racking card. Used to
@@ -311,6 +320,14 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
         status: "in_progress",
         started_at: stage.started_at || new Date().toISOString(),
       });
+    }
+    // If this card consumed the ORDER-level carried partial (it had no directed
+    // carried_partial_rack of its own, so it picked up order.open_partial_rack), clear that
+    // queue now that it's been racked here — otherwise the NEXT racking card to open would
+    // re-seed the same partial and double-count it.
+    if (!stage?.carried_partial_rack && order?.open_partial_rack && (order.open_partial_rack.lbs || 0) > 0) {
+      await base44.entities.ProductionOrder.update(order.id, { open_partial_rack: null });
+      queryClient.invalidateQueries({ queryKey: ["wizardOrder", stage.order_id] });
     }
     // Spawn the smokehouse cooking card NOW (on first release) so released racks flow over
     // one at a time, instead of waiting for the whole racking stage to be completed.
@@ -784,26 +801,25 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
             candidates[0] ||
             null;
 
+          const carriedPayload = {
+            lbs: parseFloat((carried.lbs || 0).toFixed(2)),
+            lot_contributions: (carried.lot_contributions || []).filter(c => (c.lbs || 0) > 0),
+          };
           if (nextCard) {
+            // A sibling racking card already exists → hand it the partial directly.
             await base44.entities.ProductionStage.update(nextCard.id, {
-              carried_partial_rack: {
-                lbs: parseFloat((carried.lbs || 0).toFixed(2)),
-                lot_contributions: (carried.lot_contributions || []).filter(c => (c.lbs || 0) > 0),
-              },
+              carried_partial_rack: carriedPayload,
             });
           } else {
-            // No open card can receive it (every other card is completed or already holds a
-            // partial). The partial would be stranded — block completion and revert so the
-            // operator Releases it here instead of silently losing it.
-            await base44.entities.ProductionStage.update(stage.id, { status: "in_progress" });
-            setSaving(false);
-            alert(
-              `This partial (${carried.lbs} lbs) was set to carry over, but there is no ` +
-              `open racking card to receive it (the others are done or already hold a carried ` +
-              `rack).\n\nTap "Release" on the partial rack to send it to the smokehouse, then ` +
-              `complete this card.`
-            );
-            return;
+            // No sibling racking card exists yet (common in the tumbled-portions flow, where
+            // the next batch's racking card is only created when its tumble batch is released
+            // later). Park the partial on the ORDER's open_partial_rack queue — the next
+            // racking card to open will pick it up as Rack #1 and top it up. This never
+            // strands the partial and never forces an early Release.
+            await base44.entities.ProductionOrder.update(order.id, {
+              open_partial_rack: carriedPayload,
+            });
+            queryClient.invalidateQueries({ queryKey: ["wizardOrder", stage.order_id] });
           }
         }
 
