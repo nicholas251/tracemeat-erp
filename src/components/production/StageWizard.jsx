@@ -743,7 +743,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
         // over to the next card. A rack still holding product that is neither released
         // nor carried away would be stranded, so block completion until it's resolved.
         const unresolved = (cookPlan.racks || []).filter(
-          r => !r.released && !r.carried_away && (r.lbs || 0) > 0
+          r => !r.released && !r.persisted && !r.carried_away && (r.lbs || 0) > 0
         );
         if (unresolved.length > 0) {
           setSaving(false);
@@ -1555,6 +1555,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
               form={form}
               cookBatch={cookBatch}
               cookPlan={cookPlan}
+              persistedRacks={persistedRacks}
               product={product}
               saving={saving}
               onBack={() => setStep(lastStep - 1)}

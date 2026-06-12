@@ -2,7 +2,7 @@ import React from "react";
 import { Button } from "@/components/ui/button";
 import { CheckCircle2, ChevronLeft, AlertCircle } from "lucide-react";
 
-export default function FinalStep({ stage, capKey, stageLabel, resolvedBatches, form, cookBatch, cookPlan, product, saving, onBack, onComplete }) {
+export default function FinalStep({ stage, capKey, stageLabel, resolvedBatches, form, cookBatch, cookPlan, persistedRacks = [], product, saving, onBack, onComplete }) {
   const isLinking = capKey === "linking";
   const isRacking = capKey === "racking" || capKey === "racking_product";
   const isCooking = capKey === "cooking";
@@ -27,6 +27,11 @@ export default function FinalStep({ stage, capKey, stageLabel, resolvedBatches, 
 
   const releasedRacks = isRacking && cookPlan?.racks ? cookPlan.racks.filter(r => r.released) : [];
   const releasedLbs = parseFloat(releasedRacks.reduce((s, r) => s + (r.lbs || 0), 0).toFixed(2));
+  // Racks already persisted to the smokehouse for this card are the durable source of truth.
+  // On re-open, the in-memory cookPlan may not yet reflect them (async rebuild race), which
+  // would wrongly keep the Complete button disabled even though racks were released. Count the
+  // DB-persisted racks too so a card with released racks can always be completed.
+  const persistedReleasedCount = isRacking ? (persistedRacks || []).length : 0;
 
   const outputLbs = resolvedBatches
     ? resolvedBatches.reduce((s, b) => s + b.batchLbs, 0)
@@ -37,7 +42,7 @@ export default function FinalStep({ stage, capKey, stageLabel, resolvedBatches, 
         : form.output_qty_lbs || stage?.input_qty_lbs || 0;
 
   const canComplete = isLinking ? !!cookBatch
-    : isRacking ? (releasedRacks.length > 0 || !!cookPlan?.carriedPartial)
+    : isRacking ? (releasedRacks.length > 0 || persistedReleasedCount > 0 || !!cookPlan?.carriedPartial)
     : isCooking ? !!cookBatch
     : isPackagingStage ? (packFullyAllocated && (!isPackaging || form.case_weights?.length > 0))
     : true;
