@@ -110,7 +110,16 @@ export default function StageDashboard({ user, profile, onBack, singleProfile = 
                       Order #{stage.order_number} · {releasedByProduct[stage.product_name] || 0} rack(s) released
                     </p>
                   ) : (
-                    <p className="text-xs text-muted-foreground">Order #{stage.order_number} · {stage.input_qty_lbs} lbs</p>
+                    <p className="text-xs text-muted-foreground">
+                      Order #{stage.order_number} · {stage.input_qty_lbs} lbs
+                      {/* Show the batch tag (…-B<n>) so multiple same-product racking cards
+                          (e.g. B1/B2/B3 from a tumbled-portions order) are distinguishable —
+                          otherwise a finished batch looks identical to its still-open siblings. */}
+                      {(() => {
+                        const m = (stage.input_lot_number || "").match(/-B(\d+)$/);
+                        return m ? ` · Batch ${m[1]}` : "";
+                      })()}
+                    </p>
                   )}
                   <span className="inline-block mt-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{(stage.capability_name || stage.capability_key || "").replace(/_/g, " ")}</span>
                 </div>
