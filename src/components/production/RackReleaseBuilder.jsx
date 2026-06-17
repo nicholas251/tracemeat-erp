@@ -391,14 +391,26 @@ export default function RackReleaseBuilder({ totalLbs, capacityLbs, openPartialR
                   </div>
                 </div>
 
-                {/* Multi-lot composition */}
-                {isMixed && (
-                  <div className="flex flex-wrap gap-1.5 pt-1 border-t border-dashed">
-                    {(rack.lot_contributions || []).filter(c => (c.lbs || 0) > 0).map((c, i) => (
-                      <Badge key={i} variant="outline" className="text-[10px] font-mono">
-                        {c.lot_number || "—"}: {c.lbs} lbs
-                      </Badge>
-                    ))}
+                {/* Lot / batch breakdown — shown on every rack for traceability */}
+                {(rack.lot_contributions || []).filter(c => (c.lbs || 0) > 0).length > 0 && (
+                  <div className="pt-1.5 border-t border-dashed space-y-1">
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+                      <Layers className="w-3 h-3" />
+                      {isMixed ? "Lots / Batches on this rack" : "Lot / Batch"}
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {(rack.lot_contributions || []).filter(c => (c.lbs || 0) > 0).map((c, i) => (
+                        <Badge
+                          key={i}
+                          variant="outline"
+                          className={`text-[10px] font-mono gap-1 ${c.lot_number === lotNumber ? "border-chart-1/40 bg-chart-1/5 text-chart-1" : "border-chart-2/40 bg-chart-2/5 text-chart-2"}`}
+                        >
+                          {c.lot_number === lotNumber ? "This batch" : "Carried in"}
+                          <span className="opacity-60">·</span>
+                          {c.lot_number || "—"}: {c.lbs} lbs
+                        </Badge>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
