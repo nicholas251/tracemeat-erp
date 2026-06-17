@@ -293,6 +293,17 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
       queryClient.setQueryData(["wizardOrder", stage.order_id], (prev) =>
         prev ? { ...prev, open_partial_rack: claimed } : { ...live, open_partial_rack: claimed }
       );
+      // One-time diagnostic: confirm the claim + cache write landed for this card.
+      const after = queryClient.getQueryData(["wizardOrder", stage.order_id]);
+      console.log("[RACK-CLAIM]", {
+        stageId: stage.id,
+        order: stage.order_number,
+        claimedLbs: claimed.lbs,
+        claimedBy: claimed.claimed_by_stage_id,
+        cacheNowHasPartial: after?.open_partial_rack?.lbs,
+        cacheClaimedBy: after?.open_partial_rack?.claimed_by_stage_id,
+        exposedToThisCard: after?.open_partial_rack?.claimed_by_stage_id === stage.id,
+      });
     })();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
