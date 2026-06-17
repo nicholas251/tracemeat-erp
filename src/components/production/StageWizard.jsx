@@ -239,60 +239,17 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
     enabled: open && capKey === "linking",
   });
 
-  // A racking card may receive a partial rack handed forward from a PREVIOUS racking card.
-  // Two sources, in priority order:
-  //   1. THIS stage's carried_partial_rack — a directed hand-off written when a sibling
-  //      racking card existed at carry-over time.
-  //   2. The ORDER's open_partial_rack — a durable queue used when NO sibling racking card
-  //      existed yet (e.g. tumbled-portions flow, where B2/B3 racking cards are created one
-  //      at a time as each tumble batch is released). The first racking card to open with an
-  //      empty directed slot picks it up. This guarantees the partial is never stranded just
-  //      because the receiving card didn't exist when the prior card was completed.
-  // It pre-loads as Rack #1 and is topped up. The operator decides each trailing partial's
-  // fate with Carry Over / Release.
+  // Carry-over model (simple shared queue of one):
+  // A racking card may pre-load a partial rack handed forward from the PREVIOUS racking card.
+  // The partial lives in ONE place — the order's open_partial_rack. There is NO batch-index
+  // matching and NO per-card reservation: whichever racking card opens next claims it as
+  // Rack #1 and tops it up to a full rack. The card that consumes it clears the queue (in
+  // handleReleaseRack / handleComplete), and a card that ends with a new trailing partial
+  // parks that new partial back on the queue. The LAST card has nothing to hand off, so its
+  // trailing partial is released as-is. This is exactly "always carry over, to whichever
+  // opens first".
   const isRackingStage = capKey === "racking" || capKey === "racking_product";
-
-  // Sibling racking cards for this order — used to decide whether THIS card is the
-  // immediate-next batch allowed to claim the order-level open_partial_rack fallback.
-  const { data: rackingSiblings = [] } = useQuery({
-    queryKey: ["rackingSiblings", stage?.order_id, capKey],
-    queryFn: () => base44.entities.ProductionStage.filter({
-      order_id: stage.order_id,
-      capability_key: capKey,
-    }),
-    enabled: open && isRackingStage && !!stage?.order_id,
-  });
-
-  // Helper: extract the "-B<n>" batch index from a stage's lot fields.
-  const batchIndexOf = (s) => {
-    const src = s?.output_lot_number || s?.input_lot_number || "";
-    const m = String(src).match(/-B(\d+)\b/i);
-    return m ? parseInt(m[1], 10) : Number.MAX_SAFE_INTEGER;
-  };
-
-  // Decide the partial this card pre-loads:
-  //  1. A DIRECTED hand-off written onto this exact card always wins.
-  //  2. Otherwise the ORDER-level fallback — but ONLY if this card is the immediate-next
-  //     batch after the partial's source batch. This stops B3 from grabbing B1's partial
-  //     when B2 is the rightful next card (the reported bug). If no source index was
-  //     recorded (older data), any open card may claim it so it's never stranded.
-  const orderPartial = wizardOrder?.open_partial_rack || null;
-  const myBatchIdx = batchIndexOf({ input_lot_number: stage?.input_lot_number });
-  const canClaimOrderPartial = (() => {
-    if (!orderPartial) return false;
-    const fromIdx = orderPartial.from_batch_index;
-    if (fromIdx == null) return true; // legacy / untagged → claimable by any card
-    // This card may claim it only if it's the lowest open batch index greater than fromIdx.
-    const openHigher = rackingSiblings
-      .filter(s => s.status !== "completed" && batchIndexOf(s) > fromIdx)
-      .map(batchIndexOf)
-      .sort((a, b) => a - b);
-    return openHigher.length > 0 && myBatchIdx === openHigher[0];
-  })();
-
-  const openPartialRack = isRackingStage
-    ? (stage?.carried_partial_rack || (canClaimOrderPartial ? orderPartial : null))
-    : null;
+  const openPartialRack = isRackingStage ? (wizardOrder?.open_partial_rack || null) : null;
   const rackCapacityLbs = Number(product?.tumble_lbs_per_rack) || 0;
 
   // Racks already persisted to the smokehouse for THIS racking card. Used to
@@ -361,11 +318,13 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
         started_at: stage.started_at || new Date().toISOString(),
       });
     }
-    // If this card consumed the ORDER-level carried partial (it had no directed
-    // carried_partial_rack of its own, so it picked up order.open_partial_rack), clear that
-    // queue now that it's been racked here — otherwise the NEXT racking card to open would
-    // re-seed the same partial and double-count it.
-    if (!stage?.carried_partial_rack && order?.open_partial_rack && (order.open_partial_rack.lbs || 0) > 0) {
+    // If this card consumed the order's carried partial (it picked up order.open_partial_rack
+    // as Rack #1), clear the queue now that the partial has been racked here — otherwise the
+    // NEXT racking card to open would re-seed the same partial and double-count it. Match on
+    // the carried partial appearing in this released rack's lot_contributions.
+    const carriedLots = (order?.open_partial_rack?.lot_contributions || []).map(c => c.lot_number).filter(Boolean);
+    const consumedCarried = carriedLots.length > 0 && contributions.some(c => carriedLots.includes(c.lot_number));
+    if (consumedCarried && (order.open_partial_rack.lbs || 0) > 0) {
       await base44.entities.ProductionOrder.update(order.id, { open_partial_rack: null });
       queryClient.invalidateQueries({ queryKey: ["wizardOrder", stage.order_id] });
     }
@@ -829,65 +788,26 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
           carried_partial_rack: null,
         });
 
-        // Directed hand-off: if the operator chose "Carry Over" for the trailing partial,
-        // write it onto the NEXT racking card for this order (the next sibling racking
-        // stage that hasn't started and doesn't already hold a carried partial). Carried
-        // lbs were already deducted at tumble — they ride along only as lot_contributions.
+        // ── Carry-over: a single shared "open partial" parked on the ORDER ──
+        // The operator always carries the trailing partial forward (never released mid-flow),
+        // and it goes to WHICHEVER sibling racking card opens next — no batch-index matching,
+        // no reservations. We simply park it on the order's open_partial_rack queue; the next
+        // racking card to open claims it as Rack #1 and tops it up. The LAST card has no next
+        // card and releases its trailing partial as-is (handled in the rack builder UI).
+        // Carried lbs were already deducted at tumble, so they ride forward only as
+        // lot_contributions — never re-counted.
+        // Park a NEW trailing partial (if any) on the order queue for the next card to claim.
+        // Note: consuming/clearing the PREVIOUS partial is owned by handleReleaseRack, which
+        // runs the moment the topped-up Rack #1 is released. So here we only WRITE a new one.
         const carried = cookPlan.carriedPartial;
         if (carried && (carried.lbs || 0) > 0) {
-          // Hand the partial to the IMMEDIATE NEXT batch's racking card in sequence
-          // (B1 → B2 → B3). Each racking card's batch is encoded as a "-B<n>" suffix on its
-          // lot number, so we sort siblings by that index and pick the lowest open index
-          // that is GREATER than this card's index. This is deterministic — it never depends
-          // on the unsorted query order (the old bug: B1's partial landed on B3, skipping B2).
-          const siblings = await base44.entities.ProductionStage.filter({
-            order_id: stage.order_id,
-            capability_key: capKey,
+          await base44.entities.ProductionOrder.update(order.id, {
+            open_partial_rack: {
+              lbs: parseFloat((carried.lbs || 0).toFixed(2)),
+              lot_contributions: (carried.lot_contributions || []).filter(c => (c.lbs || 0) > 0),
+            },
           });
-          // Extract the batch index from a stage's lot fields. Falls back to a large number
-          // so unindexed cards sort last and never win over a properly-indexed sibling.
-          const batchIdxOf = (s) => {
-            const src = s.output_lot_number || s.input_lot_number || "";
-            const m = String(src).match(/-B(\d+)\b/i);
-            return m ? parseInt(m[1], 10) : Number.MAX_SAFE_INTEGER;
-          };
-          const myIdx = batchIdxOf({ output_lot_number: myLot, input_lot_number: stage.input_lot_number });
-
-          const candidates = siblings
-            .filter(s => s.id !== stage.id && s.status !== "completed" && !s.carried_partial_rack)
-            .sort((a, b) => batchIdxOf(a) - batchIdxOf(b));
-
-          // Strictly-next: lowest-indexed open card AFTER this one (B1 → B2, not B3).
-          // If none exists yet (next batch not tumbled/created), fall back to the lowest
-          // open index so the partial still rides forward and is never stranded.
-          const nextCard =
-            candidates.find(s => batchIdxOf(s) > myIdx) ||
-            candidates[0] ||
-            null;
-
-          const carriedPayload = {
-            lbs: parseFloat((carried.lbs || 0).toFixed(2)),
-            lot_contributions: (carried.lot_contributions || []).filter(c => (c.lbs || 0) > 0),
-            // Record which batch this partial came FROM so the order-level fallback can be
-            // claimed only by the immediate-next batch's card (B1's partial → B2, never B3).
-            from_batch_index: myIdx === Number.MAX_SAFE_INTEGER ? null : myIdx,
-          };
-          if (nextCard) {
-            // A sibling racking card already exists → hand it the partial directly.
-            await base44.entities.ProductionStage.update(nextCard.id, {
-              carried_partial_rack: carriedPayload,
-            });
-          } else {
-            // No sibling racking card exists yet (common in the tumbled-portions flow, where
-            // the next batch's racking card is only created when its tumble batch is released
-            // later). Park the partial on the ORDER's open_partial_rack queue — the next
-            // racking card to open will pick it up as Rack #1 and top it up. This never
-            // strands the partial and never forces an early Release.
-            await base44.entities.ProductionOrder.update(order.id, {
-              open_partial_rack: carriedPayload,
-            });
-            queryClient.invalidateQueries({ queryKey: ["wizardOrder", stage.order_id] });
-          }
+          queryClient.invalidateQueries({ queryKey: ["wizardOrder", stage.order_id] });
         }
 
         // Safety net: ensure the smokehouse cooking stage exists (normally already created
