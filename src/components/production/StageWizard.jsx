@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -239,18 +239,49 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
     enabled: open && capKey === "linking",
   });
 
-  // Carry-over model (simple shared queue of one):
-  // A racking card may pre-load a partial rack handed forward from the PREVIOUS racking card.
-  // The partial lives in ONE place — the order's open_partial_rack. There is NO batch-index
-  // matching and NO per-card reservation: whichever racking card opens next claims it as
-  // Rack #1 and tops it up to a full rack. The card that consumes it clears the queue (in
-  // handleReleaseRack / handleComplete), and a card that ends with a new trailing partial
-  // parks that new partial back on the queue. The LAST card has nothing to hand off, so its
-  // trailing partial is released as-is. This is exactly "always carry over, to whichever
-  // opens first".
+  // ── Carry-over model: ONE shared partial + single-owner CLAIM ────────────────
+  // The partial rack handed between racking cards lives in exactly ONE place: the
+  // order's open_partial_rack. To make the cascade reliable we use a CLAIM STAMP:
+  //   • When a racking card opens and the queue holds an UNCLAIMED partial, it
+  //     atomically stamps it with its own stage id (claimed_by_stage_id). From then
+  //     on, only THIS card may consume that partial — no sibling can also grab it, so
+  //     "B1 → B3 skipping B2" is structurally impossible.
+  //   • The card pre-loads its claimed partial as Rack #1 and tops it up into full
+  //     racks, leaving one trailing partial.
+  //   • On completion the card clears the consumed partial and parks its OWN new
+  //     trailing partial back on the queue UNCLAIMED → the next card to open claims it.
+  //   • Resume is safe: a partial already stamped with MY id stays mine; one stamped
+  //     for another stage is ignored.
   const isRackingStage = capKey === "racking" || capKey === "racking_product";
-  const openPartialRack = isRackingStage ? (wizardOrder?.open_partial_rack || null) : null;
+  // Only expose the partial to THIS card once it is claimed by THIS stage. An unclaimed
+  // or other-stage-claimed partial is hidden so the rack builder never double-loads it.
+  const orderPartial = wizardOrder?.open_partial_rack || null;
+  const openPartialRack = isRackingStage && orderPartial?.claimed_by_stage_id === stage?.id
+    ? orderPartial
+    : null;
   const rackCapacityLbs = Number(product?.tumble_lbs_per_rack) || 0;
+
+  // Atomically CLAIM the order's open partial for this racking card on open. If it is
+  // unclaimed, stamp it with this stage id. If it is already claimed (by me or anyone),
+  // leave it — claiming is first-come, single-owner. Re-reads live order state to avoid
+  // racing a stale wizardOrder snapshot.
+  useEffect(() => {
+    if (!open || !isRackingStage || !stage?.id) return;
+    let cancelled = false;
+    (async () => {
+      const live = await base44.entities.ProductionOrder.filter({ id: stage.order_id }).then(r => r?.[0]);
+      const partial = live?.open_partial_rack;
+      if (cancelled || !partial || (partial.lbs || 0) <= 0) return;
+      if (!partial.claimed_by_stage_id) {
+        await base44.entities.ProductionOrder.update(stage.order_id, {
+          open_partial_rack: { ...partial, claimed_by_stage_id: stage.id },
+        });
+        queryClient.invalidateQueries({ queryKey: ["wizardOrder", stage.order_id] });
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, isRackingStage, stage?.id]);
 
   // Racks already persisted to the smokehouse for THIS racking card. Used to
   // pre-mark them as released when the operator re-opens the card, and to avoid
@@ -318,16 +349,11 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
         started_at: stage.started_at || new Date().toISOString(),
       });
     }
-    // If this card consumed the order's carried partial (it picked up order.open_partial_rack
-    // as Rack #1), clear the queue now that the partial has been racked here — otherwise the
-    // NEXT racking card to open would re-seed the same partial and double-count it. Match on
-    // the carried partial appearing in this released rack's lot_contributions.
-    const carriedLots = (order?.open_partial_rack?.lot_contributions || []).map(c => c.lot_number).filter(Boolean);
-    const consumedCarried = carriedLots.length > 0 && contributions.some(c => carriedLots.includes(c.lot_number));
-    if (consumedCarried && (order.open_partial_rack.lbs || 0) > 0) {
-      await base44.entities.ProductionOrder.update(order.id, { open_partial_rack: null });
-      queryClient.invalidateQueries({ queryKey: ["wizardOrder", stage.order_id] });
-    }
+    // Note: we do NOT clear the order's carried partial here. With the single-owner claim
+    // model, the partial this card consumed is already stamped to this stage, so no sibling
+    // can grab it. Clearing + parking the new trailing partial is owned solely by
+    // handleComplete (one place, one time) — releasing individual racks never touches the
+    // shared queue, which removes the split-timing races that broke the cascade before.
     // Spawn the smokehouse cooking card NOW (on first release) so released racks flow over
     // one at a time, instead of waiting for the whole racking stage to be completed.
     await ensureCookingStage(order);
@@ -782,33 +808,28 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
           output_lot_number: myLot,
           racks_count: racksOnRecord.length,
           notes: form.notes || stage.notes || "",
-          // Clear any carried-in partial now that this card is finalized — its product was
-          // either released (as a topped-up rack) or re-carried forward. Clearing prevents a
-          // re-open of this completed card from re-seeding the same partial.
-          carried_partial_rack: null,
         });
 
-        // ── Carry-over: a single shared "open partial" parked on the ORDER ──
-        // The operator always carries the trailing partial forward (never released mid-flow),
-        // and it goes to WHICHEVER sibling racking card opens next — no batch-index matching,
-        // no reservations. We simply park it on the order's open_partial_rack queue; the next
-        // racking card to open claims it as Rack #1 and tops it up. The LAST card has no next
-        // card and releases its trailing partial as-is (handled in the rack builder UI).
-        // Carried lbs were already deducted at tumble, so they ride forward only as
-        // lot_contributions — never re-counted.
-        // Park a NEW trailing partial (if any) on the order queue for the next card to claim.
-        // Note: consuming/clearing the PREVIOUS partial is owned by handleReleaseRack, which
-        // runs the moment the topped-up Rack #1 is released. So here we only WRITE a new one.
+        // ── Carry-over handoff (single atomic write, single owner) ──────────────
+        // This is the ONLY place the shared queue is mutated on completion. We do both
+        // halves of the handoff in one update so there is never an in-between state:
+        //   1. The partial this card consumed was claimed by THIS stage — drop it.
+        //   2. Park this card's OWN new trailing partial (if any) as the next queue
+        //      entry, UNCLAIMED, so whichever racking card opens next claims it as
+        //      Rack #1 and tops it up. The LAST card produces no new partial (its
+        //      trailing partial was released as-is in the rack builder), leaving the
+        //      queue empty. Carried lbs were already deducted at tumble — they ride
+        //      forward only as lot_contributions and are never re-counted.
         const carried = cookPlan.carriedPartial;
-        if (carried && (carried.lbs || 0) > 0) {
-          await base44.entities.ProductionOrder.update(order.id, {
-            open_partial_rack: {
+        const nextPartial = (carried && (carried.lbs || 0) > 0)
+          ? {
               lbs: parseFloat((carried.lbs || 0).toFixed(2)),
               lot_contributions: (carried.lot_contributions || []).filter(c => (c.lbs || 0) > 0),
-            },
-          });
-          queryClient.invalidateQueries({ queryKey: ["wizardOrder", stage.order_id] });
-        }
+              claimed_by_stage_id: null,
+            }
+          : null;
+        await base44.entities.ProductionOrder.update(order.id, { open_partial_rack: nextPartial });
+        queryClient.invalidateQueries({ queryKey: ["wizardOrder", stage.order_id] });
 
         // Safety net: ensure the smokehouse cooking stage exists (normally already created
         // on first rack release above).

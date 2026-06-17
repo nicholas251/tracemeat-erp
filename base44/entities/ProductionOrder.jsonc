@@ -65,10 +65,14 @@
     },
     "open_partial_rack": {
       "type": "object",
-      "description": "A not-yet-full rack left over from the previous racking card for this order. The next racking card pre-loads it as Rack #1 and tops it up, so racks are never released half-empty.",
+      "description": "The single carry-over partial rack for this order's racking cards. A racking card that opens and finds this UNCLAIMED stamps it with its own stage id (claimed_by_stage_id) so no sibling card can also grab it, then pre-loads it as Rack #1 and tops it up to full racks. On completion the consuming card clears it and parks its own NEW trailing partial here (unclaimed) for the next card to claim. This single-owner claim model is what makes the partial cascade reliable.",
       "properties": {
         "lbs": {
           "type": "number"
+        },
+        "claimed_by_stage_id": {
+          "type": "string",
+          "description": "The racking ProductionStage id that has claimed this partial. While set, only that stage may consume it. Null/empty means unclaimed and free for the next racking card to claim."
         },
         "lot_contributions": {
           "type": "array",
