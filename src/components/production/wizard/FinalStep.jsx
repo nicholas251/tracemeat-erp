@@ -166,13 +166,32 @@ export default function FinalStep({ stage, capKey, stageLabel, resolvedBatches, 
               <span className="text-muted-foreground">Racks in Oven</span>
               <span className="font-semibold">{cookBatch.rackIds.length}</span>
             </div>
-            <div className="space-y-1 pt-1">
-              {cookBatch.racks.map((r) => (
-                <div key={r.id} className="flex items-center justify-between bg-white/60 rounded px-2.5 py-1.5 text-xs">
-                  <span className="font-semibold">Rack #{r.rack_number} <span className="font-mono text-muted-foreground ml-1">{r.lot_number}</span></span>
-                  <span className="text-muted-foreground">{r.lbs} lbs</span>
-                </div>
-              ))}
+            <div className="space-y-1.5 pt-1">
+              {cookBatch.racks.map((r, i) => {
+                const contribs = (r.lot_contributions || []).filter(c => (c.lbs || 0) > 0);
+                const isMixed = contribs.length > 1;
+                return (
+                  <div key={r.id} className="bg-white/60 rounded px-2.5 py-2 text-xs space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold">
+                        Oven Rack #{r.oven_position || i + 1}
+                        {r.order_number && <span className="text-muted-foreground font-normal ml-1.5">· Order #{r.order_number}</span>}
+                      </span>
+                      <span className="text-muted-foreground font-semibold">{r.lbs} lbs</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {contribs.map((c, ci) => (
+                        <span key={ci} className="inline-flex items-center gap-1 font-mono text-[10px] bg-muted/60 rounded px-1.5 py-0.5">
+                          {c.lot_number || "—"}: {c.lbs} lbs
+                        </span>
+                      ))}
+                    </div>
+                    {isMixed && (
+                      <p className="text-[10px] text-amber-700">Mixed-lot rack — {contribs.length} batches</p>
+                    )}
+                  </div>
+                );
+              })}
             </div>
             {cookBatch.isMixedLot && (
               <p className="text-[11px] text-amber-700 flex items-center gap-1.5 pt-0.5">

@@ -65,13 +65,30 @@ export default function SmokehouseCookBatchBuilder({ stage, cookBatch, onChange 
       onChange(null);
       return;
     }
-    const racks = releasedRacks.filter(r => ids.includes(r.id));
+    // Sequential oven position across ALL released racks (the per-card rack_number repeats
+    // across tumble batches → confusing "#1, #2, #1"). Map each selected rack to its index
+    // in the full released list so the review shows distinct oven positions.
+    const racks = ids.map(id => {
+      const idx = releasedRacks.findIndex(r => r.id === id);
+      const r = releasedRacks[idx];
+      return {
+        id: r.id,
+        lbs: r.lbs,
+        lot_number: r.lot_number,
+        rack_number: r.rack_number,
+        oven_position: idx + 1,
+        order_number: r.order_number,
+        lot_contributions: r.lot_contributions?.length
+          ? r.lot_contributions
+          : [{ lot_number: r.lot_number || "", lbs: r.lbs }],
+      };
+    });
     const totalLbs = parseFloat(racks.reduce((s, r) => s + (r.lbs || 0), 0).toFixed(2));
     const lots = [...new Set(racks.map(r => r.lot_number).filter(Boolean))];
     onChange({
       lotNumber: lot,
       rackIds: ids,
-      racks: racks.map(r => ({ id: r.id, lbs: r.lbs, lot_number: r.lot_number, rack_number: r.rack_number })),
+      racks,
       totalLbs,
       isMixedLot: lots.length > 1,
       sourceLots: lots,
