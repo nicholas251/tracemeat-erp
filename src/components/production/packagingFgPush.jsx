@@ -1,0 +1,197 @@
+import { base44 } from "@/api/base44Client";
+
+// ── Packaging → Finished Goods push ──────────────────────────────────────────
+// Extracted from StageWizard.handleComplete to keep that file editable. Pushes the
+// packaged output into FinishedGoodsBucket + InventoryItem records, including any
+// "package remainder as other product" splits. Behavior is unchanged from the
+// original inline implementation.
+export async function pushPackagingToFinishedGoods({ stage, updates, form, queryClient }) {
+  const today = new Date();
+  const today_str = today.toISOString().slice(0, 10);
+
+  const order = await base44.entities.ProductionOrder.filter({ id: stage.order_id }).then(r => r?.[0]);
+  if (!order) return;
+
+  const datePart = today_str.replace(/-/g, "");
+  const rand = Math.floor(Math.random() * 900 + 100);
+  const baseFgLot = updates.lot_number || `FG-${datePart}-${(order.order_number || "").replace(/\D/g, "").slice(-4)}-${rand}`;
+
+  const packagesProduced = updates.packages_produced || 0;
+
+  // Check if splits are defined (hot dog multi-product flow)
+  const splits = form.finished_product_splits && form.finished_product_splits.length > 0 ? form.finished_product_splits : null;
+
+  // Try to carry expiry date from the chilling stage that produced this packaging stage
+  let expiryDate = null;
+  if (stage.cook_batch_lot) {
+    const allOrderStages = await base44.entities.ProductionStage.filter({ order_id: stage.order_id });
+    const chillingStage = allOrderStages.find(
+      s => s.capability_key === "chilling" && s.cook_batch_lot === stage.cook_batch_lot && s.status === "completed"
+    );
+    expiryDate = chillingStage?.expiry_date || null;
+  }
+
+  // Helper function to distribute lots across products
+  const distributeToProducts = async (splitConfigs) => {
+    for (const splitConfig of splitConfigs) {
+      const targetProductId = splitConfig.product_id;
+      const productData = await base44.entities.Product.filter({ id: targetProductId }).then(r => r?.[0]);
+      const caseWeightLbs = productData?.case_weight_lbs || 0;
+      const splitLbs = (Number(splitConfig.quantity_cases) || 0) * caseWeightLbs;
+
+      if (splitLbs <= 0) continue;
+
+      const shelfLifeDays = productData?.shelf_life_days || null;
+
+      // Calculate expiry for this split
+      let splitExpiryDate = expiryDate;
+      if (!splitExpiryDate && shelfLifeDays) {
+        splitExpiryDate = new Date(today.getTime() + shelfLifeDays * 86400000).toISOString().slice(0, 10);
+      }
+
+      // Calculate cases for this split — use the quantity_cases directly from the split config
+      const casesProduced = Number(splitConfig.quantity_cases) || 0;
+
+      // Create a unique lot number for each split
+      const splitLotNumber = `${baseFgLot}-${productData?.sku || "SPLIT"}`.slice(0, 50);
+
+      // 1. Push into FinishedGoodsBucket (find or create)
+      const existingBuckets = await base44.entities.FinishedGoodsBucket.filter({ product_id: targetProductId });
+      const bucket = existingBuckets[0];
+
+      if (bucket) {
+        const newLots = [...(bucket.lots || []), {
+          lot_number: splitLotNumber,
+          production_date: today_str,
+          expiry_date: splitExpiryDate,
+          quantity_lbs: parseFloat(splitLbs.toFixed(2)),
+          cases: casesProduced,
+          order_number: order.order_number || "",
+          status: "available",
+        }];
+        await base44.entities.FinishedGoodsBucket.update(bucket.id, {
+          quantity_lbs: parseFloat(((bucket.quantity_lbs || 0) + splitLbs).toFixed(2)),
+          cases_on_hand: (bucket.cases_on_hand || 0) + casesProduced,
+          lots: newLots,
+        });
+      } else {
+        // Create bucket on the fly if missing
+        await base44.entities.FinishedGoodsBucket.create({
+          product_id: targetProductId || "",
+          product_name: productData?.name || splitConfig.product_name || "",
+          sku: productData?.sku || "",
+          product_number: productData?.product_number || "",
+          category: productData?.category || "",
+          quantity_lbs: parseFloat(splitLbs.toFixed(2)),
+          cases_on_hand: casesProduced,
+          case_weight_lbs: caseWeightLbs,
+          lots: [{
+            lot_number: splitLotNumber,
+            production_date: today_str,
+            expiry_date: splitExpiryDate,
+            quantity_lbs: parseFloat(splitLbs.toFixed(2)),
+            cases: casesProduced,
+            order_number: order.order_number || "",
+            status: "available",
+          }],
+          status: "active",
+        });
+      }
+
+      // 2. Also create InventoryItem for lot-level traceability
+      await base44.entities.InventoryItem.create({
+        product_id: targetProductId || "",
+        product_name: productData?.name || splitConfig.product_name || "",
+        sku: productData?.sku || "",
+        batch_id: stage.order_id,
+        batch_number: order.order_number || "",
+        lot_number: splitLotNumber,
+        quantity_lbs: parseFloat(splitLbs.toFixed(2)),
+        original_quantity_lbs: parseFloat(splitLbs.toFixed(2)),
+        status: "available",
+        production_date: today_str,
+        expiry_date: splitExpiryDate,
+        notes: `Split from packaging stage. Cook batch: ${stage.cook_batch_lot || stage.input_lot_number || ""}`,
+      });
+    }
+  };
+
+  // Always create FG for original product with packages_produced cases
+  const targetProductId = order.product_id;
+  const productData = await base44.entities.Product.filter({ id: targetProductId }).then(r => r?.[0]);
+  const shelfLifeDays = productData?.shelf_life_days || null;
+  const caseWeightLbs = productData?.case_weight_lbs || 1;
+
+  if (!expiryDate && shelfLifeDays) {
+    expiryDate = new Date(today.getTime() + shelfLifeDays * 86400000).toISOString().slice(0, 10);
+  }
+
+  const casesProduced = Number(packagesProduced) || 0;
+  const actualOutputLbs = casesProduced * caseWeightLbs;
+
+  // Push original product to FG bucket
+  const existingBuckets = await base44.entities.FinishedGoodsBucket.filter({ product_id: targetProductId });
+  const bucket = existingBuckets[0];
+
+  if (bucket) {
+    const newLots = [...(bucket.lots || []), {
+      lot_number: baseFgLot,
+      production_date: today_str,
+      expiry_date: expiryDate,
+      quantity_lbs: parseFloat(actualOutputLbs.toFixed(2)),
+      cases: casesProduced,
+      order_number: order.order_number || "",
+      status: "available",
+    }];
+    await base44.entities.FinishedGoodsBucket.update(bucket.id, {
+      quantity_lbs: parseFloat(((bucket.quantity_lbs || 0) + actualOutputLbs).toFixed(2)),
+      cases_on_hand: (bucket.cases_on_hand || 0) + casesProduced,
+      lots: newLots,
+    });
+  } else {
+    await base44.entities.FinishedGoodsBucket.create({
+      product_id: targetProductId || "",
+      product_name: productData?.name || stage.product_name || order.product_name || "",
+      sku: productData?.sku || "",
+      product_number: productData?.product_number || "",
+      category: productData?.category || "",
+      quantity_lbs: parseFloat(actualOutputLbs.toFixed(2)),
+      cases_on_hand: casesProduced,
+      case_weight_lbs: caseWeightLbs,
+      lots: [{
+        lot_number: baseFgLot,
+        production_date: today_str,
+        expiry_date: expiryDate,
+        quantity_lbs: parseFloat(actualOutputLbs.toFixed(2)),
+        cases: casesProduced,
+        order_number: order.order_number || "",
+        status: "available",
+      }],
+      status: "active",
+    });
+  }
+
+  await base44.entities.InventoryItem.create({
+    product_id: targetProductId || "",
+    product_name: productData?.name || stage.product_name || order.product_name || "",
+    sku: productData?.sku || "",
+    batch_id: stage.order_id,
+    batch_number: order.order_number || "",
+    lot_number: baseFgLot,
+    quantity_lbs: parseFloat(actualOutputLbs.toFixed(2)),
+    original_quantity_lbs: parseFloat(actualOutputLbs.toFixed(2)),
+    status: "available",
+    production_date: today_str,
+    expiry_date: expiryDate,
+    notes: `Created from packaging stage. Cook batch: ${stage.cook_batch_lot || stage.input_lot_number || ""}`,
+  });
+
+  // If splits exist, also distribute to split products
+  if (splits && splits.length > 0) {
+    const parsedSplits = splits.map(s => typeof s === 'string' ? JSON.parse(s) : s);
+    await distributeToProducts(parsedSplits);
+  }
+
+  queryClient.invalidateQueries({ queryKey: ["inventory"] });
+  queryClient.invalidateQueries({ queryKey: ["fg_buckets"] });
+}

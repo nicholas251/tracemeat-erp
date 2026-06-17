@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Package, Thermometer, Layers, FlaskConical } from "lucide-react";
 import { IntroStep, BatchConfirmStep, MeasureStep, FinalStep } from "./StageWizardSteps";
 import { buildStageLot } from "@/lib/stageLot";
+import { pushPackagingToFinishedGoods } from "./packagingFgPush";
 
 // ─── Stage icon map ───────────────────────────────────────────────────────────
 const STAGE_ICONS = {
@@ -250,8 +251,47 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
   // It pre-loads as Rack #1 and is topped up. The operator decides each trailing partial's
   // fate with Carry Over / Release.
   const isRackingStage = capKey === "racking" || capKey === "racking_product";
+
+  // Sibling racking cards for this order — used to decide whether THIS card is the
+  // immediate-next batch allowed to claim the order-level open_partial_rack fallback.
+  const { data: rackingSiblings = [] } = useQuery({
+    queryKey: ["rackingSiblings", stage?.order_id, capKey],
+    queryFn: () => base44.entities.ProductionStage.filter({
+      order_id: stage.order_id,
+      capability_key: capKey,
+    }),
+    enabled: open && isRackingStage && !!stage?.order_id,
+  });
+
+  // Helper: extract the "-B<n>" batch index from a stage's lot fields.
+  const batchIndexOf = (s) => {
+    const src = s?.output_lot_number || s?.input_lot_number || "";
+    const m = String(src).match(/-B(\d+)\b/i);
+    return m ? parseInt(m[1], 10) : Number.MAX_SAFE_INTEGER;
+  };
+
+  // Decide the partial this card pre-loads:
+  //  1. A DIRECTED hand-off written onto this exact card always wins.
+  //  2. Otherwise the ORDER-level fallback — but ONLY if this card is the immediate-next
+  //     batch after the partial's source batch. This stops B3 from grabbing B1's partial
+  //     when B2 is the rightful next card (the reported bug). If no source index was
+  //     recorded (older data), any open card may claim it so it's never stranded.
+  const orderPartial = wizardOrder?.open_partial_rack || null;
+  const myBatchIdx = batchIndexOf({ input_lot_number: stage?.input_lot_number });
+  const canClaimOrderPartial = (() => {
+    if (!orderPartial) return false;
+    const fromIdx = orderPartial.from_batch_index;
+    if (fromIdx == null) return true; // legacy / untagged → claimable by any card
+    // This card may claim it only if it's the lowest open batch index greater than fromIdx.
+    const openHigher = rackingSiblings
+      .filter(s => s.status !== "completed" && batchIndexOf(s) > fromIdx)
+      .map(batchIndexOf)
+      .sort((a, b) => a - b);
+    return openHigher.length > 0 && myBatchIdx === openHigher[0];
+  })();
+
   const openPartialRack = isRackingStage
-    ? (stage?.carried_partial_rack || wizardOrder?.open_partial_rack || null)
+    ? (stage?.carried_partial_rack || (canClaimOrderPartial ? orderPartial : null))
     : null;
   const rackCapacityLbs = Number(product?.tumble_lbs_per_rack) || 0;
 
@@ -795,28 +835,42 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
         // lbs were already deducted at tumble — they ride along only as lot_contributions.
         const carried = cookPlan.carriedPartial;
         if (carried && (carried.lbs || 0) > 0) {
-          // Hand the partial to ANY other racking card for this order that is still open
-          // (not completed) and isn't already holding a carried partial. Order does NOT
-          // matter — the operator can finish cards in any sequence (e.g. B1 → B3 → B2), so
-          // we must NOT require the receiver to come "after" this card. We just need a live
-          // card with an empty carried slot. Prefer one that hasn't started yet.
+          // Hand the partial to the IMMEDIATE NEXT batch's racking card in sequence
+          // (B1 → B2 → B3). Each racking card's batch is encoded as a "-B<n>" suffix on its
+          // lot number, so we sort siblings by that index and pick the lowest open index
+          // that is GREATER than this card's index. This is deterministic — it never depends
+          // on the unsorted query order (the old bug: B1's partial landed on B3, skipping B2).
           const siblings = await base44.entities.ProductionStage.filter({
             order_id: stage.order_id,
             capability_key: capKey,
           });
-          const candidates = siblings.filter(
-            s => s.id !== stage.id && s.status !== "completed" && !s.carried_partial_rack
-          );
-          // Prefer a not-yet-started card so the partial pre-loads cleanly as its Rack #1;
-          // otherwise any open card will still absorb and top it up.
+          // Extract the batch index from a stage's lot fields. Falls back to a large number
+          // so unindexed cards sort last and never win over a properly-indexed sibling.
+          const batchIdxOf = (s) => {
+            const src = s.output_lot_number || s.input_lot_number || "";
+            const m = String(src).match(/-B(\d+)\b/i);
+            return m ? parseInt(m[1], 10) : Number.MAX_SAFE_INTEGER;
+          };
+          const myIdx = batchIdxOf({ output_lot_number: myLot, input_lot_number: stage.input_lot_number });
+
+          const candidates = siblings
+            .filter(s => s.id !== stage.id && s.status !== "completed" && !s.carried_partial_rack)
+            .sort((a, b) => batchIdxOf(a) - batchIdxOf(b));
+
+          // Strictly-next: lowest-indexed open card AFTER this one (B1 → B2, not B3).
+          // If none exists yet (next batch not tumbled/created), fall back to the lowest
+          // open index so the partial still rides forward and is never stranded.
           const nextCard =
-            candidates.find(s => s.status === "available") ||
+            candidates.find(s => batchIdxOf(s) > myIdx) ||
             candidates[0] ||
             null;
 
           const carriedPayload = {
             lbs: parseFloat((carried.lbs || 0).toFixed(2)),
             lot_contributions: (carried.lot_contributions || []).filter(c => (c.lbs || 0) > 0),
+            // Record which batch this partial came FROM so the order-level fallback can be
+            // claimed only by the immediate-next batch's card (B1's partial → B2, never B3).
+            from_batch_index: myIdx === Number.MAX_SAFE_INTEGER ? null : myIdx,
           };
           if (nextCard) {
             // A sibling racking card already exists → hand it the partial directly.
@@ -967,195 +1021,9 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
         }
 
         // If this is packaging: push into the FG bucket AND create an InventoryItem lot
-         if (capKey === "packaging") {
-            const order = await base44.entities.ProductionOrder.filter({ id: stage.order_id }).then(r => r?.[0]);
-            if (order) {
-              // today and today_str already defined above
-              const datePart = today_str.replace(/-/g, "");
-              const rand = Math.floor(Math.random() * 900 + 100);
-              const baseFgLot = updates.lot_number || `FG-${datePart}-${(order.order_number || "").replace(/\D/g, "").slice(-4)}-${rand}`;
-
-              const totalOutputLbs = updates.output_qty_lbs || stage.input_qty_lbs || 0;
-              const packagesProduced = updates.packages_produced || 0;
-
-              // Check if splits are defined (hot dog multi-product flow)
-              const splits = form.finished_product_splits && form.finished_product_splits.length > 0 ? form.finished_product_splits : null;
-
-              // Try to carry expiry date from the chilling stage that produced this packaging stage
-              let expiryDate = null;
-              if (stage.cook_batch_lot) {
-                const allOrderStages = await base44.entities.ProductionStage.filter({ order_id: stage.order_id });
-                const chillingStage = allOrderStages.find(
-                  s => s.capability_key === "chilling" && s.cook_batch_lot === stage.cook_batch_lot && s.status === "completed"
-                );
-                expiryDate = chillingStage?.expiry_date || null;
-              }
-
-              // Helper function to distribute lots across products
-              const distributeToProducts = async (splitConfigs) => {
-                for (const splitConfig of splitConfigs) {
-                  const targetProductId = splitConfig.product_id;
-                  const productData = await base44.entities.Product.filter({ id: targetProductId }).then(r => r?.[0]);
-                  const caseWeightLbs = productData?.case_weight_lbs || 0;
-                  const splitLbs = (Number(splitConfig.quantity_cases) || 0) * caseWeightLbs;
-
-                  if (splitLbs <= 0) continue;
-
-                  const shelfLifeDays = productData?.shelf_life_days || null;
-
-                  // Calculate expiry for this split
-                  let splitExpiryDate = expiryDate;
-                  if (!splitExpiryDate && shelfLifeDays) {
-                    splitExpiryDate = new Date(today.getTime() + shelfLifeDays * 86400000).toISOString().slice(0, 10);
-                  }
-
-                  // Calculate cases for this split — use the quantity_cases directly from the split config
-                  const casesProduced = Number(splitConfig.quantity_cases) || 0;
-
-                  // Create a unique lot number for each split
-                  const splitLotNumber = `${baseFgLot}-${productData?.sku || "SPLIT"}`.slice(0, 50);
-
-                  // 1. Push into FinishedGoodsBucket (find or create)
-                  const existingBuckets = await base44.entities.FinishedGoodsBucket.filter({ product_id: targetProductId });
-                  const bucket = existingBuckets[0];
-
-                  if (bucket) {
-                    const newLots = [...(bucket.lots || []), {
-                      lot_number: splitLotNumber,
-                      production_date: today_str,
-                      expiry_date: splitExpiryDate,
-                      quantity_lbs: parseFloat(splitLbs.toFixed(2)),
-                      cases: casesProduced,
-                      order_number: order.order_number || "",
-                      status: "available",
-                    }];
-                    await base44.entities.FinishedGoodsBucket.update(bucket.id, {
-                      quantity_lbs: parseFloat(((bucket.quantity_lbs || 0) + splitLbs).toFixed(2)),
-                      cases_on_hand: (bucket.cases_on_hand || 0) + casesProduced,
-                      lots: newLots,
-                    });
-                  } else {
-                    // Create bucket on the fly if missing
-                    await base44.entities.FinishedGoodsBucket.create({
-                      product_id: targetProductId || "",
-                      product_name: productData?.name || splitConfig.product_name || "",
-                      sku: productData?.sku || "",
-                      product_number: productData?.product_number || "",
-                      category: productData?.category || "",
-                      quantity_lbs: parseFloat(splitLbs.toFixed(2)),
-                      cases_on_hand: casesProduced,
-                      case_weight_lbs: caseWeightLbs,
-                      lots: [{
-                        lot_number: splitLotNumber,
-                        production_date: today_str,
-                        expiry_date: splitExpiryDate,
-                        quantity_lbs: parseFloat(splitLbs.toFixed(2)),
-                        cases: casesProduced,
-                        order_number: order.order_number || "",
-                        status: "available",
-                      }],
-                      status: "active",
-                    });
-                  }
-
-                  // 2. Also create InventoryItem for lot-level traceability
-                  await base44.entities.InventoryItem.create({
-                    product_id: targetProductId || "",
-                    product_name: productData?.name || splitConfig.product_name || "",
-                    sku: productData?.sku || "",
-                    batch_id: stage.order_id,
-                    batch_number: order.order_number || "",
-                    lot_number: splitLotNumber,
-                    quantity_lbs: parseFloat(splitLbs.toFixed(2)),
-                    original_quantity_lbs: parseFloat(splitLbs.toFixed(2)),
-                    status: "available",
-                    production_date: today_str,
-                    expiry_date: splitExpiryDate,
-                    notes: `Split from packaging stage. Cook batch: ${stage.cook_batch_lot || stage.input_lot_number || ""}`,
-                  });
-                }
-              };
-
-              // Always create FG for original product with packages_produced cases
-              const targetProductId = order.product_id;
-              const productData = await base44.entities.Product.filter({ id: targetProductId }).then(r => r?.[0]);
-              const shelfLifeDays = productData?.shelf_life_days || null;
-              const caseWeightLbs = productData?.case_weight_lbs || 1;
-
-              if (!expiryDate && shelfLifeDays) {
-                expiryDate = new Date(today.getTime() + shelfLifeDays * 86400000).toISOString().slice(0, 10);
-              }
-
-              const casesProduced = Number(packagesProduced) || 0;
-              const actualOutputLbs = casesProduced * caseWeightLbs;
-
-              // Push original product to FG bucket
-              const existingBuckets = await base44.entities.FinishedGoodsBucket.filter({ product_id: targetProductId });
-              const bucket = existingBuckets[0];
-
-              if (bucket) {
-                const newLots = [...(bucket.lots || []), {
-                  lot_number: baseFgLot,
-                  production_date: today_str,
-                  expiry_date: expiryDate,
-                  quantity_lbs: parseFloat(actualOutputLbs.toFixed(2)),
-                  cases: casesProduced,
-                  order_number: order.order_number || "",
-                  status: "available",
-                }];
-                await base44.entities.FinishedGoodsBucket.update(bucket.id, {
-                  quantity_lbs: parseFloat(((bucket.quantity_lbs || 0) + actualOutputLbs).toFixed(2)),
-                  cases_on_hand: (bucket.cases_on_hand || 0) + casesProduced,
-                  lots: newLots,
-                });
-              } else {
-                await base44.entities.FinishedGoodsBucket.create({
-                  product_id: targetProductId || "",
-                  product_name: productData?.name || stage.product_name || order.product_name || "",
-                  sku: productData?.sku || "",
-                  product_number: productData?.product_number || "",
-                  category: productData?.category || "",
-                  quantity_lbs: parseFloat(actualOutputLbs.toFixed(2)),
-                  cases_on_hand: casesProduced,
-                  case_weight_lbs: caseWeightLbs,
-                  lots: [{
-                    lot_number: baseFgLot,
-                    production_date: today_str,
-                    expiry_date: expiryDate,
-                    quantity_lbs: parseFloat(actualOutputLbs.toFixed(2)),
-                    cases: casesProduced,
-                    order_number: order.order_number || "",
-                    status: "available",
-                  }],
-                  status: "active",
-                });
-              }
-
-              await base44.entities.InventoryItem.create({
-                product_id: targetProductId || "",
-                product_name: productData?.name || stage.product_name || order.product_name || "",
-                sku: productData?.sku || "",
-                batch_id: stage.order_id,
-                batch_number: order.order_number || "",
-                lot_number: baseFgLot,
-                quantity_lbs: parseFloat(actualOutputLbs.toFixed(2)),
-                original_quantity_lbs: parseFloat(actualOutputLbs.toFixed(2)),
-                status: "available",
-                production_date: today_str,
-                expiry_date: expiryDate,
-                notes: `Created from packaging stage. Cook batch: ${stage.cook_batch_lot || stage.input_lot_number || ""}`,
-              });
-
-              // If splits exist, also distribute to split products
-              if (splits && splits.length > 0) {
-                const parsedSplits = splits.map(s => typeof s === 'string' ? JSON.parse(s) : s);
-                await distributeToProducts(parsedSplits);
-              }
-
-              queryClient.invalidateQueries({ queryKey: ["inventory"] });
-              queryClient.invalidateQueries({ queryKey: ["fg_buckets"] });
-            }
-         }
+        if (capKey === "packaging") {
+          await pushPackagingToFinishedGoods({ stage, updates, form, queryClient });
+        }
 
         // ── Mixer special case: update paired linking stages with mixer output lot ──
         if (capKey === "mixer") {
