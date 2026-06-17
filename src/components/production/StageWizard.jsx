@@ -353,13 +353,18 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
   const handleReleaseRack = async (rack, lotNumber) => {
     const contributions = (rack.lot_contributions || []).filter(c => (c.lbs || 0) > 0);
     const order = await base44.entities.ProductionOrder.filter({ id: stage.order_id }).then(r => r?.[0]);
+    // Assign a GLOBALLY sequential rack number across the whole order so numbers never
+    // restart per racking card (which caused the confusing "1, 2, 1" downstream). The
+    // number is the highest existing rack number for this order + 1.
+    const existingOrderRacks = await base44.entities.RackUnit.filter({ order_id: stage.order_id }, "-rack_number", 1);
+    const nextRackNumber = (existingOrderRacks?.[0]?.rack_number || 0) + 1;
     await base44.entities.RackUnit.create({
       order_id: stage.order_id,
       order_number: stage.order_number,
       product_id: order?.product_id || "",
       product_name: stage.product_name,
       racking_stage_id: stage.id,
-      rack_number: rack.rackNumber,
+      rack_number: nextRackNumber,
       lbs: parseFloat((rack.lbs || 0).toFixed(2)),
       lot_number: contributions.length
         ? contributions.slice().sort((a, b) => (b.lbs || 0) - (a.lbs || 0))[0].lot_number

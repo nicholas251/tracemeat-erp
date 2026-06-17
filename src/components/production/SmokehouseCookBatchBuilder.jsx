@@ -65,9 +65,8 @@ export default function SmokehouseCookBatchBuilder({ stage, cookBatch, onChange 
       onChange(null);
       return;
     }
-    // Sequential oven position across ALL released racks (the per-card rack_number repeats
-    // across tumble batches → confusing "#1, #2, #1"). Map each selected rack to its index
-    // in the full released list so the review shows distinct oven positions.
+    // Use each rack's STORED rack_number (globally unique per order) so the review shows
+    // the same stable number the operator saw at racking — no renumbering across stages.
     const racks = ids.map(id => {
       const idx = releasedRacks.findIndex(r => r.id === id);
       const r = releasedRacks[idx];
@@ -76,7 +75,7 @@ export default function SmokehouseCookBatchBuilder({ stage, cookBatch, onChange 
         lbs: r.lbs,
         lot_number: r.lot_number,
         rack_number: r.rack_number,
-        oven_position: idx + 1,
+        oven_position: r.rack_number ?? idx + 1,
         order_number: r.order_number,
         lot_contributions: r.lot_contributions?.length
           ? r.lot_contributions
@@ -131,9 +130,9 @@ export default function SmokehouseCookBatchBuilder({ stage, cookBatch, onChange 
           {releasedRacks.map((rack, idx) => {
             const isSelected = selectedIds.includes(rack.id);
             const atCap = !isSelected && selectedIds.length >= MAX_RACKS_PER_BATCH;
-            // Number sequentially across all released racks (per-card rack_number repeats
-            // across tumble batches and looks confusing here).
-            const displayNumber = idx + 1;
+            // Show the rack's STORED number — it is now globally unique per order (assigned
+            // at release), so it stays stable from racking → cooking → cooling and never repeats.
+            const displayNumber = rack.rack_number ?? idx + 1;
             return (
               <button
                 key={rack.id}
