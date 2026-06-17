@@ -220,6 +220,12 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
     queryKey: ["wizardOrder", stage?.order_id],
     queryFn: () => base44.entities.ProductionOrder.filter({ id: stage.order_id }).then(r => r?.[0] || null),
     enabled: open && !!stage,
+    // Always read fresh order state on open. Without this, a racking card opened right
+    // after a sibling card parked its partial would serve a STALE cached order (partial
+    // still null) and never load the carried partial — the core cascade bug.
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnMount: "always",
   });
   const usesStandardLots = !!wizardOrder?.uses_standard_lots;
 
@@ -272,12 +278,21 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
       const live = await base44.entities.ProductionOrder.filter({ id: stage.order_id }).then(r => r?.[0]);
       const partial = live?.open_partial_rack;
       if (cancelled || !partial || (partial.lbs || 0) <= 0) return;
-      if (!partial.claimed_by_stage_id) {
-        await base44.entities.ProductionOrder.update(stage.order_id, {
-          open_partial_rack: { ...partial, claimed_by_stage_id: stage.id },
-        });
-        queryClient.invalidateQueries({ queryKey: ["wizardOrder", stage.order_id] });
+      // If unclaimed, stamp it for me. If already claimed by me (resume), keep it.
+      // Either way, write the claimed partial straight into the query cache so the
+      // builder sees it SYNCHRONOUSLY — never waiting on a refetch that could lose the
+      // race against the operator releasing their first rack.
+      const claimed = partial.claimed_by_stage_id === stage.id
+        ? partial
+        : (!partial.claimed_by_stage_id ? { ...partial, claimed_by_stage_id: stage.id } : null);
+      if (!claimed || cancelled) return;
+      if (partial.claimed_by_stage_id !== stage.id) {
+        await base44.entities.ProductionOrder.update(stage.order_id, { open_partial_rack: claimed });
       }
+      if (cancelled) return;
+      queryClient.setQueryData(["wizardOrder", stage.order_id], (prev) =>
+        prev ? { ...prev, open_partial_rack: claimed } : { ...live, open_partial_rack: claimed }
+      );
     })();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
