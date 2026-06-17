@@ -245,13 +245,27 @@ export default function RackReleaseBuilder({ totalLbs, capacityLbs, openPartialR
     );
   };
 
+  // Only the unracked remainder may go onto a new rack — never invent phantom weight
+  // (which would be released to the smokehouse as RackUnit lbs that were never deducted
+  // from inventory). remaining = this card's input minus everything already on racks
+  // that belongs to THIS card's lot (carried-in lbs from other lots don't count against it).
+  const unrackedRemaining = (() => {
+    const myRacked = racks.reduce((s, r) => {
+      const mine = (r.lot_contributions || []).filter(c => c.lot_number === lotNumber);
+      return s + mine.reduce((ss, c) => ss + (c.lbs || 0), 0);
+    }, 0);
+    return parseFloat(Math.max(0, (totalLbs || 0) - myRacked).toFixed(2));
+  })();
+
   const addRack = () => {
+    if (unrackedRemaining <= 0.001) return;
+    const lbs = parseFloat(Math.min(RACK_CAP, unrackedRemaining).toFixed(2));
     const nextNum = racks.length + 1;
     sync([...racks, {
       rackNumber: nextNum,
-      lbs: RACK_CAP,
+      lbs,
       released: false,
-      lot_contributions: [{ lot_number: lotNumber, lbs: RACK_CAP }],
+      lot_contributions: [{ lot_number: lotNumber, lbs }],
     }], lotNumber, carriedOver);
   };
 
@@ -395,9 +409,11 @@ export default function RackReleaseBuilder({ totalLbs, capacityLbs, openPartialR
             variant="outline"
             size="sm"
             onClick={addRack}
+            disabled={unrackedRemaining <= 0.001}
             className="w-full h-9 text-xs font-semibold gap-1.5 mt-1"
           >
-            <Plus className="w-3.5 h-3.5" /> Add Another Rack
+            <Plus className="w-3.5 h-3.5" />
+            {unrackedRemaining > 0.001 ? `Add Another Rack (${unrackedRemaining} lbs left)` : "All weight racked"}
           </Button>
 
           {trailingPartial && (

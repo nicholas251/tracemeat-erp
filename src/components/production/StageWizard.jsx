@@ -761,13 +761,26 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
         // OWN persisted racks, then hand any carried-over partial to the NEXT racking card.
         const order = await base44.entities.ProductionOrder.filter({ id: stage.order_id }).then(r => r?.[0]);
         const racksOnRecord = await base44.entities.RackUnit.filter({ racking_stage_id: stage.id });
-        const releasedLbs = parseFloat(racksOnRecord.reduce((s, r) => s + (r.lbs || 0), 0).toFixed(2));
+        // Per-card output must reflect only THIS card's own product — not the carried-in lbs
+        // from a previous card's partial (those were already deducted + accounted at that
+        // batch's tumble release). A topped-up Rack #1 stores both lots in lot_contributions,
+        // so sum only contributions whose lot matches this card's lot; fall back to full rack
+        // lbs for single-lot racks. This keeps input≈output reconciliation correct per card.
+        const myLot = cookPlan.lotNumber || stage.input_lot_number || "";
+        const releasedLbs = parseFloat(racksOnRecord.reduce((s, r) => {
+          const contribs = (r.lot_contributions || []);
+          if (contribs.length > 1) {
+            const mine = contribs.filter(c => c.lot_number === myLot).reduce((ss, c) => ss + (c.lbs || 0), 0);
+            return s + mine;
+          }
+          return s + (r.lbs || 0);
+        }, 0).toFixed(2));
 
         await base44.entities.ProductionStage.update(stage.id, {
           status: "completed",
           completed_at: new Date().toISOString(),
           output_qty_lbs: releasedLbs,
-          output_lot_number: cookPlan.lotNumber || stage.input_lot_number || "",
+          output_lot_number: myLot,
           racks_count: racksOnRecord.length,
           notes: form.notes || stage.notes || "",
           // Clear any carried-in partial now that this card is finalized — its product was
