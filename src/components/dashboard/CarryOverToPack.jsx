@@ -1,14 +1,27 @@
 import React from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Boxes } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Boxes, Trash2 } from "lucide-react";
 
 // Dashboard tab: open unfinished-case carry-overs waiting to be packed later, grouped by
 // product. Read-only overview — operators pull these back in at the packing stage.
-export default function CarryOverToPack() {
+// Admins can delete carry-over items that are no longer needed.
+export default function CarryOverToPack({ isAdmin = false }) {
   const queryClient = useQueryClient();
+  const [deletingId, setDeletingId] = React.useState(null);
+
+  const deleteMutation = useMutation({
+    mutationFn: (id) => base44.entities.UnfinishedCase.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["allCarryOvers"] });
+      setDeletingId(null);
+    },
+  });
+
   const { data: carryOvers = [], isLoading } = useQuery({
     queryKey: ["allCarryOvers"],
     queryFn: () => base44.entities.UnfinishedCase.filter({ status: "open" }, "-created_date", 200),
@@ -68,9 +81,32 @@ export default function CarryOverToPack() {
           <CardContent className="space-y-2">
             {g.items.map(c => (
               <div key={c.id} className="rounded-lg border border-border p-3 text-sm">
-                <div className="flex justify-between">
+                <div className="flex justify-between items-start gap-2">
                   <span className="font-semibold">{(c.lbs || 0).toFixed(2)} lbs</span>
-                  <span className="text-xs text-muted-foreground">from #{c.source_order_number || "—"}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">from #{c.source_order_number || "—"}</span>
+                    {isAdmin && (
+                      <AlertDialog open={deletingId === c.id} onOpenChange={(open) => setDeletingId(open ? c.id : null)}>
+                        <AlertDialogTrigger asChild>
+                          <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive hover:text-destructive">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogTitle>Delete Carry-Over</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Delete this {(c.lbs || 0).toFixed(2)} lbs carry-over of {g.product_name} from #{c.source_order_number || "—"}? This cannot be undone.
+                          </AlertDialogDescription>
+                          <div className="flex gap-2 justify-end">
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" disabled={deleteMutation.isPending} onClick={() => deleteMutation.mutate(c.id)}>
+                              {deleteMutation.isPending ? "Deleting..." : "Delete"}
+                            </AlertDialogAction>
+                          </div>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    )}
+                  </div>
                 </div>
                 <div className="text-xs text-muted-foreground mt-1">
                   {(c.lot_contributions || []).length

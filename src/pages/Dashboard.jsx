@@ -115,7 +115,7 @@ export default function Dashboard() {
           </TabsContent>
 
           <TabsContent value="carryover">
-            <CarryOverToPack />
+            <CarryOverToPack isAdmin={user?.role === "admin"} />
           </TabsContent>
         </Tabs>
       )}
