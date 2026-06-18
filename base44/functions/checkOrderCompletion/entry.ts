@@ -34,8 +34,8 @@ Deno.serve(async (req) => {
             return Response.json({ updated: false, reason: "already completed" });
         }
 
-        await base44.asServiceRole.entities.ProductionOrder.update(orderId, { status: "completed" });
-        return Response.json({ updated: true, order_id: orderId });
+        await base44.asServiceRole.entities.ProductionOrder.update(orderId, { status: "completed", archived: true });
+        return Response.json({ updated: true, order_id: orderId, archived: true });
     } catch (error) {
         return Response.json({ error: error.message }, { status: 500 });
     }
