@@ -11,6 +11,7 @@ import ProductionOrderFormDialog from "@/components/production-orders/Production
 import OrderStagesPanel from "@/components/production/OrderStagesPanel";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { isUserAdminOrSupervisor } from "@/lib/accessControl";
+import { useEntitySync } from "@/hooks/useEntitySync";
 
 export default function ProductionOrders() {
   const [showForm, setShowForm] = useState(false);
@@ -29,6 +30,9 @@ export default function ProductionOrders() {
     queryFn: () => base44.entities.WorkProfile.filter({ status: "active" }),
     enabled: !!currentUser,
   });
+
+  // Live oversight: order + stage changes anywhere refresh this list without a manual reload.
+  useEntitySync(["ProductionOrder", "ProductionStage"]);
 
   // Compute allowed capability keys and admin status based on work profiles
   const userProfiles = allProfiles.filter(p => (p.assigned_user_ids || []).includes(currentUser?.id));

@@ -12,9 +12,13 @@ import QADashboard from "@/components/dashboard/QADashboard";
 import ResetDataPanel from "@/components/admin/ResetDataPanel";
 import CarryOverToPack from "@/components/dashboard/CarryOverToPack";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { useEntitySync } from "@/hooks/useEntitySync";
 
 export default function Dashboard() {
   const { user } = useAuth();
+
+  // Live oversight: refresh dashboard stats/lists the instant anything changes on the floor.
+  useEntitySync(["ProductionOrder", "ProductionStage", "UnfinishedCase", "HoldRelease", "InventoryItem"]);
 
   const { data: allProfiles = [] } = useQuery({
     queryKey: ["allWorkProfiles"],

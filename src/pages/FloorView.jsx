@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Lock, CheckCircle2, Clock, AlertCircle, RefreshCw, ChevronRight } from "lucide-react";
 import PageHeader from "@/components/shared/PageHeader";
 import StageActionDialog from "@/components/production/StageActionDialog";
+import { useEntitySync } from "@/hooks/useEntitySync";
 
 const STATUS_CONFIG = {
   locked:      { label: "Locked",      icon: Lock,         color: "text-muted-foreground", bg: "bg-muted/40" },
@@ -37,13 +38,8 @@ export default function FloorView() {
     queryFn: () => base44.entities.ProductionStage.list("-created_date", 200),
   });
 
-  // Real-time subscription
-  useEffect(() => {
-    const unsub = base44.entities.ProductionStage.subscribe(() => {
-      queryClient.invalidateQueries({ queryKey: ["productionStages"] });
-    });
-    return unsub;
-  }, [queryClient]);
+  // Live oversight: stage changes AND order status changes both refresh the board.
+  useEntitySync(["ProductionStage", "ProductionOrder"]);
 
   const activeOrders = orders.filter(o => o.status === "pending" || o.status === "in_progress");
 
