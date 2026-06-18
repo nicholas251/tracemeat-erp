@@ -74,7 +74,7 @@ export default function CarryOverToPack() {
                 </div>
                 <div className="text-xs text-muted-foreground mt-1">
                   {(c.lot_contributions || []).length
-                    ? c.lot_contributions.map(l => `${l.lot_number} (${(l.lbs || 0).toFixed(1)} lbs)`).join(", ")
+                    ? c.lot_contributions.map(l => `${l.lot_number} (${(l.lbs || 0).toFixed(2)} lbs)`).join(", ")
                     : "No lot detail"}
                 </div>
                 <div className="text-xs text-muted-foreground mt-0.5">
