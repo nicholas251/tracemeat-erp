@@ -58,6 +58,11 @@
       ],
       "default": "pending"
     },
+    "archived": {
+      "type": "boolean",
+      "default": false,
+      "description": "When true, the order is hidden from the active Production Orders list and shown only under the Archived view. Completed orders can be archived for future review."
+    },
     "current_stage": {
       "type": "number",
       "default": 0,

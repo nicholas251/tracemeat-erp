@@ -4,11 +4,12 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Eye, ChevronRight, Pencil, Trash2 } from "lucide-react";
+import { Plus, Eye, ChevronRight, Pencil, Trash2, Archive, ArchiveRestore } from "lucide-react";
 import PageHeader from "@/components/shared/PageHeader";
 import StatusBadge from "@/components/shared/StatusBadge";
 import ProductionOrderFormDialog from "@/components/production-orders/ProductionOrderFormDialog";
 import OrderStagesPanel from "@/components/production/OrderStagesPanel";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { isUserAdminOrSupervisor } from "@/lib/accessControl";
 import { useEntitySync } from "@/hooks/useEntitySync";
@@ -19,6 +20,7 @@ export default function ProductionOrders() {
   const [viewingOrder, setViewingOrder] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
   const [deletingOrderId, setDeletingOrderId] = useState(null);
+  const [tab, setTab] = useState("active");
   const queryClient = useQueryClient();
 
   useEffect(() => {
@@ -189,6 +191,17 @@ export default function ProductionOrders() {
     },
   });
 
+  const archiveMutation = useMutation({
+    mutationFn: ({ id, archived }) => base44.entities.ProductionOrder.update(id, { archived }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["productionOrders"] });
+    },
+  });
+
+  const activeOrders = orders.filter(o => !o.archived);
+  const archivedOrders = orders.filter(o => o.archived);
+  const visibleOrders = tab === "archived" ? archivedOrders : activeOrders;
+
   const handleSave = (data) => {
     if (editingOrder) {
       // When updating, ensure flow info is preserved
@@ -220,13 +233,22 @@ export default function ProductionOrders() {
         }
       />
 
+      <Tabs value={tab} onValueChange={setTab} className="mb-4">
+        <TabsList>
+          <TabsTrigger value="active">Active ({activeOrders.length})</TabsTrigger>
+          <TabsTrigger value="archived">Archived ({archivedOrders.length})</TabsTrigger>
+        </TabsList>
+      </Tabs>
+
       {isLoading ? (
         <div className="text-center py-12 text-muted-foreground">Loading...</div>
-      ) : orders.length === 0 ? (
-        <div className="text-center py-16 text-muted-foreground">No production orders yet.</div>
+      ) : visibleOrders.length === 0 ? (
+        <div className="text-center py-16 text-muted-foreground">
+          {tab === "archived" ? "No archived orders." : "No production orders yet."}
+        </div>
       ) : (
         <div className="space-y-3">
-          {orders.map(order => (
+          {visibleOrders.map(order => (
             <Card key={order.id} className={viewingOrder?.id === order.id ? "border-primary" : ""}>
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
@@ -245,6 +267,15 @@ export default function ProductionOrders() {
                         <Button size="sm" variant="outline" onClick={() => setViewingOrder(viewingOrder?.id === order.id ? null : order)} className="gap-1 h-8">
                           <Eye className="w-3.5 h-3.5" /> {viewingOrder?.id === order.id ? "Hide" : "Stages"}
                         </Button>
+                        {order.archived ? (
+                          <Button size="sm" variant="outline" onClick={() => archiveMutation.mutate({ id: order.id, archived: false })} className="gap-1 h-8">
+                            <ArchiveRestore className="w-3.5 h-3.5" /> Restore
+                          </Button>
+                        ) : order.status === "completed" ? (
+                          <Button size="sm" variant="outline" onClick={() => archiveMutation.mutate({ id: order.id, archived: true })} className="gap-1 h-8">
+                            <Archive className="w-3.5 h-3.5" /> Archive
+                          </Button>
+                        ) : null}
                         <Button size="sm" variant="outline" onClick={() => { setEditingOrder(order); setShowForm(true); }} className="h-8 w-8 p-0">
                           <Pencil className="w-3.5 h-3.5" />
                         </Button>
