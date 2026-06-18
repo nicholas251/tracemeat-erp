@@ -205,6 +205,40 @@ export async function pushPackagingToFinishedGoods({ stage, updates, form, query
     await distributeToProducts(parsedSplits);
   }
 
+  // ── Unfinished case carry-over ──────────────────────────────────────────────
+  // If the operator parked a leftover remainder, create an OPEN UnfinishedCase record
+  // carrying its lot contributions + the original run's expiry (preserved when added back).
+  if (form.unfinished_allocated && (form.unfinished_remainder_lbs || 0) > 0.001) {
+    await base44.entities.UnfinishedCase.create({
+      product_id: targetProductId || "",
+      product_name: productData?.name || stage.product_name || order.product_name || "",
+      sku: productData?.sku || "",
+      category: productData?.category || "",
+      lbs: parseFloat((form.unfinished_remainder_lbs || 0).toFixed(2)),
+      lot_contributions: (form.unfinished_remainder_lots || []).filter(c => (c.lbs || 0) > 0),
+      source_order_id: stage.order_id,
+      source_order_number: order.order_number || "",
+      source_stage_id: stage.id,
+      production_date: today_str,
+      expiry_date: expiryDate,
+      status: "open",
+    });
+  }
+
+  // ── Consume carry-overs pulled into this run ────────────────────────────────
+  // Carry-overs the operator selected at packing are now packed — mark them consumed,
+  // stamping which order absorbed them. Their original expiry on the record is untouched.
+  for (const id of (form.carryover_ids || [])) {
+    await base44.entities.UnfinishedCase.update(id, {
+      status: "consumed",
+      consumed_order_id: stage.order_id,
+      consumed_order_number: order.order_number || "",
+      consumed_at: new Date().toISOString(),
+    });
+  }
+
   queryClient.invalidateQueries({ queryKey: ["inventory"] });
   queryClient.invalidateQueries({ queryKey: ["fg_buckets"] });
+  queryClient.invalidateQueries({ queryKey: ["openCarryOvers"] });
+  queryClient.invalidateQueries({ queryKey: ["allCarryOvers"] });
 }

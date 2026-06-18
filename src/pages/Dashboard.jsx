@@ -10,6 +10,8 @@ import { base44 } from "@/api/base44Client";
 import { useAuth } from "@/lib/AuthContext";
 import QADashboard from "@/components/dashboard/QADashboard";
 import ResetDataPanel from "@/components/admin/ResetDataPanel";
+import CarryOverToPack from "@/components/dashboard/CarryOverToPack";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -90,15 +92,28 @@ export default function Dashboard() {
       {showQA && <QADashboard />}
 
       {showManagement && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2">
-            <ActiveOrdersList orders={orders} />
-          </div>
-          <div className="space-y-6">
-            <ActiveHolds holds={holds} />
-            <ResetDataPanel />
-          </div>
-        </div>
+        <Tabs defaultValue="overview">
+          <TabsList className="mb-4">
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="carryover">Carry-Over to Pack</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="overview">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-2">
+                <ActiveOrdersList orders={orders} />
+              </div>
+              <div className="space-y-6">
+                <ActiveHolds holds={holds} />
+                <ResetDataPanel />
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="carryover">
+            <CarryOverToPack />
+          </TabsContent>
+        </Tabs>
       )}
     </div>
   );

@@ -6,6 +6,8 @@ import IngredientLotPicker from "../blending/IngredientLotPicker";
 import LinkingCookBatchBuilder from "./LinkingCookBatchBuilder";
 import RackReleaseBuilder from "./RackReleaseBuilder";
 import SmokehouseCookBatchBuilder from "./SmokehouseCookBatchBuilder";
+import CarryOverPicker from "./CarryOverPicker";
+import UnfinishedCaseAllocator from "./UnfinishedCaseAllocator";
 import FieldInput from "./wizard/FieldInput";
 import FinalStepComponent from "./wizard/FinalStep";
 import { ProgressBar, NavButtons } from "./wizard/WizardNav";
@@ -167,6 +169,32 @@ export function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form,
   // Chilling must drop to 40°F or lower — hard gate, no override.
   const chillTempTooHigh = chillTempEntered && Number(form.temperature_f) > 40;
 
+  // ── Packaging remainder (for "Allocate to Unfinished Case") ─────────────────
+  // Effective input = stage input + any carry-over pulled in. Remainder = effective
+  // input minus the main-product full cases minus any split-to-other-product lbs.
+  const caseWeightLbs = product?.case_weight_lbs || 0;
+  const carryoverLbs = (form.carryover_records || []).reduce((s, r) => s + (r.lbs || 0), 0);
+  const effectiveInputLbs = (stage?.input_qty_lbs || 0) + carryoverLbs;
+  const mainCaseLbs = (Number(form.packages_produced) || 0) * caseWeightLbs;
+  const splitLbs = (form.finished_product_splits || []).reduce((s, sp) => {
+    const parsed = typeof sp === "string" ? JSON.parse(sp) : sp;
+    return s + ((Number(parsed.quantity_cases) || 0) * (parsed.case_weight_lbs || 0));
+  }, 0);
+  const packagingRemainderLbs = Math.max(0, parseFloat((effectiveInputLbs - mainCaseLbs - splitLbs).toFixed(2)));
+  // If the operator changes cases/splits/carry-over after parking a remainder, the stored
+  // amount goes stale — clear the allocation so they re-confirm against the new remainder.
+  React.useEffect(() => {
+    if (form.unfinished_allocated && Math.abs((form.unfinished_remainder_lbs || 0) - packagingRemainderLbs) > 0.001) {
+      setForm(f => ({ ...f, unfinished_allocated: false, unfinished_remainder_lbs: 0, unfinished_remainder_lots: [] }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [packagingRemainderLbs]);
+  // Lot breakdown for the parked carry-over: the run's own input lot + each carry-over's lots.
+  const packagingRemainderLots = [
+    ...(stage?.input_lot_number ? [{ lot_number: stage.input_lot_number, lbs: packagingRemainderLbs }] : []),
+    ...(form.carryover_records || []).flatMap(r => r.lot_contributions || []),
+  ];
+
   const canProceed = isLinking ? !!cookBatch
      : isRacking ? (cookPlan?.racks?.some(r => r.released) || !!cookPlan?.carriedPartial)
      : isPackaging ? (form.case_count > 0 && caseWeights.length === parseInt(form.case_count))
@@ -219,6 +247,36 @@ export function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form,
               onCasingSelect={(id, name) => setForm(f => ({ ...f, casing_bucket_id: id, casing_bucket_name: name }))}
             />
           ))}
+        </div>
+      )}
+
+      {capKey === "packaging" && stepDef.id === "packaging" && (
+        <div className="space-y-4">
+          <CarryOverPicker
+            productId={product?.id}
+            selectedIds={form.carryover_ids || []}
+            onChange={(ids, records) => {
+              const addedLbs = records.reduce((s, r) => s + (r.lbs || 0), 0);
+              const baseLbs = stage?.input_qty_lbs || 0;
+              setForm(f => ({
+                ...f,
+                carryover_ids: ids,
+                carryover_records: records,
+                output_qty_lbs: parseFloat((baseLbs + addedLbs).toFixed(2)),
+              }));
+            }}
+          />
+          <UnfinishedCaseAllocator
+            remainderLbs={packagingRemainderLbs}
+            lotContributions={packagingRemainderLots}
+            allocated={!!form.unfinished_allocated}
+            onAllocate={() => setForm(f => ({
+              ...f,
+              unfinished_allocated: true,
+              unfinished_remainder_lbs: packagingRemainderLbs,
+              unfinished_remainder_lots: packagingRemainderLots,
+            }))}
+          />
         </div>
       )}
 

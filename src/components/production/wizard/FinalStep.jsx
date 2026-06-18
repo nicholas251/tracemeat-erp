@@ -13,7 +13,9 @@ export default function FinalStep({ stage, capKey, stageLabel, resolvedBatches, 
   // remainder split into other same-category products. Completion is blocked until the
   // allocated weight matches the input weight (within a small rounding tolerance).
   const isPackagingStage = capKey === "packaging";
-  const packTotalLbs = stage?.input_qty_lbs || 0;
+  // Carry-overs pulled into this run add to the incoming weight that must be accounted for.
+  const packCarryoverLbs = (form.carryover_records || []).reduce((s, r) => s + (r.lbs || 0), 0);
+  const packTotalLbs = parseFloat(((stage?.input_qty_lbs || 0) + packCarryoverLbs).toFixed(2));
   const packCaseWeight = product?.case_weight_lbs || 0;
   const packOriginalLbs = (Number(form.packages_produced) || 0) * packCaseWeight;
   const packSplits = Array.isArray(form.finished_product_splits) ? form.finished_product_splits : [];
@@ -21,7 +23,9 @@ export default function FinalStep({ stage, capKey, stageLabel, resolvedBatches, 
     const sp = typeof raw === "string" ? JSON.parse(raw) : raw;
     return s + ((Number(sp?.quantity_cases) || 0) * (Number(sp?.case_weight_lbs) || 0));
   }, 0);
-  const packAllocatedLbs = parseFloat((packOriginalLbs + packSplitLbs).toFixed(2));
+  // Weight parked as an unfinished-case carry-over counts as fully accounted for.
+  const packUnfinishedLbs = form.unfinished_allocated ? (Number(form.unfinished_remainder_lbs) || 0) : 0;
+  const packAllocatedLbs = parseFloat((packOriginalLbs + packSplitLbs + packUnfinishedLbs).toFixed(2));
   const packUnallocatedLbs = parseFloat((packTotalLbs - packAllocatedLbs).toFixed(2));
   const packFullyAllocated = packTotalLbs > 0 && Math.abs(packUnallocatedLbs) < 0.01;
 
@@ -117,6 +121,12 @@ export default function FinalStep({ stage, capKey, stageLabel, resolvedBatches, 
                     </div>
                   );
                 })}
+              </div>
+            )}
+            {form.unfinished_allocated && (Number(form.unfinished_remainder_lbs) || 0) > 0 && (
+              <div className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded px-2.5 py-1.5 text-xs mt-1">
+                <span className="font-semibold text-amber-900">Unfinished case (carry-over)</span>
+                <span className="text-amber-700">{(Number(form.unfinished_remainder_lbs) || 0).toFixed(2)} lbs</span>
               </div>
             )}
           </div>

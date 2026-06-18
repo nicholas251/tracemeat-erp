@@ -1,0 +1,89 @@
+{
+  "name": "UnfinishedCase",
+  "type": "object",
+  "properties": {
+    "product_id": {
+      "type": "string",
+      "description": "Linked Product ID this leftover belongs to"
+    },
+    "product_name": {
+      "type": "string",
+      "description": "Product name for display"
+    },
+    "sku": {
+      "type": "string",
+      "description": "Product SKU"
+    },
+    "category": {
+      "type": "string",
+      "description": "Product category"
+    },
+    "lbs": {
+      "type": "number",
+      "description": "Leftover weight that did not fill a full case, parked for later"
+    },
+    "lot_contributions": {
+      "type": "array",
+      "description": "Per-lot weight breakdown so full traceability is preserved on the carry-over",
+      "items": {
+        "type": "object",
+        "properties": {
+          "lot_number": {
+            "type": "string"
+          },
+          "lbs": {
+            "type": "number"
+          }
+        }
+      }
+    },
+    "source_order_id": {
+      "type": "string",
+      "description": "ProductionOrder ID this carry-over came from"
+    },
+    "source_order_number": {
+      "type": "string"
+    },
+    "source_stage_id": {
+      "type": "string",
+      "description": "Packaging ProductionStage ID that produced this carry-over"
+    },
+    "production_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "expiry_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Original run's expiry date \u2014 preserved even when added back into a future run"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "open",
+        "consumed"
+      ],
+      "default": "open",
+      "description": "open = waiting to be packed later; consumed = added back into a production run"
+    },
+    "consumed_order_id": {
+      "type": "string",
+      "description": "ProductionOrder ID that absorbed this carry-over"
+    },
+    "consumed_order_number": {
+      "type": "string"
+    },
+    "consumed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "product_id",
+    "product_name",
+    "lbs"
+  ]
+}
