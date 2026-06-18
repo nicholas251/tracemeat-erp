@@ -228,7 +228,11 @@ export async function pushPackagingToFinishedGoods({ stage, updates, form, query
   // ── Consume carry-overs pulled into this run ────────────────────────────────
   // Carry-overs the operator selected at packing are now packed — mark them consumed,
   // stamping which order absorbed them. Their original expiry on the record is untouched.
+  // Re-read each one first and only consume those still OPEN, so a carry-over already
+  // absorbed by another run (stale selection) is skipped instead of double-stamped.
   for (const id of (form.carryover_ids || [])) {
+    const current = await base44.entities.UnfinishedCase.filter({ id }).then(r => r?.[0]);
+    if (!current || current.status !== "open") continue;
     await base44.entities.UnfinishedCase.update(id, {
       status: "consumed",
       consumed_order_id: stage.order_id,
@@ -239,6 +243,10 @@ export async function pushPackagingToFinishedGoods({ stage, updates, form, query
 
   queryClient.invalidateQueries({ queryKey: ["inventory"] });
   queryClient.invalidateQueries({ queryKey: ["fg_buckets"] });
+  // Carry-over lists: the dashboard tab reads ["allCarryOvers"]; the packing picker reads
+  // ["openCarryOvers", productId]. Prefix-invalidate both so consumed items drop off and
+  // any newly-parked remainder appears, without a manual refresh.
   queryClient.invalidateQueries({ queryKey: ["openCarryOvers"] });
   queryClient.invalidateQueries({ queryKey: ["allCarryOvers"] });
+  queryClient.refetchQueries({ queryKey: ["allCarryOvers"] });
 }
