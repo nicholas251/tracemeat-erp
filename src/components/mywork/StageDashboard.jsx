@@ -8,6 +8,8 @@ import PageHeader from "@/components/shared/PageHeader";
 import StageWizard from "@/components/production/StageWizard";
 import SousVidePackWizard from "@/components/production/SousVidePackWizard";
 import TumbleWizard from "@/components/production/TumbleWizard";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import CarryOverToPack from "@/components/dashboard/CarryOverToPack";
 
 export default function StageDashboard({ user, profile, onBack, singleProfile = false }) {
   const [activeStage, setActiveStage] = useState(null);
@@ -72,19 +74,10 @@ export default function StageDashboard({ user, profile, onBack, singleProfile = 
   const sortedStages = [...cookingStages, ...otherStages, ...chillingStages];
 
   const title = profile.name;
+  const showCarryOverTab = capKeys.includes("packaging");
 
-  return (
-    <div className="max-w-4xl mx-auto">
-      <PageHeader
-        title={title}
-        subtitle={`${user?.full_name} · ${new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}`}
-        actions={onBack && (
-          <Button variant="outline" size="sm" onClick={onBack} className="gap-1">
-            <ChevronLeft className="w-3.5 h-3.5" /> Profiles
-          </Button>
-        )}
-      />
-
+  const jobsContent = (
+    <>
       {myStages.length > 0 ? (
         <div className="space-y-2">
            {sortedStages.map(stage => {
@@ -135,6 +128,33 @@ export default function StageDashboard({ user, profile, onBack, singleProfile = 
           <Briefcase className="w-8 h-8 mx-auto mb-2 opacity-30" />
           <p className="text-sm">No jobs assigned</p>
         </div>
+      )}
+    </>
+  );
+
+  return (
+    <div className="max-w-4xl mx-auto">
+      <PageHeader
+        title={title}
+        subtitle={`${user?.full_name} · ${new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}`}
+        actions={onBack && (
+          <Button variant="outline" size="sm" onClick={onBack} className="gap-1">
+            <ChevronLeft className="w-3.5 h-3.5" /> Profiles
+          </Button>
+        )}
+      />
+
+      {showCarryOverTab ? (
+        <Tabs defaultValue="jobs">
+          <TabsList className="mb-4">
+            <TabsTrigger value="jobs">Jobs</TabsTrigger>
+            <TabsTrigger value="carryover">Carry-Over to Pack</TabsTrigger>
+          </TabsList>
+          <TabsContent value="jobs">{jobsContent}</TabsContent>
+          <TabsContent value="carryover"><CarryOverToPack /></TabsContent>
+        </Tabs>
+      ) : (
+        jobsContent
       )}
 
       {activeStage && activeStage.capability_key === "sous_vide_pack" && (
