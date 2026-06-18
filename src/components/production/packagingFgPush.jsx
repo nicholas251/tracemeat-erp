@@ -31,8 +31,13 @@ export async function pushPackagingToFinishedGoods({ stage, updates, form, query
     expiryDate = chillingStage?.expiry_date || null;
   }
 
-  // Helper function to distribute lots across products
+  // Helper function to distribute lots across products.
+  // IMPORTANT: multiple splits can target the SAME product. We must not re-read the
+  // FinishedGoodsBucket fresh on each iteration (a stale read would make the 2nd split
+  // overwrite the 1st). Instead we cache each bucket the first time we touch it and keep
+  // mutating that cached copy, persisting the accumulated result.
   const distributeToProducts = async (splitConfigs) => {
+    const bucketCache = {}; // product_id -> { record, isNew }
     for (const splitConfig of splitConfigs) {
       const targetProductId = splitConfig.product_id;
       const productData = await base44.entities.Product.filter({ id: targetProductId }).then(r => r?.[0]);
@@ -55,48 +60,43 @@ export async function pushPackagingToFinishedGoods({ stage, updates, form, query
       // Create a unique lot number for each split
       const splitLotNumber = `${baseFgLot}-${productData?.sku || "SPLIT"}`.slice(0, 50);
 
-      // 1. Push into FinishedGoodsBucket (find or create)
-      const existingBuckets = await base44.entities.FinishedGoodsBucket.filter({ product_id: targetProductId });
-      const bucket = existingBuckets[0];
+      // 1. Push into FinishedGoodsBucket (find or create) — use the cache so repeated
+      //    splits for the same product accumulate instead of overwriting each other.
+      const lotEntry = {
+        lot_number: splitLotNumber,
+        production_date: today_str,
+        expiry_date: splitExpiryDate,
+        quantity_lbs: parseFloat(splitLbs.toFixed(2)),
+        cases: casesProduced,
+        order_number: order.order_number || "",
+        status: "available",
+      };
 
-      if (bucket) {
-        const newLots = [...(bucket.lots || []), {
-          lot_number: splitLotNumber,
-          production_date: today_str,
-          expiry_date: splitExpiryDate,
-          quantity_lbs: parseFloat(splitLbs.toFixed(2)),
-          cases: casesProduced,
-          order_number: order.order_number || "",
-          status: "available",
-        }];
-        await base44.entities.FinishedGoodsBucket.update(bucket.id, {
-          quantity_lbs: parseFloat(((bucket.quantity_lbs || 0) + splitLbs).toFixed(2)),
-          cases_on_hand: (bucket.cases_on_hand || 0) + casesProduced,
-          lots: newLots,
-        });
-      } else {
-        // Create bucket on the fly if missing
-        await base44.entities.FinishedGoodsBucket.create({
-          product_id: targetProductId || "",
-          product_name: productData?.name || splitConfig.product_name || "",
-          sku: productData?.sku || "",
-          product_number: productData?.product_number || "",
-          category: productData?.category || "",
-          quantity_lbs: parseFloat(splitLbs.toFixed(2)),
-          cases_on_hand: casesProduced,
-          case_weight_lbs: caseWeightLbs,
-          lots: [{
-            lot_number: splitLotNumber,
-            production_date: today_str,
-            expiry_date: splitExpiryDate,
-            quantity_lbs: parseFloat(splitLbs.toFixed(2)),
-            cases: casesProduced,
-            order_number: order.order_number || "",
-            status: "available",
-          }],
-          status: "active",
-        });
+      if (!bucketCache[targetProductId]) {
+        const existingBuckets = await base44.entities.FinishedGoodsBucket.filter({ product_id: targetProductId });
+        bucketCache[targetProductId] = existingBuckets[0]
+          ? { record: { ...existingBuckets[0], lots: [...(existingBuckets[0].lots || [])] }, isNew: false }
+          : {
+              record: {
+                product_id: targetProductId || "",
+                product_name: productData?.name || splitConfig.product_name || "",
+                sku: productData?.sku || "",
+                product_number: productData?.product_number || "",
+                category: productData?.category || "",
+                quantity_lbs: 0,
+                cases_on_hand: 0,
+                case_weight_lbs: caseWeightLbs,
+                lots: [],
+                status: "active",
+              },
+              isNew: true,
+            };
       }
+
+      const cached = bucketCache[targetProductId];
+      cached.record.quantity_lbs = parseFloat(((cached.record.quantity_lbs || 0) + splitLbs).toFixed(2));
+      cached.record.cases_on_hand = (cached.record.cases_on_hand || 0) + casesProduced;
+      cached.record.lots = [...(cached.record.lots || []), lotEntry];
 
       // 2. Also create InventoryItem for lot-level traceability
       await base44.entities.InventoryItem.create({
@@ -113,6 +113,19 @@ export async function pushPackagingToFinishedGoods({ stage, updates, form, query
         expiry_date: splitExpiryDate,
         notes: `Split from packaging stage. Cook batch: ${stage.cook_batch_lot || stage.input_lot_number || ""}`,
       });
+    }
+
+    // Persist all accumulated bucket changes once per product (create or update).
+    for (const { record, isNew } of Object.values(bucketCache)) {
+      if (isNew) {
+        await base44.entities.FinishedGoodsBucket.create(record);
+      } else {
+        await base44.entities.FinishedGoodsBucket.update(record.id, {
+          quantity_lbs: record.quantity_lbs,
+          cases_on_hand: record.cases_on_hand,
+          lots: record.lots,
+        });
+      }
     }
   };
 
