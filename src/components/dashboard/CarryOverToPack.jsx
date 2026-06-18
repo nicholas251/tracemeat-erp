@@ -1,5 +1,5 @@
 import React from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -8,10 +8,25 @@ import { Boxes } from "lucide-react";
 // Dashboard tab: open unfinished-case carry-overs waiting to be packed later, grouped by
 // product. Read-only overview — operators pull these back in at the packing stage.
 export default function CarryOverToPack() {
+  const queryClient = useQueryClient();
   const { data: carryOvers = [], isLoading } = useQuery({
     queryKey: ["allCarryOvers"],
     queryFn: () => base44.entities.UnfinishedCase.filter({ status: "open" }, "-created_date", 200),
+    // Always pull fresh on mount so a carry-over consumed by a packing run drops off
+    // the list instead of lingering from a stale cache.
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnMount: "always",
   });
+
+  // Live-update: when any UnfinishedCase is created/updated/deleted (e.g. consumed by a
+  // packing run), refetch so the list reflects it without a manual page refresh.
+  React.useEffect(() => {
+    const unsubscribe = base44.entities.UnfinishedCase.subscribe(() => {
+      queryClient.invalidateQueries({ queryKey: ["allCarryOvers"] });
+    });
+    return unsubscribe;
+  }, [queryClient]);
 
   if (isLoading) {
     return <p className="text-sm text-muted-foreground p-4">Loading carry-overs…</p>;
