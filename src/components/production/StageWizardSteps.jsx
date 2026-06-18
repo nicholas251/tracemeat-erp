@@ -194,7 +194,11 @@ export function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form,
              casingBuckets={casingBuckets}
              cureInventory={cureInventory}
              compatibleHotdogProducts={compatibleHotdogProducts}
-             totalLbs={form.output_qty_lbs || stage?.input_qty_lbs || 0}
+             totalLbs={
+               capKey === "packaging"
+                 ? Math.max(0, parseFloat((((form.output_qty_lbs || stage?.input_qty_lbs || 0) - ((Number(form.packages_produced) || 0) * (product?.case_weight_lbs || 0))).toFixed(2))))
+                 : (form.output_qty_lbs || stage?.input_qty_lbs || 0)
+             }
              remainingCases={capKey === "packaging" ? autoCalculatedCases - (Number(form.packages_produced) || 0) : 0}
              spiceShortNotes={spiceShortNotes}
              onSpiceShortNotesChange={setSpiceShortNotes}
