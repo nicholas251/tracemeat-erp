@@ -212,6 +212,23 @@ export function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form,
         <p className="text-xs text-muted-foreground mt-0.5">Step {stepIndex + 1} of {totalSteps}</p>
       </div>
 
+      {capKey === "packaging" && stepDef.id === "packaging" && (
+        <CarryOverPicker
+          productId={product?.id}
+          selectedIds={form.carryover_ids || []}
+          onChange={(ids, records) => {
+            const addedLbs = records.reduce((s, r) => s + (r.lbs || 0), 0);
+            const baseLbs = stage?.input_qty_lbs || 0;
+            setForm(f => ({
+              ...f,
+              carryover_ids: ids,
+              carryover_records: records,
+              output_qty_lbs: parseFloat((baseLbs + addedLbs).toFixed(2)),
+            }));
+          }}
+        />
+      )}
+
       {stepDef.fields.length > 0 && (
         <div className="space-y-4">
           {stepDef.fields.map(field => (
@@ -252,20 +269,6 @@ export function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form,
 
       {capKey === "packaging" && stepDef.id === "packaging" && (
         <div className="space-y-4">
-          <CarryOverPicker
-            productId={product?.id}
-            selectedIds={form.carryover_ids || []}
-            onChange={(ids, records) => {
-              const addedLbs = records.reduce((s, r) => s + (r.lbs || 0), 0);
-              const baseLbs = stage?.input_qty_lbs || 0;
-              setForm(f => ({
-                ...f,
-                carryover_ids: ids,
-                carryover_records: records,
-                output_qty_lbs: parseFloat((baseLbs + addedLbs).toFixed(2)),
-              }));
-            }}
-          />
           <UnfinishedCaseAllocator
             remainderLbs={packagingRemainderLbs}
             lotContributions={packagingRemainderLots}
