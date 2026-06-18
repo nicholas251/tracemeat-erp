@@ -189,11 +189,21 @@ export function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form,
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [packagingRemainderLbs]);
-  // Lot breakdown for the parked carry-over: the run's own input lot + each carry-over's lots.
-  const packagingRemainderLots = [
-    ...(stage?.input_lot_number ? [{ lot_number: stage.input_lot_number, lbs: packagingRemainderLbs }] : []),
+  // Lot breakdown for the parked carry-over. The remainder is only PART of the effective
+  // input (the rest became finished cases), so we must apportion the actual remainder
+  // lbs across the contributing lots — never list lots at their full incoming weight, or
+  // an already-consumed carry-over would falsely re-appear as a fresh remainder.
+  const remainderSourceLots = [
+    ...(stage?.input_lot_number ? [{ lot_number: stage.input_lot_number, lbs: stage?.input_qty_lbs || 0 }] : []),
     ...(form.carryover_records || []).flatMap(r => r.lot_contributions || []),
-  ];
+  ].filter(l => (l.lbs || 0) > 0);
+  const remainderSourceTotal = remainderSourceLots.reduce((s, l) => s + (l.lbs || 0), 0);
+  const packagingRemainderLots = remainderSourceTotal > 0
+    ? remainderSourceLots.map(l => ({
+        lot_number: l.lot_number,
+        lbs: parseFloat(((l.lbs / remainderSourceTotal) * packagingRemainderLbs).toFixed(2)),
+      })).filter(l => l.lbs > 0)
+    : [];
 
   const canProceed = isLinking ? !!cookBatch
      : isRacking ? (cookPlan?.racks?.some(r => r.released) || !!cookPlan?.carriedPartial)
