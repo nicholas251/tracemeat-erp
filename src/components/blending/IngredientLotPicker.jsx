@@ -78,6 +78,13 @@ function buildFifoAllocations(inventoryRows, requiredLbs) {
  *   onConfirm   – () => void
  */
 export default function IngredientLotPicker({ ing, disabled, onChange, onConfirm, cacheKey, capByRequired = false, externalRows = null }) {
+  // Guards against double-firing onConfirm if the operator taps "Confirm" multiple
+  // times before the parent re-renders this picker as disabled. Reset whenever the
+  // picker becomes editable again (e.g. "Edit lots").
+  const [confirmClicked, setConfirmClicked] = React.useState(false);
+  React.useEffect(() => {
+    if (!disabled) setConfirmClicked(false);
+  }, [disabled]);
   // When a parent owns inventory (e.g. per-batch tumbling), it passes live
   // `externalRows` so every batch reads ONE shared, always-fresh source of truth.
   // Otherwise (standalone use) fetch our own copy.
@@ -370,8 +377,12 @@ export default function IngredientLotPicker({ ing, disabled, onChange, onConfirm
         <Button
           variant="outline"
           className="w-full gap-2 h-10 font-semibold mt-1"
-          disabled={!canConfirm}
-          onClick={onConfirm}
+          disabled={!canConfirm || confirmClicked}
+          onClick={() => {
+            if (confirmClicked) return;
+            setConfirmClicked(true);
+            onConfirm();
+          }}
         >
           <CheckCircle2 className="w-4 h-4" /> Confirm {ing.bucket_name}
         </Button>
