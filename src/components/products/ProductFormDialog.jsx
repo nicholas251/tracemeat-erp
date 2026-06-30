@@ -176,10 +176,13 @@ export default function ProductFormDialog({ open, onClose, onSave, product, flow
             <div className="space-y-2">
               <Label className="flex items-center gap-1"><BookOpen className="w-3.5 h-3.5" /> Load Blend Recipe</Label>
               <Select onValueChange={handleApplyRecipe}>
-                <SelectTrigger>
+                <SelectTrigger className="bg-slate-200 border-slate-400">
                   <SelectValue placeholder="Select a saved recipe to load..." />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-slate-100 border-slate-300">
+                  {blendRecipes.length === 0 && (
+                    <div className="px-2 py-3 text-xs text-muted-foreground text-center">No saved blend recipes yet.</div>
+                  )}
                   {blendRecipes.map(r => (
                     <SelectItem key={r.id} value={r.id}>
                       {r.name}{r.blend_batch_lbs ? ` — ${r.blend_batch_lbs} lbs` : ""}
