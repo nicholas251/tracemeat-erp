@@ -85,7 +85,10 @@ export default function ProductionOrderFormDialog({ open, onClose, onSave, order
   const curePerBatch = selectedProduct?.chop_cure_lbs || 0;
   // For blending: raw protein = finished goods + the loss added back on top
   const blendRawInputLbs = yieldPct && finishedLbs > 0 ? finishedLbs * (1 + lossPct / 100) : finishedLbs;
-  const numBlendBatches = blendBatchLbs > 0 && blendRawInputLbs > 0 ? Math.ceil(blendRawInputLbs / blendBatchLbs) : null;
+  // Full batch weight includes protein + water + spice + cure (not just protein),
+  // so batch count divides the grossed-up raw input by the complete chop-batch size.
+  const fullBatchLbs = blendBatchLbs + waterPerBatch + spicePerBatch + curePerBatch;
+  const numBlendBatches = fullBatchLbs > 0 && blendRawInputLbs > 0 ? Math.ceil(blendRawInputLbs / fullBatchLbs) : null;
   // Raw input is the exact amount needed, not padded up to full batches
   const rawInputLbs = blendRawInputLbs;
   const totalWater = waterPerBatch * (numBlendBatches || 0);
