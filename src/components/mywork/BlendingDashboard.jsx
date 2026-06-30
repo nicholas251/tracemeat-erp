@@ -31,6 +31,12 @@ export default function BlendingDashboard({ user, profile, onBack }) {
     }, "created_date", 200),
   });
 
+  // Products supply the real full chop-batch weight used to size blending batches
+  const { data: products = [] } = useQuery({
+    queryKey: ["products"],
+    queryFn: () => base44.entities.Product.list("-created_date", 500),
+  });
+
   const handleUpdated = () => {
     queryClient.invalidateQueries({ queryKey: ["blendingStages"] });
     queryClient.invalidateQueries({ queryKey: ["productionOrders"] });
@@ -45,11 +51,20 @@ export default function BlendingDashboard({ user, profile, onBack }) {
     (s.status === "in_progress" || s.status === "available")
   );
 
-  // Expand each stage into individual 240lb batch cards, excluding already-completed batches
+  // Expand each stage into individual batch cards, excluding already-completed batches.
+  // Batch size = the product's full chop-batch weight (protein + water + spice + cure),
+  // matching the production-order math. A trailing fraction of 0.15 or less rounds down.
   const batchCards = myStages.flatMap(stage => {
     const totalLbs = stage.input_qty_lbs || 0;
-    const batchSize = 240;
-    const numBatches = Math.ceil(totalLbs / batchSize);
+    const product = products.find(p => p.name === stage.product_name);
+    const fullBatchLbs = product
+      ? (product.blend_batch_lbs || 0) + (product.chop_water_lbs || 0) + (product.chop_spice_qty_lbs || 0) + (product.chop_cure_lbs || 0)
+      : 0;
+    const batchSize = fullBatchLbs > 0 ? fullBatchLbs : 240;
+    const rawBatches = totalLbs / batchSize;
+    const numBatches = rawBatches > 0
+      ? (rawBatches - Math.floor(rawBatches) <= 0.15 ? Math.floor(rawBatches) : Math.ceil(rawBatches))
+      : 0;
 
     // Build set of completed batch numbers from sub_batches
     const completedBatchNumbers = new Set(
