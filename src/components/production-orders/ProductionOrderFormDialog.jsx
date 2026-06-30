@@ -88,7 +88,12 @@ export default function ProductionOrderFormDialog({ open, onClose, onSave, order
   // Full batch weight includes protein + water + spice + cure (not just protein),
   // so batch count divides the grossed-up raw input by the complete chop-batch size.
   const fullBatchLbs = blendBatchLbs + waterPerBatch + spicePerBatch + curePerBatch;
-  const numBlendBatches = fullBatchLbs > 0 && blendRawInputLbs > 0 ? Math.ceil(blendRawInputLbs / fullBatchLbs) : null;
+  // Round up normally, but if the leftover fractional batch is 0.15 or smaller, round down
+  // (that small a remainder isn't worth running an extra full batch).
+  const rawBlendBatches = fullBatchLbs > 0 && blendRawInputLbs > 0 ? blendRawInputLbs / fullBatchLbs : 0;
+  const numBlendBatches = rawBlendBatches > 0
+    ? (rawBlendBatches - Math.floor(rawBlendBatches) <= 0.15 ? Math.floor(rawBlendBatches) : Math.ceil(rawBlendBatches))
+    : null;
   // Raw input is the exact amount needed, not padded up to full batches
   const rawInputLbs = blendRawInputLbs;
   const totalWater = waterPerBatch * (numBlendBatches || 0);
