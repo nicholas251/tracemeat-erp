@@ -88,7 +88,7 @@ export default function ProductionOrderFormDialog({ open, onClose, onSave, order
   // Full batch weight includes protein + water + spice + cure (not just protein),
   // so batch count divides the grossed-up raw input by the complete chop-batch size.
   const fullBatchLbs = blendBatchLbs + waterPerBatch + spicePerBatch + curePerBatch;
-  const numBlendBatches = fullBatchLbs > 0 && blendRawInputLbs > 0 ? Math.ceil(blendRawInputLbs / fullBatchLbs) : null;
+  const numBlendBatches = fullBatchLbs > 0 && blendRawInputLbs > 0 ? blendRawInputLbs / fullBatchLbs : null;
   // Raw input is the exact amount needed, not padded up to full batches
   const rawInputLbs = blendRawInputLbs;
   const totalWater = waterPerBatch * (numBlendBatches || 0);
@@ -268,7 +268,7 @@ export default function ProductionOrderFormDialog({ open, onClose, onSave, order
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Batches needed:</span>
-                        <span className="font-medium">{numBlendBatches} batch{numBlendBatches > 1 ? "es" : ""}</span>
+                        <span className="font-medium">{numBlendBatches.toFixed(2)} batch{numBlendBatches > 1 ? "es" : ""}</span>
                       </div>
                       <div className="border-t border-accent/20 pt-1 mt-1 space-y-0.5">
                         <p className="text-muted-foreground font-medium uppercase tracking-wide" style={{fontSize:"9px"}}>Inputs across {numBlendBatches} batch{numBlendBatches > 1 ? "es" : ""}</p>
