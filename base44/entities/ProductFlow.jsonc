@@ -16,6 +16,7 @@
     },
     "steps": {
       "type": "array",
+      "description": "Ordered list of enabled steps for this product",
       "items": {
         "type": "object",
         "properties": {
@@ -55,8 +56,7 @@
             "type": "string"
           }
         }
-      },
-      "description": "Ordered list of enabled steps for this product"
+      }
     },
     "status": {
       "type": "string",
@@ -74,5 +74,23 @@
   "required": [
     "name",
     "steps"
-  ]
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
 }

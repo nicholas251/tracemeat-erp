@@ -20,6 +20,7 @@
     },
     "ingredients": {
       "type": "array",
+      "description": "List of raw material buckets with quantities",
       "items": {
         "type": "object",
         "properties": {
@@ -50,8 +51,7 @@
             ]
           }
         }
-      },
-      "description": "List of raw material buckets with quantities"
+      }
     },
     "status": {
       "type": "string",
@@ -75,5 +75,23 @@
     "product_id",
     "yield_percent",
     "ingredients"
-  ]
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
 }

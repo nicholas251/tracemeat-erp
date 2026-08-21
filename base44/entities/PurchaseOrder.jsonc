@@ -55,6 +55,7 @@
     },
     "line_items": {
       "type": "array",
+      "description": "Order line items",
       "items": {
         "type": "object",
         "properties": {
@@ -86,8 +87,7 @@
             "default": 0
           }
         }
-      },
-      "description": "Order line items"
+      }
     },
     "total_amount": {
       "type": "number",
@@ -100,5 +100,19 @@
   "required": [
     "po_number",
     "supplier"
-  ]
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {},
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
 }
