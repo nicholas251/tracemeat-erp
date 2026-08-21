@@ -9,6 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import InventoryShortageCheck from "./InventoryShortageCheck";
+import { calcBlendBatchCount } from "@/lib/blendBatchMath";
 
 export default function ProductionOrderFormDialog({ open, onClose, onSave, order, products, flows, suppliers }) {
   const [form, setForm] = useState({
@@ -88,12 +89,9 @@ export default function ProductionOrderFormDialog({ open, onClose, onSave, order
   // Full batch weight includes protein + water + spice + cure (not just protein),
   // so batch count divides the grossed-up raw input by the complete chop-batch size.
   const fullBatchLbs = blendBatchLbs + waterPerBatch + spicePerBatch + curePerBatch;
-  // Round up normally, but if the leftover fractional batch is 0.15 or smaller, round down
-  // (that small a remainder isn't worth running an extra full batch).
-  const rawBlendBatches = fullBatchLbs > 0 && blendRawInputLbs > 0 ? blendRawInputLbs / fullBatchLbs : 0;
-  const numBlendBatches = rawBlendBatches > 0
-    ? (rawBlendBatches - Math.floor(rawBlendBatches) <= 0.15 ? Math.floor(rawBlendBatches) : Math.ceil(rawBlendBatches))
-    : null;
+  // Shared batch math (round up, unless the trailing fraction is ≤ 0.15) — the same helper
+  // is used by the blending dashboard and batch wizard so every screen agrees.
+  const numBlendBatches = calcBlendBatchCount(blendRawInputLbs, fullBatchLbs) || null;
   // Raw input is the exact amount needed, not padded up to full batches
   const rawInputLbs = blendRawInputLbs;
   const totalWater = waterPerBatch * (numBlendBatches || 0);

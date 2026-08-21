@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { ChevronLeft, Factory, CheckCircle2, Clock, Play } from "lucide-react";
 import PageHeader from "@/components/shared/PageHeader";
 import StageWizard from "@/components/production/StageWizard";
+import { fullChopBatchLbs, calcBlendBatchCount } from "@/lib/blendBatchMath";
 
 export default function BlendingDashboard({ user, profile, onBack }) {
   const [activeStage, setActiveStage] = useState(null);
@@ -57,14 +58,8 @@ export default function BlendingDashboard({ user, profile, onBack }) {
   const batchCards = myStages.flatMap(stage => {
     const totalLbs = stage.input_qty_lbs || 0;
     const product = products.find(p => p.name === stage.product_name);
-    const fullBatchLbs = product
-      ? (product.blend_batch_lbs || 0) + (product.chop_water_lbs || 0) + (product.chop_spice_qty_lbs || 0) + (product.chop_cure_lbs || 0)
-      : 0;
-    const batchSize = fullBatchLbs > 0 ? fullBatchLbs : 240;
-    const rawBatches = totalLbs / batchSize;
-    const numBatches = rawBatches > 0
-      ? (rawBatches - Math.floor(rawBatches) <= 0.15 ? Math.floor(rawBatches) : Math.ceil(rawBatches))
-      : 0;
+    const batchSize = fullChopBatchLbs(product);
+    const numBatches = calcBlendBatchCount(totalLbs, batchSize);
 
     // Build set of completed batch numbers from sub_batches
     const completedBatchNumbers = new Set(

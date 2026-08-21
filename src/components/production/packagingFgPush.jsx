@@ -21,13 +21,21 @@ export async function pushPackagingToFinishedGoods({ stage, updates, form, query
   // Check if splits are defined (hot dog multi-product flow)
   const splits = form.finished_product_splits && form.finished_product_splits.length > 0 ? form.finished_product_splits : null;
 
-  // Try to carry expiry date from the chilling stage that produced this packaging stage
+  // Try to carry expiry date from the chilling stage that produced this packaging stage.
+  // Prefer the DIRECT link (source_chilling_stage_id) — cook lot numbers are often reused
+  // across batches, so matching on the lot could pick up ANOTHER batch's expiry date.
   let expiryDate = null;
-  if (stage.cook_batch_lot) {
+  if (stage.source_chilling_stage_id || stage.cook_batch_lot) {
     const allOrderStages = await base44.entities.ProductionStage.filter({ order_id: stage.order_id });
-    const chillingStage = allOrderStages.find(
-      s => s.capability_key === "chilling" && s.cook_batch_lot === stage.cook_batch_lot && s.status === "completed"
-    );
+    const chillingStage =
+      (stage.source_chilling_stage_id
+        ? allOrderStages.find(s => s.id === stage.source_chilling_stage_id)
+        : null) ||
+      (stage.cook_batch_lot
+        ? allOrderStages.find(
+            s => s.capability_key === "chilling" && s.cook_batch_lot === stage.cook_batch_lot && s.status === "completed"
+          )
+        : null);
     expiryDate = chillingStage?.expiry_date || null;
   }
 
@@ -142,7 +150,10 @@ export async function pushPackagingToFinishedGoods({ stage, updates, form, query
   const casesProduced = Number(packagesProduced) || 0;
   const actualOutputLbs = casesProduced * caseWeightLbs;
 
-  // Push original product to FG bucket
+  // Push original product to FG bucket — only when it actually produced cases. If the
+  // whole output was split into other products or carried over, skip creating an
+  // empty 0-lb lot and inventory record for the original product.
+  if (casesProduced > 0) {
   const existingBuckets = await base44.entities.FinishedGoodsBucket.filter({ product_id: targetProductId });
   const bucket = existingBuckets[0];
 
@@ -198,6 +209,7 @@ export async function pushPackagingToFinishedGoods({ stage, updates, form, query
     expiry_date: expiryDate,
     notes: `Created from packaging stage. Cook batch: ${stage.cook_batch_lot || stage.input_lot_number || ""}`,
   });
+  }
 
   // If splits exist, also distribute to split products
   if (splits && splits.length > 0) {

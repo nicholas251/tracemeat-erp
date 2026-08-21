@@ -39,9 +39,11 @@ export default function FulfillmentDialog({ open, order, onClose, onFulfilled })
     queryFn: () => base44.entities.FinishedGoodsBucket.list(),
   });
 
-  // Auto-pick FIFO on load
+  // Auto-pick FIFO ONCE when the dialog opens. Re-running on every background inventory
+  // refresh would silently wipe the operator's manual lot adjustments.
   useEffect(() => {
-    if (!open || !inventory.length) return;
+    if (!open) { setReady(false); return; }
+    if (ready || !inventory.length) return;
     const allocations = (order.line_items || []).map(item => {
       const productInv = inventory.filter(i => i.product_id === item.product_id);
       const picks = autoPickFIFO(productInv, item.total_lbs || 0);
@@ -49,7 +51,7 @@ export default function FulfillmentDialog({ open, order, onClose, onFulfilled })
     });
     setLineAllocations(allocations);
     setReady(true);
-  }, [open, inventory]);
+  }, [open, inventory, ready]);
 
   const addManualLot = (lineIdx) => {
     setLineAllocations(prev => prev.map((line, i) => {
@@ -93,7 +95,11 @@ export default function FulfillmentDialog({ open, order, onClose, onFulfilled })
         return { ...item, fulfilled_lots: alloc?.picks || [] };
       });
 
-      // Deduct from InventoryItem (lot-level) + FinishedGoodsBucket (cases/lbs on hand)
+      // Deduct from InventoryItem (lot-level) + FinishedGoodsBucket (cases/lbs on hand).
+      // IMPORTANT: accumulate ALL bucket deductions in memory first and write each bucket
+      // ONCE at the end. Updating inside the loop from the stale fgBuckets snapshot made
+      // a 2nd pick on the same product overwrite the 1st pick's deduction.
+      const bucketCache = {}; // bucket_id -> working copy with accumulated deductions
       for (const alloc of lineAllocations) {
         for (const pick of alloc.picks) {
           if (!pick.inventory_item_id || !pick.qty_lbs_taken) continue;
@@ -108,13 +114,15 @@ export default function FulfillmentDialog({ open, order, onClose, onFulfilled })
             status: newStatus,
           });
 
-          // 2. Deduct matching lot in FinishedGoodsBucket (FIFO — find bucket by product_id)
+          // 2. Accumulate the matching FinishedGoodsBucket deduction in the cache
           const bucket = fgBuckets.find(b => b.product_id === invItem.product_id);
           if (bucket) {
+            const wb = bucketCache[bucket.id] ||
+              (bucketCache[bucket.id] = { ...bucket, lots: [...(bucket.lots || [])] });
             const lbsToDeduct = pick.qty_lbs_taken;
-            const caseWeight = bucket.case_weight_lbs || 0;
+            const caseWeight = wb.case_weight_lbs || 0;
             const casesToDeduct = caseWeight > 0 ? Math.round(lbsToDeduct / caseWeight) : 0;
-            const updatedLots = (bucket.lots || []).map(lot => {
+            wb.lots = wb.lots.map(lot => {
               if (lot.lot_number === invItem.lot_number && lot.status === "available") {
                 const newLotQty = Math.max(0, (lot.quantity_lbs || 0) - lbsToDeduct);
                 const newLotCases = Math.max(0, (lot.cases || 0) - casesToDeduct);
@@ -127,13 +135,18 @@ export default function FulfillmentDialog({ open, order, onClose, onFulfilled })
               }
               return lot;
             });
-            await base44.entities.FinishedGoodsBucket.update(bucket.id, {
-              quantity_lbs: parseFloat(Math.max(0, (bucket.quantity_lbs || 0) - lbsToDeduct).toFixed(2)),
-              cases_on_hand: Math.max(0, (bucket.cases_on_hand || 0) - casesToDeduct),
-              lots: updatedLots,
-            });
+            wb.quantity_lbs = parseFloat(Math.max(0, (wb.quantity_lbs || 0) - lbsToDeduct).toFixed(2));
+            wb.cases_on_hand = Math.max(0, (wb.cases_on_hand || 0) - casesToDeduct);
           }
         }
+      }
+      // Persist each touched bucket once, with all deductions accumulated.
+      for (const wb of Object.values(bucketCache)) {
+        await base44.entities.FinishedGoodsBucket.update(wb.id, {
+          quantity_lbs: wb.quantity_lbs,
+          cases_on_hand: wb.cases_on_hand,
+          lots: wb.lots,
+        });
       }
 
       // Update sales order
@@ -161,7 +174,16 @@ export default function FulfillmentDialog({ open, order, onClose, onFulfilled })
     return "none";
   };
 
-  const allOk = lineAllocations.every(l => getLineSuficiency(l) === "ok");
+  // A pick may not take more pounds than its lot actually has available.
+  const pickAvailable = (pick) => {
+    const inv = inventory.find(i => i.id === pick.inventory_item_id);
+    return inv ? (inv.quantity_lbs || 0) : (pick._available || 0);
+  };
+  const pickOverdrawn = (pick) =>
+    !!pick.inventory_item_id && (parseFloat(pick.qty_lbs_taken) || 0) > pickAvailable(pick) + 0.001;
+  const anyOverdrawn = lineAllocations.some(l => l.picks.some(pickOverdrawn));
+
+  const allOk = lineAllocations.every(l => getLineSuficiency(l) === "ok") && !anyOverdrawn;
 
   // Filter inventory by product for a line
   const getProductInventory = (productId) => inventory.filter(i => i.product_id === productId && (i.quantity_lbs || 0) > 0);
@@ -218,11 +240,14 @@ export default function FulfillmentDialog({ open, order, onClose, onFulfilled })
                           )}
                           <Input
                             type="number" step="0.1" min="0"
-                            className="h-7 w-24 text-xs"
+                            className={`h-7 w-24 text-xs ${pickOverdrawn(pick) ? "border-red-500 bg-red-50" : ""}`}
                             value={pick.qty_lbs_taken}
                             onChange={e => updatePick(li, pi, { qty_lbs_taken: parseFloat(e.target.value) || 0 })}
                           />
                           <span className="text-xs text-muted-foreground">lbs</span>
+                          {pickOverdrawn(pick) && (
+                            <span className="text-[10px] text-red-600 font-medium whitespace-nowrap">exceeds lot</span>
+                          )}
                           <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => removePick(li, pi)}>
                             <Trash2 className="w-3 h-3" />
                           </Button>
