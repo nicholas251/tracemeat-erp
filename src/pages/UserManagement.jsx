@@ -12,8 +12,17 @@ import {
   AlertDialogHeader, AlertDialogTitle
 } from "@/components/ui/alert-dialog";
 import UserAssignmentDialog from "@/components/users/UserAssignmentDialog";
+import AdminOnly from "@/components/shared/AdminOnly";
 
 export default function UserManagement() {
+  return (
+    <AdminOnly>
+      <UserManagementContent />
+    </AdminOnly>
+  );
+}
+
+function UserManagementContent() {
   const [editing, setEditing] = useState(null);
   const [deleting, setDeleting] = useState(null);
   const queryClient = useQueryClient();
