@@ -378,26 +378,34 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
           status: "completed",
         };
 
-        // Update stage with this completed batch
-        const updatedSubBatches = [...(stage.sub_batches || []), subBatch];
-
-        await base44.entities.ProductionStage.update(stage.id, {
-          sub_batches: updatedSubBatches,
-          status: "in_progress",
-          output_lot_number: blendOutputLot,
-          completed_at: isLastBatch ? new Date().toISOString() : stage.completed_at,
-        });
-
-        // Deduct raw materials for this batch only
+        // Deduct raw materials for this batch FIRST, before any batch record is written.
+        // Recording the sub-batch ahead of a failed/short deduction left a batch that
+        // looked produced but consumed nothing.
         const batchIngredients = currentBatch.ingredients.map(ing => ({
           bucket_id: ing.bucket_id,
           bucket_name: ing.bucket_name,
           actual_lbs: ing.lot_allocations?.reduce((s, a) => s + (Number(a.actual_lbs) || 0), 0) || 0,
           lot_allocations: ing.lot_allocations,
         }));
-        await base44.functions.invoke("deductRawInventoryOnBatchComplete", {
+        const blendRes = await base44.functions.invoke("deductRawInventoryOnBatchComplete", {
           stage_id: stage.id,
           ingredients: batchIngredients,
+        });
+        // Shortfall guard — the chopping and tumble paths already do this. Without it a
+        // blend batch could "complete" and route product downstream while the protein it
+        // claims to have used was never actually deducted (phantom inventory).
+        if ((blendRes?.data?.total_shortfall || 0) > 0.01) {
+          setSaving(false);
+          alert(`Not enough protein inventory — short by ${blendRes.data.total_shortfall} lbs. Nothing was deducted. Add stock or adjust lots, then retry.`);
+          return;
+        }
+
+        // Deduction committed — now record this batch on the stage.
+        await base44.entities.ProductionStage.update(stage.id, {
+          sub_batches: [...(stage.sub_batches || []), subBatch],
+          status: "in_progress",
+          output_lot_number: blendOutputLot,
+          completed_at: isLastBatch ? new Date().toISOString() : stage.completed_at,
         });
 
         // Route blending outputs: beef → chopping (step 2), pork → mixer (step 3) directly
@@ -548,13 +556,13 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
           output_qty_lbs: form.output_qty_lbs || stage.input_qty_lbs || 0,
           ...form,
         };
-        await base44.entities.ProductionStage.update(stage.id, updates);
-
-        // Deduct casings consumed in this linking batch
+        // Deduct casings BEFORE closing the stage, and stop on a shortfall — otherwise a
+        // short casing bucket left the linking stage completed and the cook batch built
+        // with casings that were never taken out of inventory.
         {
           const casingLbs = Number(form.casing_qty_lbs) || 0;
           if (form.casing_bucket_id && casingLbs > 0) {
-            await base44.functions.invoke("deductRawInventoryOnBatchComplete", {
+            const casingRes = await base44.functions.invoke("deductRawInventoryOnBatchComplete", {
               stage_id: stage.id,
               ingredients: [{
                 bucket_id: form.casing_bucket_id,
@@ -562,8 +570,15 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
                 actual_lbs: casingLbs,
               }],
             });
+            if ((casingRes?.data?.total_shortfall || 0) > 0.01) {
+              setSaving(false);
+              alert(`Not enough casings — short by ${casingRes.data.total_shortfall} lbs. Nothing was deducted. Add casing stock and retry.`);
+              return;
+            }
           }
         }
+
+        await base44.entities.ProductionStage.update(stage.id, updates);
 
         // Mark all other selected linking stages as merged into this cook batch
         const otherSelected = (cookBatch.selectedStageIds || []).filter(id => id !== stage.id);
@@ -799,7 +814,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
         if (capKey === "linking") {
           const casingLbs = Number(form.casing_qty_lbs) || 0;
           if (form.casing_bucket_id && casingLbs > 0) {
-            await base44.functions.invoke("deductRawInventoryOnBatchComplete", {
+            const casingRes = await base44.functions.invoke("deductRawInventoryOnBatchComplete", {
               stage_id: stage.id,
               ingredients: [{
                 bucket_id: form.casing_bucket_id,
@@ -807,6 +822,11 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
                 actual_lbs: casingLbs,
               }],
             });
+            if ((casingRes?.data?.total_shortfall || 0) > 0.01) {
+              setSaving(false);
+              alert(`Not enough casings — short by ${casingRes.data.total_shortfall} lbs. Nothing was deducted. Add casing stock and retry.`);
+              return;
+            }
           }
         }
 
