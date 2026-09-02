@@ -105,8 +105,13 @@ export default function Receiving() {
       notes: `Receiver: ${state.initials.toUpperCase()} | Pallets: ${state.palletCount || 0} | Cases: ${state.caseCount || 0} | Company: ${state.company || "N/A"} | Date: ${todayDate}`,
     });
 
+    // Accumulate — a line can arrive across several deliveries, each one a separate lot.
     const updatedLineItems = [...currentPO.line_items];
-    updatedLineItems[lineItemIndex] = { ...updatedLineItems[lineItemIndex], received_qty_lbs: receivedQty };
+    const priorReceived = Number(updatedLineItems[lineItemIndex].received_qty_lbs) || 0;
+    updatedLineItems[lineItemIndex] = {
+      ...updatedLineItems[lineItemIndex],
+      received_qty_lbs: parseFloat((priorReceived + receivedQty).toFixed(2)),
+    };
     const allReceived = updatedLineItems.every(li => (li.received_qty_lbs || 0) >= li.quantity_lbs);
 
     await updatePOMutation.mutateAsync({
@@ -123,10 +128,11 @@ export default function Receiving() {
   const getBucketsForCategory = (category) => {
     const proteinCats = ["beef", "pork", "poultry", "lamb"];
     const spiceCats = ["seasoning", "additive"];
-    const packCats = ["packaging", "casing"];
     if (proteinCats.includes(category)) return buckets.filter(b => b.category === "protein" && b.status === "active");
     if (spiceCats.includes(category)) return buckets.filter(b => b.category === "spice" && b.status === "active");
-    if (packCats.includes(category)) return buckets.filter(b => b.category === "packaging" && b.status === "active");
+    // Casings must land in CASING buckets — the linking stage only offers casing-category buckets.
+    if (category === "casing") return buckets.filter(b => b.category === "casing" && b.status === "active");
+    if (category === "packaging") return buckets.filter(b => b.category === "packaging" && b.status === "active");
     return buckets.filter(b => b.status === "active");
   };
 
@@ -393,7 +399,7 @@ export default function Receiving() {
                              </div>
                            </div>
 
-                          <Button onClick={() => handleReceiveItem(idx)} className="w-full" size="lg" disabled={!state.lotNumber || !state.initials || !state.expiryDate || !state.bucket_id || !state.receivedQty}>
+                          <Button onClick={() => handleReceiveItem(idx)} className="w-full" size="lg" disabled={isReceived || createRawInventoryMutation.isPending || createMaterialMutation.isPending || !state.lotNumber || !state.initials || !state.expiryDate || !state.bucket_id || !state.receivedQty}>
                              Confirm Receipt <ArrowRight className="w-4 h-4 ml-2" />
                            </Button>
                         </div>

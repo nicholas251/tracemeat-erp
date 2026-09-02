@@ -15,7 +15,8 @@
       "enum": [
         "protein",
         "spice",
-        "packaging"
+        "packaging",
+        "casing"
       ],
       "description": "Category for filtering"
     },

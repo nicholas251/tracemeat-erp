@@ -1,9 +1,13 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.44';
 
-// Entity automation handler: runs when a ProductionStage is created/updated/deleted.
-// If every stage for the parent order is completed (and at least one exists),
-// the parent ProductionOrder is marked completed. No-op otherwise.
-Deno.serve(async (req) => {
+// Entity automation handler: runs when a ProductionStage is created/updated.
+// Marks the parent ProductionOrder completed (and archives it) only when:
+//   1. every stage on the order is completed, AND
+//   2. at least one completed stage is the flow's FINAL step.
+// Rule 2 closes a race: the wizard marks e.g. chilling "completed" a moment BEFORE it
+// creates the packaging stage. Without it, this handler could observe "all stages done"
+// in that gap and close the order while product was still waiting to be packed.
+export default async function(req) {
     try {
         const base44 = createClientFromRequest(req);
 
@@ -34,9 +38,22 @@ Deno.serve(async (req) => {
             return Response.json({ updated: false, reason: "already completed" });
         }
 
+        // The final step of the flow must be among the completed stages.
+        if (order.flow_id) {
+            const flow = await base44.asServiceRole.entities.ProductFlow.filter({ id: order.flow_id }).then(r => r?.[0]);
+            const flowSteps = flow?.steps || [];
+            if (flowSteps.length > 0) {
+                const lastStepNumber = Math.max(...flowSteps.map(s => Number(s.step_number) || 0));
+                const finalStepDone = stages.some(s => Number(s.step_number) === lastStepNumber && s.status === "completed");
+                if (!finalStepDone) {
+                    return Response.json({ updated: false, reason: `final flow step ${lastStepNumber} not completed yet` });
+                }
+            }
+        }
+
         await base44.asServiceRole.entities.ProductionOrder.update(orderId, { status: "completed", archived: true });
         return Response.json({ updated: true, order_id: orderId, archived: true });
     } catch (error) {
         return Response.json({ error: error.message }, { status: 500 });
     }
-});
+}
