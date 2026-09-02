@@ -14,7 +14,6 @@
     "item_type": {
       "type": "string",
       "enum": [
-        "batch",
         "production_order",
         "raw_material",
         "finished_goods"
@@ -81,7 +80,12 @@
       "type": "string"
     },
     "quantity_affected_kg": {
-      "type": "number"
+      "type": "number",
+      "description": "Quantity held, in lbs"
+    },
+    "pre_hold_qty": {
+      "type": "number",
+      "description": "Quantity available on the item at the moment the hold was placed"
     }
   },
   "required": [

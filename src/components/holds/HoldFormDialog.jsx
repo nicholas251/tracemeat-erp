@@ -25,14 +25,13 @@ const severityLevels = [
 ];
 
 const holdTypes = [
-  { value: "batch", label: "Production Batch (Batch)" },
-  { value: "production_order", label: "Production Batch (Order)" },
+  { value: "production_order", label: "Production Order" },
   { value: "raw_material", label: "Raw Material" },
   { value: "finished_goods", label: "Finished Goods" },
 ];
 
-export default function HoldFormDialog({ open, onClose, onSave, batches = [], productionOrders = [], rawMaterials = [], finishedGoods = [], preselectedBatch }) {
-  const [holdType, setHoldType] = useState(preselectedBatch ? "batch" : "batch");
+export default function HoldFormDialog({ open, onClose, onSave, productionOrders = [], rawMaterials = [], finishedGoods = [], preselectedBatch }) {
+  const [holdType, setHoldType] = useState("production_order");
 
   const [form, setForm] = useState({
     batch_id: preselectedBatch?.id || "",
@@ -58,20 +57,6 @@ export default function HoldFormDialog({ open, onClose, onSave, batches = [], pr
       quantity_affected_kg: "",
       item_type: type,
     }));
-  };
-
-  const handleBatchChange = (batchId) => {
-    const batch = batches.find(b => b.id === batchId);
-    if (batch) {
-      setForm(prev => ({
-        ...prev,
-        batch_id: batchId,
-        batch_number: batch.batch_number,
-        product_name: batch.product_name,
-        quantity_affected_kg: batch.quantity_lbs || "",
-        item_type: "batch",
-      }));
-    }
   };
 
   const handleProductionOrderChange = (orderId) => {
@@ -153,20 +138,6 @@ export default function HoldFormDialog({ open, onClose, onSave, batches = [], pr
           )}
 
           {/* Item Selector based on type */}
-          {!preselectedBatch && holdType === "batch" && (
-            <div className="space-y-2">
-              <Label>Production Batch *</Label>
-              <Select value={form.batch_id} onValueChange={handleBatchChange}>
-                <SelectTrigger><SelectValue placeholder="Select batch" /></SelectTrigger>
-                <SelectContent>
-                  {batches.filter(b => b.status !== "rejected").map(b => (
-                    <SelectItem key={b.id} value={b.id}>{b.batch_number} — {b.product_name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
           {!preselectedBatch && holdType === "production_order" && (
             <div className="space-y-2">
               <Label>Production Order *</Label>

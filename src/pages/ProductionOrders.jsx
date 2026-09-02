@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Eye, ChevronRight, Pencil, Trash2, Archive, ArchiveRestore } from "lucide-react";
+import { Plus, Eye, Pencil, Trash2, ArchiveRestore } from "lucide-react";
 import PageHeader from "@/components/shared/PageHeader";
 import StatusBadge from "@/components/shared/StatusBadge";
 import ProductionOrderFormDialog from "@/components/production-orders/ProductionOrderFormDialog";
@@ -114,9 +114,9 @@ export default function ProductionOrders() {
               }
 
               if (isTumblingStep) {
-                // Tumbling = simple seasoning batches of 800 lbs.
-                // Racks (320 lbs/rack) and cook batches (3 racks) are assembled later at the racking stage.
-                const tumblingBatchSize = 800;
+                // Same batch size the tumble wizard and order form use.
+                // Racks and cook batches are assembled later at the racking stage.
+                const tumblingBatchSize = Number(product?.tumble_batch_lbs) || Number(product?.blend_batch_lbs) || 800;
                 const numTumbleBatches = Math.ceil(totalRawInputLbs / tumblingBatchSize);
                 // Build batch sizes with full batches first and the smaller (partial) batch at the end
                 const numFullBatches = Math.floor(totalRawInputLbs / tumblingBatchSize);
@@ -267,15 +267,11 @@ export default function ProductionOrders() {
                         <Button size="sm" variant="outline" onClick={() => setViewingOrder(viewingOrder?.id === order.id ? null : order)} className="gap-1 h-8">
                           <Eye className="w-3.5 h-3.5" /> {viewingOrder?.id === order.id ? "Hide" : "Stages"}
                         </Button>
-                        {order.archived ? (
+                        {order.archived && (
                           <Button size="sm" variant="outline" onClick={() => archiveMutation.mutate({ id: order.id, archived: false })} className="gap-1 h-8">
                             <ArchiveRestore className="w-3.5 h-3.5" /> Restore
                           </Button>
-                        ) : order.status === "completed" ? (
-                          <Button size="sm" variant="outline" onClick={() => archiveMutation.mutate({ id: order.id, archived: true })} className="gap-1 h-8">
-                            <Archive className="w-3.5 h-3.5" /> Archive
-                          </Button>
-                        ) : null}
+                        )}
                         <Button size="sm" variant="outline" onClick={() => { setEditingOrder(order); setShowForm(true); }} className="h-8 w-8 p-0">
                           <Pencil className="w-3.5 h-3.5" />
                         </Button>

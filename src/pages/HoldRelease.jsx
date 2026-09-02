@@ -13,6 +13,7 @@ import HoldFormDialog from "@/components/holds/HoldFormDialog";
 import ReleaseDialog from "@/components/holds/ReleaseDialog";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { adjustFgBucketForHold } from "@/lib/fgHoldSync";
 
 const severityColors = {
   low: "bg-blue-50 text-blue-700 border-blue-200",
@@ -22,7 +23,6 @@ const severityColors = {
 };
 
 const typeColors = {
-  batch: "bg-purple-100 text-purple-700",
   production_order: "bg-indigo-100 text-indigo-700",
   raw_material: "bg-cyan-100 text-cyan-700",
   finished_goods: "bg-green-100 text-green-700",
@@ -53,11 +53,6 @@ export default function HoldRelease() {
   const { data: holds = [], isLoading } = useQuery({
     queryKey: ["holds"],
     queryFn: () => base44.entities.HoldRelease.list("-created_date"),
-  });
-
-  const { data: batches = [] } = useQuery({
-    queryKey: ["batches"],
-    queryFn: () => base44.entities.Batch.list(),
   });
 
   const { data: productionOrders = [] } = useQuery({
@@ -103,12 +98,13 @@ export default function HoldRelease() {
           if (heldQty > currentQty) throw new Error(`Cannot hold more than ${currentQty} lbs available`);
           await base44.entities.HoldRelease.create({ ...data, pre_hold_qty: currentQty });
           await base44.entities.InventoryItem.update(data.batch_id, { quantity_lbs: currentQty - heldQty });
+          // Pull the held weight out of the product's on-hand bucket so Sales can't pick it.
+          await adjustFgBucketForHold(freshItems[0], -heldQty);
         } else if (data.item_type === "production_order") {
           await base44.entities.HoldRelease.create(data);
           await base44.entities.ProductionOrder.update(data.batch_id, { status: "paused" });
         } else {
           await base44.entities.HoldRelease.create(data);
-          await base44.entities.Batch.update(data.batch_id, { status: "on_hold" });
         }
       } else {
         await base44.entities.HoldRelease.create(data);
@@ -116,11 +112,11 @@ export default function HoldRelease() {
     },
     onSuccess: () => {
        queryClient.invalidateQueries({ queryKey: ["holds"] });
-       queryClient.invalidateQueries({ queryKey: ["batches"] });
        queryClient.invalidateQueries({ queryKey: ["productionOrders"] });
        queryClient.invalidateQueries({ queryKey: ["rawMaterials"] });
        queryClient.invalidateQueries({ queryKey: ["inventory"] });
        queryClient.invalidateQueries({ queryKey: ["raw_inventory"] });
+       queryClient.invalidateQueries({ queryKey: ["fg_buckets"] });
        setShowForm(false);
        setPreselectedBatch(null);
      },
@@ -134,13 +130,11 @@ export default function HoldRelease() {
         // Determine item type if missing
         let resolvedItemType = itemType;
         if (!resolvedItemType) {
-          const batch = await base44.entities.Batch.filter({ id: batchId });
           const prodOrder = await base44.entities.ProductionOrder.filter({ id: batchId });
           const rawMat = await base44.entities.RawMaterial.filter({ id: batchId });
           const invItem = await base44.entities.InventoryItem.filter({ id: batchId });
 
-          if (batch[0]) resolvedItemType = "batch";
-          else if (prodOrder[0]) resolvedItemType = "production_order";
+          if (prodOrder[0]) resolvedItemType = "production_order";
           else if (rawMat[0]) resolvedItemType = "raw_material";
           else if (invItem[0]) resolvedItemType = "finished_goods";
         }
@@ -160,28 +154,25 @@ export default function HoldRelease() {
            const freshItems = await base44.entities.InventoryItem.filter({ id: batchId });
            const currentQty = freshItems[0]?.quantity_lbs || 0;
            await base44.entities.InventoryItem.update(batchId, { quantity_lbs: currentQty + releaseQty, status: "available" });
-        } else if (resolvedItemType === "batch") {
-           // Batch type: return to completed (back on-hand) when released as safe
-           await base44.entities.Batch.update(batchId, { status: "completed" });
+           // Put the released weight back into the product's on-hand bucket.
+           await adjustFgBucketForHold(freshItems[0], releaseQty);
          } else if (resolvedItemType === "production_order") {
            // Production order: resume processing (back to in_progress)
            await base44.entities.ProductionOrder.update(batchId, { status: "in_progress" });
          }
         } else if (batchId && data.status === "rejected") {
-         if (itemType === "batch") {
-           await base44.entities.Batch.update(batchId, { status: "rejected" });
-         } else if (itemType === "production_order") {
+         if (itemType === "production_order") {
            await base44.entities.ProductionOrder.update(batchId, { status: "cancelled" });
          }
         }
     },
     onSuccess: () => {
        queryClient.invalidateQueries({ queryKey: ["holds"] });
-       queryClient.invalidateQueries({ queryKey: ["batches"] });
        queryClient.invalidateQueries({ queryKey: ["productionOrders"] });
        queryClient.invalidateQueries({ queryKey: ["rawMaterials"] });
        queryClient.invalidateQueries({ queryKey: ["inventory"] });
        queryClient.invalidateQueries({ queryKey: ["raw_inventory"] });
+       queryClient.invalidateQueries({ queryKey: ["fg_buckets"] });
        setReleasing(null);
      },
   });
@@ -275,7 +266,7 @@ export default function HoldRelease() {
                        <TableCell className="text-sm text-slate-700">{hold.product_name}</TableCell>
                        <TableCell>
                          <Badge className={cn("capitalize text-xs font-medium", typeColors[hold.item_type] || "bg-slate-100 text-slate-700")}>
-                           {(hold.item_type || "batch").replace(/_/g, " ")}
+                           {(hold.item_type || "production_order").replace(/_/g, " ")}
                          </Badge>
                        </TableCell>
                        <TableCell className="text-sm text-slate-700 capitalize">{(hold.hold_reason || "").replace(/_/g, " ")}</TableCell>
@@ -307,7 +298,6 @@ export default function HoldRelease() {
       {showForm && (
          <HoldFormDialog
            open
-           batches={batches}
            productionOrders={productionOrders}
            rawMaterials={rawMaterials}
            finishedGoods={finishedGoods}
