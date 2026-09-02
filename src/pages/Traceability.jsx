@@ -7,6 +7,7 @@ import { Search, Loader2 } from "lucide-react";
 import PageHeader from "@/components/shared/PageHeader";
 import RecallSummary from "@/components/traceability/RecallSummary";
 import OrderTraceCard from "@/components/traceability/OrderTraceCard";
+import RawMatchesCard from "@/components/traceability/RawMatchesCard";
 import { buildTrace } from "@/lib/traceGraph";
 
 const LIMIT = 2000;
@@ -62,7 +63,7 @@ export default function Traceability() {
             or search a finished-goods lot to walk back to its raw materials.
           </p>
         </Card>
-      ) : !trace || trace.affected.length === 0 ? (
+      ) : !trace || (trace.affected.length === 0 && trace.rawMatches.length === 0) ? (
         <Card className="p-12 text-center">
           <Search className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
           <h3 className="text-lg font-semibold mb-1">{loading ? "Searching…" : "No results"}</h3>
@@ -70,7 +71,8 @@ export default function Traceability() {
         </Card>
       ) : (
         <div className="space-y-6">
-          <RecallSummary summary={trace.summary} />
+          <RawMatchesCard rawMatches={trace.rawMatches} hit={trace.hit} />
+          {trace.affected.length > 0 && <RecallSummary summary={trace.summary} />}
           {trace.affected.map(t => <OrderTraceCard key={t.order.id} trace={t} hit={trace.hit} />)}
         </div>
       )}

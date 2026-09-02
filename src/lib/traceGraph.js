@@ -156,5 +156,12 @@ export function buildTrace(term, data) {
     customers: [...new Set(affected.flatMap(a => a.shipments.map(s => s.customer_name)).filter(Boolean))],
     activeHolds: affected.reduce((n, a) => n + a.holds.filter(h => h.status === "on_hold" || h.status === "under_review").length, 0),
   };
-  return { affected, summary, hit };
+  // Raw lots that matched the search directly (shown even when no order has consumed them yet)
+  const rawMatches = rawInventory.filter(r => rawIds.has(r.id)).map(r => ({
+    id: r.id, lot_number: r.lot_number, bucket_name: r.bucket_name, supplier: r.supplier, po_number: r.po_number,
+    received_date: r.received_date, quantity: r.quantity || 0, available_qty: r.available_qty ?? r.quantity ?? 0, status: r.status,
+    used_in_orders: affected.filter(a => a.rawLots.some(l => norm(l.lot_number) === norm(r.lot_number) && (!l.bucket_name || l.bucket_name === r.bucket_name))).map(a => a.order.order_number),
+  }));
+
+  return { affected, summary, hit, rawMatches };
 }
