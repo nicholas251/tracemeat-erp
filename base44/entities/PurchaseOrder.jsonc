@@ -93,6 +93,19 @@
       "type": "number",
       "description": "Total PO amount"
     },
+    "email_sent_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the PO email was last successfully sent to the supplier"
+    },
+    "email_sent_to": {
+      "type": "string",
+      "description": "Address the last successful PO email went to"
+    },
+    "email_error": {
+      "type": "string",
+      "description": "Last email send failure message (cleared on success)"
+    },
     "notes": {
       "type": "string"
     }

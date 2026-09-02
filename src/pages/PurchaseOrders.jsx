@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import StatusBadge from "@/components/shared/StatusBadge";
 import POFormDialog from "@/components/po/POFormDialog";
+import POEmailStatus, { PO_LOGO_URL, poEmailErrorMessage } from "@/components/po/POEmailStatus";
 import { format, parseISO } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/components/ui/use-toast";
@@ -39,27 +40,27 @@ export default function PurchaseOrders() {
       const created = await base44.entities.PurchaseOrder.create({ ...data, status: "active" });
       // Send email notification — but DON'T fail the whole PO creation if email fails.
       // The PO is already saved; a failed email shouldn't trigger a retry that duplicates it.
-      let emailSent = true;
+      let emailError = null;
       try {
-        const logoUrl = 'https://media.base44.com/images/public/69fa3d25d6b48b9b300a8c3a/abc6cd33d_MittysFoods_GroteWiegel_MuckesLogos.png';
-        await base44.functions.invoke('sendPOEmail', { po: created, logoUrl });
+        await base44.functions.invoke('sendPOEmail', { po: created, logoUrl: PO_LOGO_URL });
       } catch (error) {
         console.error('Failed to send PO email:', error);
-        emailSent = false;
+        emailError = poEmailErrorMessage(error);
       }
-      return { created, emailSent };
+      return { created, emailError };
     },
-    onSuccess: ({ emailSent }) => {
+    onSuccess: ({ emailError }) => {
       queryClient.invalidateQueries({ queryKey: ["purchase_orders"] });
       setShowForm(false);
       toast({
         title: "Purchase Order Created",
-        description: emailSent
-          ? "Your purchase order has been successfully created and email sent."
-          : "Purchase order created, but the email could not be sent. You can resend it later.",
-        duration: 4000,
+        description: emailError
+          ? `Saved, but the email could not be sent: ${emailError}. Use "Send" on the PO to retry.`
+          : "Your purchase order has been created and emailed to the supplier.",
+        variant: emailError ? "destructive" : undefined,
+        duration: emailError ? 8000 : 4000,
       });
-      setTimeout(() => navigate("/"), 3500);
+      if (!emailError) setTimeout(() => navigate("/"), 3500);
     },
     onError: (error) => {
       toast({
@@ -77,6 +78,18 @@ export default function PurchaseOrders() {
       queryClient.invalidateQueries({ queryKey: ["purchase_orders"] });
       setShowForm(false);
       setEditingPO(null);
+    },
+  });
+
+  const sendEmailMutation = useMutation({
+    mutationFn: (po) => base44.functions.invoke('sendPOEmail', { po: { id: po.id }, logoUrl: PO_LOGO_URL }),
+    onSuccess: (res) => {
+      queryClient.invalidateQueries({ queryKey: ["purchase_orders"] });
+      toast({ title: "Email Sent", description: `PO ${res.data?.po_number} sent to ${res.data?.sent_to}.`, duration: 4000 });
+    },
+    onError: (error) => {
+      queryClient.invalidateQueries({ queryKey: ["purchase_orders"] });
+      toast({ title: "Email Failed", description: poEmailErrorMessage(error), variant: "destructive", duration: 8000 });
     },
   });
 
@@ -122,13 +135,14 @@ export default function PurchaseOrders() {
                 <TableHead>Expected Delivery</TableHead>
                 <TableHead>Total</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Email</TableHead>
                 <TableHead></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {pos.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan="7" className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan="8" className="text-center py-8 text-muted-foreground">
                     No purchase orders yet. Create one to get started.
                   </TableCell>
                 </TableRow>
@@ -141,6 +155,13 @@ export default function PurchaseOrders() {
                      <TableCell>{po.expected_delivery_date ? format(parseISO(po.expected_delivery_date), 'MMM dd, yyyy') : '-'}</TableCell>
                      <TableCell>{(po.line_items?.reduce((sum, item) => sum + (item.quantity_lbs || 0), 0) || 0).toFixed(2)} lbs</TableCell>
                      <TableCell><StatusBadge status={po.status} /></TableCell>
+                     <TableCell>
+                       <POEmailStatus
+                         po={po}
+                         sending={sendEmailMutation.isPending && sendEmailMutation.variables?.id === po.id}
+                         onSend={(p) => sendEmailMutation.mutate(p)}
+                       />
+                     </TableCell>
                      <TableCell>
                        <div className="flex gap-2">
                          {po.status === "received" && (
