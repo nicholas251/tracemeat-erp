@@ -8,6 +8,7 @@ import { buildStageLot } from "@/lib/stageLot";
 import { pushPackagingToFinishedGoods } from "./packagingFgPush";
 import { fullChopBatchLbs, calcBlendBatchCount } from "@/lib/blendBatchMath";
 import { buildIngredientBatchesMultiple, buildMeasurementSteps } from "./wizardStepBuilders";
+import { tagConsumedLots } from "@/lib/consumedLots";
 
 // ─── Stage icon map ───────────────────────────────────────────────────────────
 const STAGE_ICONS = {
@@ -389,9 +390,15 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
           return;
         }
 
-        // Deduction committed — now record this batch on the stage.
+        // Deduction committed — now record this batch on the stage, including the EXACT
+        // lots the deduction took (recall traceability back to supplier lots).
+        const blendConsumed = tagConsumedLots(blendRes?.data?.consumed_lots, "protein", {
+          batch_number: currentBatch.batchNumber,
+          output_lot_number: blendOutputLot,
+        });
         await base44.entities.ProductionStage.update(stage.id, {
           sub_batches: [...(stage.sub_batches || []), subBatch],
+          consumed_lots: [...(stage.consumed_lots || []), ...blendConsumed],
           status: "in_progress",
           output_lot_number: blendOutputLot,
           completed_at: isLastBatch ? new Date().toISOString() : stage.completed_at,
@@ -564,6 +571,10 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
               alert(`Not enough casings — short by ${casingRes.data.total_shortfall} lbs. Nothing was deducted. Add casing stock and retry.`);
               return;
             }
+            updates.consumed_lots = [
+              ...(stage.consumed_lots || []),
+              ...tagConsumedLots(casingRes?.data?.consumed_lots, "casing", { output_lot_number: cookBatch.lotNumber }),
+            ];
           }
         }
 
@@ -766,6 +777,8 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
         // Deductions run BEFORE the stage is marked completed, so a failure or
         // shortfall leaves the stage in progress with nothing half-done.
         if (capKey === "chopping") {
+          const chopConsumed = [...(stage.consumed_lots || [])];
+          const chopOutLot = updates.output_lot_number || stage.input_lot_number || "";
           // Cure: a RawInventory bucket on the product. Deduct the entered cure amount.
           const cureLbs = Number(form.cure_amount_lbs) || 0;
           if (product?.cure_bucket_id && cureLbs > 0) {
@@ -784,6 +797,8 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
               alert(`Not enough cure inventory — short by ${cureRes.data.total_shortfall} lbs. Nothing was deducted. Add cure stock and retry.`);
               return;
             }
+            chopConsumed.push(...tagConsumedLots(cureRes?.data?.consumed_lots, "cure", { output_lot_number: chopOutLot }));
+            updates.cure_lot_number = (cureRes?.data?.consumed_lots || []).map(l => l.lot_number).filter(Boolean).join(", ");
           }
           // Spice mix: assigned SpiceMix inventory (same shape as tumble).
           if (form.spice_mix?.lots?.length) {
@@ -796,7 +811,10 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
               alert(`Not enough spice mix — short by ${spiceRes.data.total_shortfall} lbs. Nothing was deducted. Add spice stock and retry.`);
               return;
             }
+            chopConsumed.push(...tagConsumedLots(spiceRes?.data?.consumed_lots, "spice", { output_lot_number: chopOutLot }));
+            updates.spice_mix_lot_number = (spiceRes?.data?.consumed_lots || []).map(l => l.lot_number).filter(Boolean).join(", ");
           }
+          updates.consumed_lots = chopConsumed;
         }
 
         // ── Linking: deduct casings consumed ──
@@ -816,6 +834,12 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
               alert(`Not enough casings — short by ${casingRes.data.total_shortfall} lbs. Nothing was deducted. Add casing stock and retry.`);
               return;
             }
+            updates.consumed_lots = [
+              ...(stage.consumed_lots || []),
+              ...tagConsumedLots(casingRes?.data?.consumed_lots, "casing", {
+                output_lot_number: updates.output_lot_number || stage.input_lot_number || "",
+              }),
+            ];
           }
         }
 

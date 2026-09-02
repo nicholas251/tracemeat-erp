@@ -121,6 +121,54 @@
       "type": "string",
       "description": "Lot number of the cure ingredient used"
     },
+    "consumed_lots": {
+      "type": "array",
+      "description": "Recall traceability: the EXACT raw-inventory lots this stage actually deducted (protein, spice mix, cure, casings), as reported back by the deduction functions. This is the authoritative backward link from a batch to supplier lots.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "material_type": {
+            "type": "string",
+            "description": "protein | spice | cure | casing"
+          },
+          "bucket_id": {
+            "type": "string"
+          },
+          "bucket_name": {
+            "type": "string"
+          },
+          "raw_inventory_id": {
+            "type": "string"
+          },
+          "spice_mix_id": {
+            "type": "string"
+          },
+          "lot_number": {
+            "type": "string"
+          },
+          "supplier": {
+            "type": "string"
+          },
+          "po_number": {
+            "type": "string"
+          },
+          "received_date": {
+            "type": "string"
+          },
+          "lbs": {
+            "type": "number"
+          },
+          "batch_number": {
+            "type": "number",
+            "description": "Sub-batch (blend/tumble batch) this consumption belongs to"
+          },
+          "output_lot_number": {
+            "type": "string",
+            "description": "The lot this consumption produced (blend batch lot / racking lot)"
+          }
+        }
+      }
+    },
     "temperature_c": {
       "type": "number"
     },

@@ -60,6 +60,13 @@
           "order_number": {
             "type": "string"
           },
+          "source_stage_id": {
+            "type": "string",
+            "description": "Packaging ProductionStage that produced this lot"
+          },
+          "cook_batch_lot": {
+            "type": "string"
+          },
           "status": {
             "type": "string",
             "enum": [

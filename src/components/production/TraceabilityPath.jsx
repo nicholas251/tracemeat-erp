@@ -6,19 +6,31 @@ import { ArrowRight, Package } from "lucide-react";
 const STAGE_NAMES = {
   blending: "Blending",
   chopping: "Chopping",
+  mixer: "Mixer",
   linking: "Linking",
+  tumble: "Tumbling",
+  tumbling: "Tumbling",
+  racking: "Racking",
+  racking_product: "Racking",
   cooking: "Cooking",
   chilling: "Chilling",
   packaging: "Packaging",
+  sous_vide_pack: "Sous Vide Pack",
 };
 
 const STAGE_COLORS = {
   blending: "bg-blue-50 border-blue-200",
   chopping: "bg-purple-50 border-purple-200",
+  mixer: "bg-violet-50 border-violet-200",
   linking: "bg-indigo-50 border-indigo-200",
+  tumble: "bg-rose-50 border-rose-200",
+  tumbling: "bg-rose-50 border-rose-200",
+  racking: "bg-amber-50 border-amber-200",
+  racking_product: "bg-amber-50 border-amber-200",
   cooking: "bg-orange-50 border-orange-200",
   chilling: "bg-cyan-50 border-cyan-200",
   packaging: "bg-green-50 border-green-200",
+  sous_vide_pack: "bg-teal-50 border-teal-200",
 };
 
 export default function TraceabilityPath({ stages }) {

@@ -67,7 +67,7 @@ Deno.serve(async (req) => {
             status: newQty <= 0 ? 'depleted' : 'in_use'
           });
 
-          deductions.push({ bucket_name: ingredient.bucket_name, lot_id: lot.id, deducted: take });
+          deductions.push({ bucket_name: ingredient.bucket_name, lot_number: lot.lot_number, lot_id: lot.id, deducted: take });
           remaining -= take;
         }
 
@@ -129,7 +129,14 @@ Deno.serve(async (req) => {
       available_qty: batchQtyLbs,
       unit: 'lbs',
       received_date: now.toISOString().slice(0, 10),
-      status: 'available'
+      status: 'available',
+      // Recall traceability: which raw spice lots went into this produced mix batch.
+      component_lots: deductions.map(d => ({
+        bucket_name: d.bucket_name || "",
+        lot_number: d.lot_number || "",
+        raw_inventory_id: d.lot_id || "",
+        lbs: parseFloat(Number(d.deducted || 0).toFixed(2)),
+      })),
     });
 
     return Response.json({

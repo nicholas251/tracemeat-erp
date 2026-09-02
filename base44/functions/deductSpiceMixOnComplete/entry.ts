@@ -71,6 +71,7 @@ Deno.serve(async (req) => {
       // Producing a mix batch creates RawInventory lots (lot_number "SM-...") in a
       // spice bucket named after the mix. Those lot copies must shrink too, otherwise
       // they keep showing on the bucket cards after the mix is consumed.
+      const consumed_lots = [];
       try {
         const mixLots = (await base44.asServiceRole.entities.RawInventory.filter(
           { bucket_name: mix.name },
@@ -81,16 +82,29 @@ Deno.serve(async (req) => {
         let toRemove = qty;
         for (const lot of mixLots) {
           if (toRemove <= 0.001) break;
-          const take = Math.min(lot.available_qty || 0, toRemove);
+          const take = parseFloat(Math.min(lot.available_qty || 0, toRemove).toFixed(2));
           const lotNewQty = parseFloat(Math.max(0, (lot.available_qty || 0) - take).toFixed(2));
           await base44.asServiceRole.entities.RawInventory.update(lot.id, {
             available_qty: lotNewQty,
             status: lotNewQty <= 0 ? 'depleted' : 'in_use',
           });
+          consumed_lots.push({
+            bucket_id: lot.bucket_id || "",
+            bucket_name: mix.name,
+            spice_mix_id: mix.id,
+            raw_inventory_id: lot.id,
+            lot_number: lot.lot_number || "",
+            lbs: take,
+          });
           toRemove -= take;
         }
       } catch (e) {
         console.warn(`Could not sync raw mix lots for "${mix.name}": ${e.message}`);
+      }
+      // No produced-batch lot on record — still stamp the mix itself so the trace
+      // is never blind to the spice that went in.
+      if (consumed_lots.length === 0) {
+        consumed_lots.push({ bucket_name: mix.name, spice_mix_id: mix.id, lot_number: `MIX-${mix.name}`, lbs: qty });
       }
 
       results.push({
@@ -100,14 +114,16 @@ Deno.serve(async (req) => {
         remaining_lbs: newQty,
         shortfall: 0,
         committed: true,
+        consumed_lots,
       });
     }
 
     const total_shortfall = parseFloat(
       results.reduce((s, r) => s + (Number(r.shortfall) || 0), 0).toFixed(2)
     );
+    const consumed_lots = results.flatMap(r => r.consumed_lots || []);
 
-    return Response.json({ success: true, stage_id, results, total_shortfall });
+    return Response.json({ success: true, stage_id, results, total_shortfall, consumed_lots });
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });
   }

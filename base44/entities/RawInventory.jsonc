@@ -39,6 +39,27 @@
       "type": "string",
       "description": "Source purchase order number"
     },
+    "component_lots": {
+      "type": "array",
+      "description": "For produced spice-mix batches: the raw spice lots that went into this lot (recall traceability)",
+      "items": {
+        "type": "object",
+        "properties": {
+          "bucket_name": {
+            "type": "string"
+          },
+          "lot_number": {
+            "type": "string"
+          },
+          "raw_inventory_id": {
+            "type": "string"
+          },
+          "lbs": {
+            "type": "number"
+          }
+        }
+      }
+    },
     "quantity": {
       "type": "number",
       "description": "Quantity received into this bucket in lbs"

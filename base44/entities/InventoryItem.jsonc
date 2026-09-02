@@ -22,6 +22,33 @@
       "type": "string",
       "description": "Source batch number"
     },
+    "source_stage_id": {
+      "type": "string",
+      "description": "Packaging ProductionStage ID that produced this lot (recall traceability)"
+    },
+    "cook_batch_lot": {
+      "type": "string",
+      "description": "Cook batch lot this finished-goods lot came from"
+    },
+    "component_lots": {
+      "type": "array",
+      "description": "Upstream lots physically inside this FG lot: the cook batch plus any carry-over lots packed into it",
+      "items": {
+        "type": "object",
+        "properties": {
+          "lot_number": {
+            "type": "string"
+          },
+          "lbs": {
+            "type": "number"
+          },
+          "source": {
+            "type": "string",
+            "description": "cook_batch | carry_over"
+          }
+        }
+      }
+    },
     "quantity_lbs": {
       "type": "number",
       "description": "Current quantity on hand in lbs"

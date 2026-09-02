@@ -53,7 +53,7 @@ Deno.serve(async (req) => {
         const liveAvail = Number(lot.available_qty) || 0;
         const deduct = parseFloat(Math.min(Number(a.actual_lbs) || 0, remaining, liveAvail).toFixed(2));
         if (deduct <= 0) continue;
-        plan.push({ id: lot.id, liveAvail, deduct });
+        plan.push({ id: lot.id, liveAvail, deduct, lot });
         remaining = parseFloat((remaining - deduct).toFixed(2));
       }
 
@@ -81,7 +81,7 @@ Deno.serve(async (req) => {
           const liveAvail = Number(lot.available_qty) || 0;
           const deduct = parseFloat(Math.min(liveAvail, remaining).toFixed(2));
           if (deduct <= 0) continue;
-          plan.push({ id: lot.id, liveAvail, deduct });
+          plan.push({ id: lot.id, liveAvail, deduct, lot });
           remaining = parseFloat((remaining - deduct).toFixed(2));
         }
       }
@@ -105,14 +105,27 @@ Deno.serve(async (req) => {
         });
       }
 
-      results.push({ bucket_name: bucket_name || bucket_id, requested_lbs: actual_lbs, shortfall: 0, committed: true });
+      // Report the EXACT lots consumed so the caller can stamp them on the stage for
+      // recall traceability (the operator's picks and the FIFO fallback may differ).
+      const consumed_lots = plan.map(p => ({
+        bucket_id,
+        bucket_name: bucket_name || p.lot.bucket_name || bucket_id,
+        raw_inventory_id: p.id,
+        lot_number: p.lot.lot_number || "",
+        supplier: p.lot.supplier || "",
+        po_number: p.lot.po_number || "",
+        received_date: p.lot.received_date || "",
+        lbs: p.deduct,
+      }));
+      results.push({ bucket_name: bucket_name || bucket_id, requested_lbs: actual_lbs, shortfall: 0, committed: true, consumed_lots });
     }
 
     const total_shortfall = parseFloat(
       results.reduce((s, r) => s + (Number(r.shortfall) || 0), 0).toFixed(2)
     );
+    const consumed_lots = results.flatMap(r => r.consumed_lots || []);
 
-    return Response.json({ success: true, stage_id, results, total_shortfall });
+    return Response.json({ success: true, stage_id, results, total_shortfall, consumed_lots });
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });
   }

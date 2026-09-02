@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Thermometer, Layers, AlertCircle, Loader2, CheckCircle2 } from "lucide-react";
 import TumbleBatchCard from "./TumbleBatchCard";
 import { buildStageLot } from "@/lib/stageLot";
+import { tagConsumedLots } from "@/lib/consumedLots";
 
 /**
  * TumbleWizard — clean, self-contained tumbling flow.
@@ -167,8 +168,9 @@ export default function TumbleWizard({ stage, open, onClose, onCompleted }) {
       //    deduction — validating it before committing protein means a spice
       //    shortfall never strands an already-deducted protein batch (which would
       //    double-deduct protein on retry).
+      let spiceRes = null;
       if (spiceLots.length) {
-        const spiceRes = await base44.functions.invoke("deductSpiceMixOnComplete", {
+        spiceRes = await base44.functions.invoke("deductSpiceMixOnComplete", {
           stage_id: stage.id,
           lots: spiceLots,
         });
@@ -226,6 +228,19 @@ export default function TumbleWizard({ stage, open, onClose, onCompleted }) {
       const alreadyRacked = liveCards.some(
         (c) => new RegExp(`-B${lotBatchNum}$`).test(c.input_lot_number || "")
       );
+      // Stamp the EXACT lots this batch consumed on the tumble stage (recall traceability).
+      // Re-read the stage so rapid successive releases append instead of overwriting.
+      const liveStage = await base44.entities.ProductionStage.filter({ id: stage.id }).then(r => r?.[0]);
+      const batchConsumed = [
+        ...tagConsumedLots(spiceRes?.data?.consumed_lots, "spice", { batch_number: lotBatchNum, output_lot_number: lot }),
+        ...tagConsumedLots(proteinRes?.data?.consumed_lots, "protein", { batch_number: lotBatchNum, output_lot_number: lot }),
+      ];
+      await base44.entities.ProductionStage.update(stage.id, {
+        consumed_lots: [...(liveStage?.consumed_lots || []), ...batchConsumed],
+        status: "in_progress",
+        started_at: liveStage?.started_at || new Date().toISOString(),
+      });
+
       if (!alreadyRacked) {
         await base44.entities.ProductionStage.create({
           order_id: stage.order_id,

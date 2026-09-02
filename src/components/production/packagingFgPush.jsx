@@ -18,6 +18,23 @@ export async function pushPackagingToFinishedGoods({ stage, updates, form, query
 
   const packagesProduced = updates.packages_produced || 0;
 
+  // ── Recall traceability: what is physically inside the FG lots this stage makes ──
+  // The cook batch that fed this packaging stage, plus every carry-over lot the operator
+  // pulled in. Stamped on each InventoryItem / FG bucket lot so a recall on any upstream
+  // lot can reach the exact finished-goods lots (and from there, the customers).
+  const cookBatchLot = stage.cook_batch_lot || stage.input_lot_number || "";
+  const componentLots = [];
+  if (cookBatchLot) {
+    componentLots.push({ lot_number: cookBatchLot, lbs: parseFloat((stage.input_qty_lbs || 0).toFixed(2)), source: "cook_batch" });
+  }
+  for (const id of (form.carryover_ids || [])) {
+    const co = await base44.entities.UnfinishedCase.filter({ id }).then(r => r?.[0]);
+    for (const c of (co?.lot_contributions || [])) {
+      if ((c.lbs || 0) > 0) componentLots.push({ lot_number: c.lot_number, lbs: parseFloat(c.lbs.toFixed(2)), source: "carry_over" });
+    }
+  }
+  const fgLink = { source_stage_id: stage.id, cook_batch_lot: cookBatchLot };
+
   // Check if splits are defined (hot dog multi-product flow)
   const splits = form.finished_product_splits && form.finished_product_splits.length > 0 ? form.finished_product_splits : null;
 
@@ -77,6 +94,7 @@ export async function pushPackagingToFinishedGoods({ stage, updates, form, query
         quantity_lbs: parseFloat(splitLbs.toFixed(2)),
         cases: casesProduced,
         order_number: order.order_number || "",
+        ...fgLink,
         status: "available",
       };
 
@@ -114,6 +132,8 @@ export async function pushPackagingToFinishedGoods({ stage, updates, form, query
         batch_id: stage.order_id,
         batch_number: order.order_number || "",
         lot_number: splitLotNumber,
+        ...fgLink,
+        component_lots: componentLots,
         quantity_lbs: parseFloat(splitLbs.toFixed(2)),
         original_quantity_lbs: parseFloat(splitLbs.toFixed(2)),
         status: "available",
@@ -165,6 +185,7 @@ export async function pushPackagingToFinishedGoods({ stage, updates, form, query
       quantity_lbs: parseFloat(actualOutputLbs.toFixed(2)),
       cases: casesProduced,
       order_number: order.order_number || "",
+      ...fgLink,
       status: "available",
     }];
     await base44.entities.FinishedGoodsBucket.update(bucket.id, {
@@ -189,6 +210,7 @@ export async function pushPackagingToFinishedGoods({ stage, updates, form, query
         quantity_lbs: parseFloat(actualOutputLbs.toFixed(2)),
         cases: casesProduced,
         order_number: order.order_number || "",
+        ...fgLink,
         status: "available",
       }],
       status: "active",
@@ -202,6 +224,8 @@ export async function pushPackagingToFinishedGoods({ stage, updates, form, query
     batch_id: stage.order_id,
     batch_number: order.order_number || "",
     lot_number: baseFgLot,
+    ...fgLink,
+    component_lots: componentLots,
     quantity_lbs: parseFloat(actualOutputLbs.toFixed(2)),
     original_quantity_lbs: parseFloat(actualOutputLbs.toFixed(2)),
     status: "available",
