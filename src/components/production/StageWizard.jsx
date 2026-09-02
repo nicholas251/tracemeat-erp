@@ -396,9 +396,12 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
           batch_number: currentBatch.batchNumber,
           output_lot_number: blendOutputLot,
         });
+        // Re-read the live stage so batch 2/3 append to batch 1's records instead of
+        // overwriting them if the wizard's stage prop hasn't refreshed yet.
+        const liveBlendStage = await base44.entities.ProductionStage.filter({ id: stage.id }).then(r => r?.[0]);
         await base44.entities.ProductionStage.update(stage.id, {
-          sub_batches: [...(stage.sub_batches || []), subBatch],
-          consumed_lots: [...(stage.consumed_lots || []), ...blendConsumed],
+          sub_batches: [...(liveBlendStage?.sub_batches || stage.sub_batches || []), subBatch],
+          consumed_lots: [...(liveBlendStage?.consumed_lots || []), ...blendConsumed],
           status: "in_progress",
           output_lot_number: blendOutputLot,
           completed_at: isLastBatch ? new Date().toISOString() : stage.completed_at,
