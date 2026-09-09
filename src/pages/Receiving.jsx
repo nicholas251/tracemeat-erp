@@ -180,6 +180,19 @@ export default function Receiving() {
                   <ChevronRight className={`w-4 h-4 shrink-0 mt-0.5 transition-transform ${isSelected ? "rotate-90 text-primary" : "text-muted-foreground"}`} />
                 </div>
                 <p className="text-sm text-muted-foreground mt-1 ml-7">{po.supplier}</p>
+                {totalItems > 0 && (
+                  <ul className="mt-2 ml-7 space-y-0.5">
+                    {(po.line_items || []).map((li, i) => {
+                      const done = (li.received_qty_lbs || 0) >= li.quantity_lbs;
+                      return (
+                        <li key={i} className="text-xs flex items-center justify-between gap-2">
+                          <span className={`truncate ${done ? "text-muted-foreground line-through" : ""}`}>{li.material_name}</span>
+                          <span className="shrink-0 text-muted-foreground font-medium">{(li.quantity_lbs || 0).toFixed(0)} lbs</span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
                 <div className="flex items-center justify-between mt-3 ml-7">
                   <StatusBadge status={po.status} />
                   <span className="text-xs text-muted-foreground">{receivedItems}/{totalItems} items</span>
