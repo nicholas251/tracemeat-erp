@@ -1,0 +1,38 @@
+{
+  "name": "Auto-complete production orders",
+  "description": "When a production stage is created or updated, mark its parent order completed if all stages are done.",
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "entity",
+      "events": [
+        "update",
+        "create"
+      ],
+      "entity_name": "ProductionStage"
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "auto_complete_production_orders",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "run_function": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "checkOrderCompletion",
+            "args": {}
+          },
+          "then": "end"
+        }
+      }
+    ]
+  },
+  "x-base44-migrated-from-automation": {
+    "legacy_payload_function": "checkOrderCompletion"
+  }
+}
