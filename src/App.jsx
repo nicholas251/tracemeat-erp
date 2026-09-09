@@ -31,6 +31,7 @@ import SalesOrders from './pages/SalesOrders';
 import DailySales from './pages/DailySales';
 import Forecast from './pages/Forecast';
 import CasesReport from './pages/CasesReport';
+import UserGuide from './pages/UserGuide';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -82,6 +83,7 @@ const AuthenticatedApp = () => {
         <Route path="/daily-sales" element={<DailySales />} />
         <Route path="/forecast" element={<Forecast />} />
         <Route path="/cases-report" element={<CasesReport />} />
+        <Route path="/user-guide" element={<UserGuide />} />
       </Route>
       <Route path="/signup" element={<ProfileCreation />} />
       <Route path="/waiting-for-access" element={<WaitingForAccess />} />
