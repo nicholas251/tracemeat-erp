@@ -1,8 +1,10 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { Printer } from "lucide-react";
-import { guideSections, guideRoles } from "@/lib/userGuideContent";
+import { guideSections, guideRoles, orderSetupSteps, flowWalkthroughs } from "@/lib/userGuideContent";
 import GuideSection from "@/components/guide/GuideSection";
+import OrderSetupGuide from "@/components/guide/OrderSetupGuide";
+import FlowWalkthrough from "@/components/guide/FlowWalkthrough";
 
 export default function UserGuide() {
   return (
@@ -53,7 +55,32 @@ export default function UserGuide() {
         </section>
 
         {guideSections.map((section) => (
-          <GuideSection key={section.id} section={section} />
+          <React.Fragment key={section.id}>
+            <GuideSection section={section} />
+            {section.id === "production" && (
+              <>
+                <section className="break-inside-avoid mb-8">
+                  <h2 className="text-lg font-bold border-b border-slate-300 pb-1 mb-3">
+                    5a. Setting Up a Production Order, Step by Step
+                  </h2>
+                  <OrderSetupGuide blocks={orderSetupSteps} />
+                </section>
+
+                <section className="mb-8">
+                  <h2 className="text-lg font-bold border-b border-slate-300 pb-1 mb-3">
+                    5b. What Should Happen at Each Stage, by Flow
+                  </h2>
+                  <p className="text-sm text-slate-700 mb-4">
+                    Every product follows the flow built for it in Flow Builder. Below is what an operator is expected to
+                    record and confirm at each step of each flow the plant runs.
+                  </p>
+                  {flowWalkthroughs.map((flow) => (
+                    <FlowWalkthrough key={flow.name} flow={flow} />
+                  ))}
+                </section>
+              </>
+            )}
+          </React.Fragment>
         ))}
 
         <div className="border-t border-slate-300 pt-3 mt-8 text-xs text-slate-500 text-center">

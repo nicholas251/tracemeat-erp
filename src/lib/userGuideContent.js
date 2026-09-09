@@ -173,6 +173,175 @@ export const guideSections = [
   },
 ];
 
+// Detailed walk-through of creating a production order.
+export const orderSetupSteps = [
+  {
+    title: "Before you create the order",
+    points: [
+      "The product must exist and be active, with case weight, packages per case, yield %, shelf life and its per-batch production numbers filled in (blend batch lbs or tumble batch lbs, lbs per rack, spice per batch, cure per batch, casing per batch).",
+      "The product must be pointed at a recipe (raw bucket quantities per batch) and at a flow (the ordered list of steps).",
+      "Any spice mix the product uses should already have a produced batch on hand, or the floor will be blocked at the seasoning step.",
+      "Work profiles must have people assigned, or the work cards will appear with nobody able to open them.",
+    ],
+  },
+  {
+    title: "Creating the order",
+    points: [
+      "Production Orders → New Order. The order number is generated for you; you can overwrite it if you use your own numbering.",
+      "Choose the product. The recipe, flow and supplier fields fill in from the product.",
+      "Enter the quantity. Toggle between finished cases and total pounds — the system converts using case weight, and works backwards through the yield % to get the raw pounds you must start with.",
+      "Read the summary: raw input pounds required, expected finished pounds, expected cases, and how many batches that becomes at this product's batch size.",
+      "Check the shortage panel. It compares every raw bucket the recipe needs against what's on hand and flags anything short. Fix the shortage or reduce the order before saving.",
+      "Set the order date and target completion date, add notes for the floor, and save.",
+    ],
+  },
+  {
+    title: "What happens when you save",
+    points: [
+      "One work card (a stage) is created for every step in the product's flow, in order.",
+      "Step 1 becomes Available. Every later step is Locked until the step before it completes.",
+      "Order status moves from Pending to In Progress as soon as the first card is started.",
+      "Nothing is deducted from inventory yet — raw lots come out only when an operator confirms an actual batch.",
+    ],
+  },
+  {
+    title: "While the order runs",
+    points: [
+      "Open the order and expand the stages panel to see every card, its status, weights in and out, and its lot numbers.",
+      "Floor View gives the same picture as a read-only board for a plant monitor.",
+      "Steps that split into batches (blending, tumbling, racking, cook batches) create additional cards as batches are released — so the card count grows during the run, which is normal.",
+      "Put the order on hold from Hold & Release if quality stops the run; release it to resume.",
+    ],
+  },
+  {
+    title: "Finishing the order",
+    points: [
+      "When the last step in the flow completes, the order marks itself Completed and moves to the Archived tab.",
+      "Finished cases land in Finished Goods with a lot number, production date and expiry date.",
+      "Any leftover that didn't fill a case becomes a carry-over case on the Dashboard, ready to be packed into a later run.",
+      "Admins can delete an order that was created by mistake, but only before batches have been confirmed against it.",
+    ],
+  },
+];
+
+// Stage-by-stage expectations for each production flow in the plant.
+export const flowWalkthroughs = [
+  {
+    name: "Hot Dog / Emulsified Flow",
+    summary:
+      "Blend proteins → chop with seasoning and cure → mix → link into casings → rack → smokehouse cook → chill → pack.",
+    stages: [
+      {
+        name: "Blending",
+        what:
+          "Weigh out the protein buckets for one blend batch. Confirm the exact raw lot for each protein — the picker shows oldest lots first. Record actual blended weight. Confirming deducts those lots and gives the batch its blend lot number. Large orders release several blend batches; each one is its own card and its own lot.",
+      },
+      {
+        name: "Chopping (bowl chopper)",
+        what:
+          "Takes one blend batch. Confirm the spice mix lot, the cure lot and the water added, all per the product's per-batch amounts. The system checks spice and cure are actually on hand and refuses to confirm if you're short. Record chopped output weight; the batch carries its own lot forward.",
+      },
+      {
+        name: "Mixer",
+        what:
+          "Combines the chopped protein batch with the binder batch. Record binder lot and quantity plus mixing time, then confirm the mixed output weight.",
+      },
+      {
+        name: "Linking",
+        what:
+          "Confirm the casing lot and quantity used (skipped for products marked no casings). Record links produced by weight. If the product merges batches, several filling batches combine into one cook batch at the configured ratio.",
+      },
+      {
+        name: "Racking",
+        what:
+          "Build full racks at the product's lbs-per-rack figure. Any part-full rack is carried to the next racking card and topped up there, so partials are never stranded or double counted. Racks are numbered in one sequence across the whole order.",
+      },
+      {
+        name: "Cooking (smokehouse)",
+        what:
+          "Assign the oven and the racks going in, then record the actual temperature, cook method and cook time against the product's target. Confirm the cooked weight out — this is where cook yield shows up.",
+      },
+      {
+        name: "Chilling",
+        what:
+          "Record chill temperature and time, and confirm the chilled weight. The expiry date is calculated here from the product's shelf life and follows the product all the way to the finished case.",
+      },
+      {
+        name: "Packing",
+        what:
+          "Record cases packed, with individual case weights for variable-weight products. You can split one cook batch across several products, and you can pull an open carry-over case in first (tick the carry-over box at the top before you start counting). Confirming pushes cases into Finished Goods with a lot number and closes the order.",
+      },
+    ],
+  },
+  {
+    name: "Kielbasa / Coarse Ground Flow",
+    summary:
+      "Same backbone as the hot dog flow, with a separate pork batch and binder batch paired by batch tag.",
+    stages: [
+      {
+        name: "Blending / Grinding",
+        what: "Weigh and confirm the pork and beef lots for the batch. Each batch gets a pork batch lot number.",
+      },
+      {
+        name: "Bowl chopper (binder)",
+        what:
+          "Produces the binder batch that will go into the mixer. It gets its own binder lot number and is paired to its pork batch by batch tag, so the two always end up in the same mix.",
+      },
+      {
+        name: "Mixer",
+        what:
+          "Pork batch plus binder batch plus the spice mix and cure for that batch size. Spice and cure levels are checked before confirmation. Record mixing time and mixed weight.",
+      },
+      { name: "Linking", what: "Confirm the casing lot and quantity, and record linked weight." },
+      { name: "Racking", what: "Fill racks to the product's lbs-per-rack figure; trailing partials carry forward." },
+      { name: "Cooking", what: "Smokehouse: oven, temperature, cook method and time; confirm cooked weight." },
+      { name: "Chilling", what: "Chill temperature and time; expiry date is set here." },
+      { name: "Packing", what: "Cases counted and weighed, splits and carry-overs handled, cases pushed to Finished Goods." },
+    ],
+  },
+  {
+    name: "Tumbled / Marinated Flow (whole muscle)",
+    summary: "Tumble in batches → rack → cook → chill → pack. No grinding or linking.",
+    stages: [
+      {
+        name: "Tumbling",
+        what:
+          "The order's total weight is split into batches at the product's tumble batch size. For each batch, confirm the protein lots and the tumble spice quantity, then record tumble time. Releasing a batch deducts its lots and immediately creates a racking card for that batch, so racking can start while later batches are still tumbling. The tumble card completes on its own once every batch is released.",
+      },
+      {
+        name: "Racking",
+        what:
+          "Each released tumble batch gets its own racking card. Build full racks; a trailing partial rack goes into the order's carry-over queue and is picked up by whichever racking card opens next. Rack numbers run in a single sequence across the whole order so no two racks share a number.",
+      },
+      {
+        name: "Cooking",
+        what: "Assign racks to an oven, record temperature and time, and confirm cooked weight for that cook batch.",
+      },
+      { name: "Chilling", what: "One cooling batch per cook batch. Record chill temperature and time; expiry date is set here." },
+      {
+        name: "Packing",
+        what:
+          "One packing card per cooling batch. Count and weigh cases, split across products if needed, pull in carry-overs first, and confirm to push finished cases into inventory.",
+      },
+    ],
+  },
+  {
+    name: "Sous Vide Flow (bulk gaylords)",
+    summary: "Tumble or blend → rack → cook → chill → pack into gaylords instead of cases.",
+    stages: [
+      { name: "Prep / Tumbling", what: "Confirm protein and seasoning lots per batch as in the tumbled flow." },
+      { name: "Racking", what: "Racks are numbered and tracked individually because gaylords report which racks fed them." },
+      { name: "Cooking", what: "Cook batch recorded with oven, temperature and time." },
+      { name: "Chilling", what: "Chill recorded and expiry date set." },
+      {
+        name: "Sous vide packing",
+        what:
+          "Open a gaylord, then add rack weights into it. Each rack records which gaylord it fed and how much, so a gaylord built from more than one cook batch is flagged as a mixed lot with all its source lots listed. Seal the gaylord to give it its finished lot number and push it into Finished Goods. Open the next gaylord and continue until every rack is packed.",
+      },
+    ],
+  },
+];
+
 export const guideRoles = [
   { role: "Administrator", access: "Everything, including setup screens, users, pricing, and reset tools." },
   { role: "Supervisor", access: "Production, quality, inventory, sales and reporting. No user management." },
