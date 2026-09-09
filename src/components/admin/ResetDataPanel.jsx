@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { AlertCircle, Trash2, CheckCircle2 } from "lucide-react";
 
@@ -10,6 +10,13 @@ export default function ResetDataPanel() {
   const [confirmed, setConfirmed] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
+
+  // Only Nicholas Gustavis may see / use this destructive reset.
+  const { data: me } = useQuery({
+    queryKey: ["currentUser"],
+    queryFn: () => base44.auth.me(),
+  });
+  const allowed = me?.email?.toLowerCase() === "nicholas@andersonevelyn.com";
 
   const handleClearStages = async () => {
     setClearing(true);
@@ -31,6 +38,8 @@ export default function ResetDataPanel() {
     }
     setClearing(false);
   };
+
+  if (!allowed) return null;
 
   return (
     <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4">
