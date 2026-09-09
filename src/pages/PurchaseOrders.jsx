@@ -133,6 +133,7 @@ export default function PurchaseOrders() {
               <TableRow>
                 <TableHead>PO Number</TableHead>
                 <TableHead>Supplier</TableHead>
+                <TableHead>Materials</TableHead>
                 <TableHead>Order Date</TableHead>
                 <TableHead>Expected Delivery</TableHead>
                 <TableHead>Total</TableHead>
@@ -144,7 +145,7 @@ export default function PurchaseOrders() {
             <TableBody>
               {pos.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan="8" className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan="9" className="text-center py-8 text-muted-foreground">
                     No purchase orders yet. Create one to get started.
                   </TableCell>
                 </TableRow>
@@ -153,6 +154,20 @@ export default function PurchaseOrders() {
                    <TableRow key={po.id} className="cursor-pointer hover:bg-slate-50" onClick={() => setViewingPO(po)}>
                      <TableCell className="font-medium">{po.po_number}</TableCell>
                      <TableCell>{po.supplier}</TableCell>
+                     <TableCell className="text-sm">
+                       {(po.line_items || []).length === 0 ? (
+                         <span className="text-muted-foreground">-</span>
+                       ) : (
+                         <ul className="space-y-0.5">
+                           {po.line_items.map((item, i) => (
+                             <li key={i} className="whitespace-nowrap">
+                               {item.material_name}
+                               <span className="text-muted-foreground"> · {(item.quantity_lbs || 0).toFixed(0)} lbs</span>
+                             </li>
+                           ))}
+                         </ul>
+                       )}
+                     </TableCell>
                      <TableCell>{po.order_date ? format(parseISO(po.order_date), 'MMM dd, yyyy') : '-'}</TableCell>
                      <TableCell>{po.expected_delivery_date ? format(parseISO(po.expected_delivery_date), 'MMM dd, yyyy') : '-'}</TableCell>
                      <TableCell>{(po.line_items?.reduce((sum, item) => sum + (item.quantity_lbs || 0), 0) || 0).toFixed(2)} lbs</TableCell>
