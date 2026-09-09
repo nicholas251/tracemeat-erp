@@ -11,12 +11,13 @@ export default function ResetDataPanel() {
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
 
-  // Only Nicholas Gustavis may see / use this destructive reset.
+  // Only these specific accounts may see / use this destructive reset.
+  const RESET_ALLOWED_EMAILS = ["nicholas@andersonevelyn.com", "nick@mittysfood.com"];
   const { data: me } = useQuery({
     queryKey: ["currentUser"],
     queryFn: () => base44.auth.me(),
   });
-  const allowed = me?.email?.toLowerCase() === "nicholas@andersonevelyn.com";
+  const allowed = RESET_ALLOWED_EMAILS.includes(me?.email?.toLowerCase());
 
   const handleClearStages = async () => {
     setClearing(true);
