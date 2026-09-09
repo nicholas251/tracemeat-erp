@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import StatusBadge from "@/components/shared/StatusBadge";
 import POFormDialog from "@/components/po/POFormDialog";
+import PODetailDialog from "@/components/po/PODetailDialog";
 import POEmailStatus, { PO_LOGO_URL, poEmailErrorMessage } from "@/components/po/POEmailStatus";
 import { format, parseISO } from "date-fns";
 import { useNavigate } from "react-router-dom";
@@ -26,6 +27,7 @@ export default function PurchaseOrders() {
   const [showForm, setShowForm] = useState(false);
   const [editingPO, setEditingPO] = useState(null);
   const [deletingPO, setDeletingPO] = useState(null);
+  const [viewingPO, setViewingPO] = useState(null);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -148,21 +150,21 @@ export default function PurchaseOrders() {
                 </TableRow>
               ) : (
                 pos.filter(po => po && po.status !== "archived").map((po) => (
-                   <TableRow key={po.id}>
+                   <TableRow key={po.id} className="cursor-pointer hover:bg-slate-50" onClick={() => setViewingPO(po)}>
                      <TableCell className="font-medium">{po.po_number}</TableCell>
                      <TableCell>{po.supplier}</TableCell>
                      <TableCell>{po.order_date ? format(parseISO(po.order_date), 'MMM dd, yyyy') : '-'}</TableCell>
                      <TableCell>{po.expected_delivery_date ? format(parseISO(po.expected_delivery_date), 'MMM dd, yyyy') : '-'}</TableCell>
                      <TableCell>{(po.line_items?.reduce((sum, item) => sum + (item.quantity_lbs || 0), 0) || 0).toFixed(2)} lbs</TableCell>
                      <TableCell><StatusBadge status={po.status} /></TableCell>
-                     <TableCell>
+                     <TableCell onClick={(e) => e.stopPropagation()}>
                        <POEmailStatus
                          po={po}
                          sending={sendEmailMutation.isPending && sendEmailMutation.variables?.id === po.id}
                          onSend={(p) => sendEmailMutation.mutate(p)}
                        />
                      </TableCell>
-                     <TableCell>
+                     <TableCell onClick={(e) => e.stopPropagation()}>
                        <div className="flex gap-2">
                          {po.status === "received" && (
                            <Button size="sm" variant="outline" onClick={() => updateMutation.mutate({ id: po.id, data: { status: "archived" } })}>
@@ -192,6 +194,8 @@ export default function PurchaseOrders() {
         po={editingPO}
         isSaving={createMutation.isPending || updateMutation.isPending}
       />
+
+      <PODetailDialog po={viewingPO} onClose={() => setViewingPO(null)} />
 
       <AlertDialog open={!!deletingPO} onOpenChange={(open) => !open && setDeletingPO(null)}>
         <AlertDialogContent>
