@@ -7,7 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { base44 } from "@/api/base44Client";
-import { ChevronRight, ChevronLeft, Plus, Trash2, Check, Blend, Scissors, Link, Flame, Snowflake, Package, RotateCcw, Layers, Shuffle } from "lucide-react";
+import { ChevronRight, ChevronLeft, Plus, Check, Blend, Scissors, Link, Flame, Snowflake, Package, RotateCcw, Layers, Shuffle } from "lucide-react";
+import BlendIngredientRow from "@/components/products/BlendIngredientRow";
 
 const STEPS = [
   { id: "basics",     label: "Product Info",  icon: Package },
@@ -133,7 +134,7 @@ export default function ProductSetupWizard({ open, onClose, onSave }) {
   const up = (field, value) => setForm(f => ({ ...f, [field]: value }));
 
   const addIngredient = () => {
-    up("blend_ingredients", [...(form.blend_ingredients || []), { bucket_id: "", bucket_name: "", quantity_lbs: "", category: "protein" }]);
+    up("blend_ingredients", [...(form.blend_ingredients || []), { bucket_id: "", bucket_name: "", quantity_lbs: "", category: "" }]);
   };
 
   const updateIngredient = (i, field, val) => {
@@ -149,7 +150,7 @@ export default function ProductSetupWizard({ open, onClose, onSave }) {
   const handleSelectBucket = (i, bucketId) => {
     const b = buckets.find(x => x.id === bucketId);
     const updated = [...form.blend_ingredients];
-    updated[i] = { ...updated[i], bucket_id: bucketId, bucket_name: b?.name || "", category: b?.category || "protein" };
+    updated[i] = { ...updated[i], bucket_id: bucketId, bucket_name: b?.name || "", category: b?.category || "other" };
     up("blend_ingredients", updated);
   };
 
@@ -180,7 +181,7 @@ export default function ProductSetupWizard({ open, onClose, onSave }) {
           bucket_id: i.bucket_id,
           bucket_name: i.bucket_name,
           quantity_lbs: Number(i.quantity_lbs),
-          category: i.category || "protein",
+          category: i.category || "other",
         })),
         status: "active",
       });
@@ -405,44 +406,30 @@ export default function ProductSetupWizard({ open, onClose, onSave }) {
           {/* BLENDING */}
           {currentStep.id === "blending" && (
             <div className="space-y-4">
-              <p className="text-sm text-muted-foreground">Define the protein ingredients and quantities that make up one blending batch.</p>
+              <p className="text-sm text-muted-foreground">Define the ingredients and quantities that make up one blending batch — proteins, spices, cure, water or any other inventory bucket.</p>
               <div className="space-y-1.5">
                 <Label>Total Batch Size (lbs)</Label>
                 <Input type="number" value={form.blend_batch_lbs} onChange={e => up("blend_batch_lbs", e.target.value)} placeholder="e.g. 500" />
               </div>
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label>Protein Ingredients</Label>
+                  <Label>Blend Ingredients</Label>
                   <Button size="sm" variant="outline" onClick={addIngredient} className="gap-1 text-xs h-7">
-                    <Plus className="w-3 h-3" /> Add Protein
+                    <Plus className="w-3 h-3" /> Add Ingredient
                   </Button>
                 </div>
                 {form.blend_ingredients?.length === 0 && (
-                  <p className="text-xs text-muted-foreground bg-muted/40 rounded p-3 text-center">No proteins added yet. Click "Add Protein" to define the blend.</p>
+                  <p className="text-xs text-muted-foreground bg-muted/40 rounded p-3 text-center">No ingredients added yet. Click "Add Ingredient" to define the blend.</p>
                 )}
                 {form.blend_ingredients?.map((ing, i) => (
-                  <div key={i} className="flex gap-2 items-center bg-muted/30 rounded-lg p-2">
-                    <div className="flex-1 space-y-1">
-                      <Select value={ing.bucket_id} onValueChange={v => handleSelectBucket(i, v)}>
-                        <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Select protein bucket..." /></SelectTrigger>
-                        <SelectContent>
-                          {buckets.map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="w-28">
-                      <Input
-                        type="number"
-                        className="h-8 text-xs"
-                        placeholder="lbs"
-                        value={ing.quantity_lbs}
-                        onChange={e => updateIngredient(i, "quantity_lbs", e.target.value)}
-                      />
-                    </div>
-                    <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => removeIngredient(i)}>
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </Button>
-                  </div>
+                  <BlendIngredientRow
+                    key={i}
+                    ingredient={ing}
+                    buckets={buckets}
+                    onSelectBucket={v => handleSelectBucket(i, v)}
+                    onChangeQty={v => updateIngredient(i, "quantity_lbs", v)}
+                    onRemove={() => removeIngredient(i)}
+                  />
                 ))}
                 {form.blend_ingredients?.length > 0 && (
                   <div className="text-xs text-muted-foreground text-right">
