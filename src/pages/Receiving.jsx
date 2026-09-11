@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,14 @@ export default function Receiving() {
   const [receivingState, setReceivingState] = useState({});
   const [selectedPOId, setSelectedPOId] = useState(poId || null);
   const [expandedItems, setExpandedItems] = useState({});
+  const formRef = useRef(null);
+
+  // On phones the receiving form sits below the card grid — bring it into view on tap.
+  useEffect(() => {
+    if (selectedPOId && formRef.current) {
+      formRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [selectedPOId]);
 
   const { data: pos = [] } = useQuery({
     queryKey: ["purchase_orders"],
@@ -210,7 +218,7 @@ export default function Receiving() {
 
       {/* Receiving Form for selected PO */}
       {currentPO && (
-        <>
+        <div ref={formRef} className="space-y-6 scroll-mt-4">
           {/* PO Summary */}
           <Card>
             <CardHeader><CardTitle className="text-base">PO Details — {currentPO.po_number}</CardTitle></CardHeader>
@@ -424,7 +432,7 @@ export default function Receiving() {
               </div>
             </CardContent>
           </Card>
-        </>
+        </div>
       )}
     </div>
   );
