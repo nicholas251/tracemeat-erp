@@ -215,7 +215,7 @@ export default function Receiving() {
           <Card>
             <CardHeader><CardTitle className="text-base">PO Details — {currentPO.po_number}</CardTitle></CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
                 <div>
                   <Label className="text-xs text-muted-foreground">Supplier</Label>
                   <p className="font-semibold">{currentPO.supplier}</p>
@@ -250,11 +250,11 @@ export default function Receiving() {
                   const suggestedBuckets = getBucketsForCategory(item.category);
 
                   return (
-                    <div key={idx} className={`border rounded-xl p-4 ${isReceived ? "bg-chart-2/5 border-chart-2/30" : "bg-muted/20"}`}>
-                      <div className="flex items-start justify-between mb-3">
-                        <div>
-                          <p className="font-semibold text-base">{item.material_name}</p>
-                          <div className="flex items-center gap-2 mt-1">
+                    <div key={idx} className={`border rounded-xl p-3 sm:p-4 ${isReceived ? "bg-chart-2/5 border-chart-2/30" : "bg-muted/20"}`}>
+                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-3">
+                        <div className="min-w-0">
+                          <p className="font-semibold text-base break-words">{item.material_name}</p>
+                          <div className="flex items-center flex-wrap gap-2 mt-1">
                             <Badge variant="outline" className="text-xs capitalize">{item.category}</Badge>
                             <span className="text-xs text-muted-foreground">Ordered: <strong>{item.quantity_lbs} lbs</strong></span>
                             {(item.received_qty_lbs || 0) > 0 && (
@@ -262,7 +262,7 @@ export default function Receiving() {
                             )}
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 shrink-0">
                           {isReceived && (
                             <div className="flex items-center gap-1 text-chart-2 text-sm font-semibold">
                               <CheckCircle2 className="w-4 h-4" /> Received
@@ -272,6 +272,7 @@ export default function Receiving() {
                             variant="outline"
                             size="sm"
                             onClick={() => setExpandedItems(prev => ({ ...prev, [key]: !prev[key] }))}
+                            className="flex-1 sm:flex-none"
                           >
                             {expandedItems[key] ? "Collapse" : isReceived ? "View" : "Receive"}
                           </Button>
@@ -279,7 +280,7 @@ export default function Receiving() {
                       </div>
 
                       {expandedItems[key] && (
-                        <div className="border rounded-lg p-4 bg-card space-y-4">
+                        <div className="border rounded-lg p-3 sm:p-4 bg-card space-y-4">
                           <div className="bg-primary/5 border border-primary/20 rounded-lg p-3">
                             <Label className="text-sm font-semibold mb-2 block">Assign to Inventory Bucket *</Label>
                             <Select
