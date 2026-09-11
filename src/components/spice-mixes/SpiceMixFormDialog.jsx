@@ -25,6 +25,7 @@ export default function SpiceMixFormDialog({ open, onClose, onSave, mix }) {
   });
 
   const [newIng, setNewIng] = useState({ bucket_id: "", bucket_name: "", lbs: "", oz: "" });
+  const [pickerKey, setPickerKey] = useState(0);
 
   useEffect(() => {
     if (mix) {
@@ -74,6 +75,7 @@ export default function SpiceMixFormDialog({ open, onClose, onSave, mix }) {
       }]
     });
     setNewIng({ bucket_id: "", bucket_name: "", lbs: "", oz: "" });
+    setPickerKey(k => k + 1);
   };
 
   const handleRemoveIngredient = (idx) => {
@@ -207,7 +209,7 @@ export default function SpiceMixFormDialog({ open, onClose, onSave, mix }) {
                 <p className="text-xs text-muted-foreground italic">No spice buckets found. Add spice buckets in Inventory first.</p>
               ) : (
                 <>
-                  <Select value={newIng.bucket_id} onValueChange={handleBucketSelect}>
+                  <Select key={pickerKey} value={newIng.bucket_id} onValueChange={handleBucketSelect}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select spice bucket..." />
                     </SelectTrigger>
@@ -255,9 +257,18 @@ export default function SpiceMixFormDialog({ open, onClose, onSave, mix }) {
                     </div>
                   </div>
 
-                  <Button size="sm" onClick={handleAddIngredient} variant="outline" className="w-full gap-1">
+                  <Button
+                    size="sm"
+                    onClick={handleAddIngredient}
+                    variant="outline"
+                    className="w-full gap-1"
+                    disabled={!newIng.bucket_id || (!newIng.lbs && !newIng.oz)}
+                  >
                     <Plus className="w-3 h-3" /> Add Ingredient
                   </Button>
+                  {(!newIng.bucket_id || (!newIng.lbs && !newIng.oz)) && (
+                    <p className="text-xs text-muted-foreground">Pick a spice bucket and enter lbs or oz to add it.</p>
+                  )}
                 </>
               )}
             </div>
