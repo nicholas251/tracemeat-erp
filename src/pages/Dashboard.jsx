@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Factory, Package, ShieldAlert, Boxes, ShoppingCart, Users } from "lucide-react";
+import { Factory, Package, ShieldAlert, Boxes, ShoppingCart, Users, Warehouse } from "lucide-react";
 import PageHeader from "@/components/shared/PageHeader";
 import StatCard from "@/components/dashboard/StatCard";
 import ActiveHolds from "@/components/dashboard/ActiveHolds";
@@ -18,7 +18,7 @@ export default function Dashboard() {
   const { user } = useAuth();
 
   // Live oversight: refresh dashboard stats/lists the instant anything changes on the floor.
-  useEntitySync(["ProductionOrder", "ProductionStage", "UnfinishedCase", "HoldRelease", "InventoryItem"]);
+  useEntitySync(["ProductionOrder", "ProductionStage", "UnfinishedCase", "HoldRelease", "InventoryItem", "RawInventory"]);
 
   const { data: allProfiles = [] } = useQuery({
     queryKey: ["allWorkProfiles"],
@@ -54,6 +54,12 @@ export default function Dashboard() {
     enabled: showManagement,
   });
 
+  const { data: rawInventory = [] } = useQuery({
+    queryKey: ["rawInventory"],
+    queryFn: () => base44.entities.RawInventory.list("-created_date", 500),
+    enabled: showManagement,
+  });
+
   const { data: salesOrders = [] } = useQuery({
     queryKey: ["salesOrders"],
     queryFn: () => base44.entities.SalesOrder.list("-created_date", 100),
@@ -71,6 +77,9 @@ export default function Dashboard() {
   const activeHolds = holds.filter(h => h.status === "on_hold" || h.status === "under_review").length;
   const totalProducts = products.length;
   const inventoryLbs = inventory.filter(i => i.status === "available").reduce((sum, i) => sum + (i.quantity_lbs || 0), 0);
+  const rawInventoryLbs = rawInventory
+    .filter(i => i.status !== "depleted" && i.status !== "expired")
+    .reduce((sum, i) => sum + (i.available_qty ?? i.quantity ?? 0), 0);
   const openSalesOrders = salesOrders.filter(o => o.status === "confirmed" || o.status === "draft").length;
   const activeCustomers = customers.length;
 
@@ -82,12 +91,13 @@ export default function Dashboard() {
       />
 
       {showManagement && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-7 gap-3 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-8 gap-3 mb-6">
           <StatCard label="Active Orders" value={activeOrders} icon={Factory} color="text-blue-600" link="/production-orders" />
           <StatCard label="Pending Orders" value={pendingOrders} icon={Factory} color="text-amber-600" link="/production-orders" />
           <StatCard label="Products" value={totalProducts} icon={Package} color="text-green-600" link="/products" />
           <StatCard label="Active Holds" value={activeHolds} icon={ShieldAlert} color="text-red-600" link="/hold-release" />
-          <StatCard label="Inventory (lbs)" value={inventoryLbs.toLocaleString()} icon={Boxes} color="text-purple-600" link="/inventory" />
+          <StatCard label="Raw Inventory (lbs)" value={Math.round(rawInventoryLbs).toLocaleString()} icon={Warehouse} color="text-orange-600" link="/raw-inventory" />
+          <StatCard label="Finished Goods (lbs)" value={Math.round(inventoryLbs).toLocaleString()} icon={Boxes} color="text-purple-600" link="/inventory" />
           <StatCard label="Open Sales Orders" value={openSalesOrders} icon={ShoppingCart} color="text-teal-600" link="/sales-orders" />
           <StatCard label="Customers" value={activeCustomers} icon={Users} color="text-indigo-600" link="/customers" />
         </div>
