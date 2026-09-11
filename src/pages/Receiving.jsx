@@ -199,7 +199,7 @@ export default function Receiving() {
                 </div>
                 {po.expected_delivery_date && (
                   <p className="text-xs text-muted-foreground mt-1 ml-7">
-                    Expected: {format(new Date(po.expected_delivery_date), 'MMM dd, yyyy')}
+                    Expected: {format(new Date(po.expected_delivery_date + 'T00:00:00'), 'MMM dd, yyyy')}
                   </p>
                 )}
               </button>
