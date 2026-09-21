@@ -126,16 +126,40 @@ export default function ProductFormDialog({ open, onClose, onSave, product, flow
 
   const handleSaveRecipe = async () => {
     if (!saveRecipeName.trim()) return;
-    await base44.entities.BlendRecipe.create({
-      name: saveRecipeName.trim(),
-      blend_batch_lbs: form.blend_batch_lbs ? Number(form.blend_batch_lbs) : undefined,
-      ingredients: form.blend_ingredients || [],
-      status: "active",
-    });
-    queryClient.invalidateQueries({ queryKey: ["blendRecipes"] });
-    toast({ title: "Blend recipe saved", description: saveRecipeName.trim() });
-    setSaveRecipeName("");
-    setShowSaveRecipe(false);
+    // Quantities come out of the inputs as strings — coerce them (and drop blank rows)
+    // so the saved recipe passes validation.
+    const ingredients = (form.blend_ingredients || [])
+      .filter(i => i.bucket_id)
+      .map(i => ({
+        bucket_id: i.bucket_id,
+        bucket_name: i.bucket_name || "",
+        quantity_lbs: Number(i.quantity_lbs) || 0,
+        category: i.category || "other",
+      }));
+
+    if (ingredients.length === 0) {
+      toast({ title: "Nothing to save", description: "Pick an ingredient bucket first.", variant: "destructive" });
+      return;
+    }
+
+    try {
+      await base44.entities.BlendRecipe.create({
+        name: saveRecipeName.trim(),
+        blend_batch_lbs: form.blend_batch_lbs ? Number(form.blend_batch_lbs) : undefined,
+        ingredients,
+        status: "active",
+      });
+      queryClient.invalidateQueries({ queryKey: ["blendRecipes"] });
+      toast({ title: "Blend recipe saved", description: saveRecipeName.trim() });
+      setSaveRecipeName("");
+      setShowSaveRecipe(false);
+    } catch (err) {
+      toast({
+        title: "Could not save blend recipe",
+        description: err?.message || "Only admins can create blend recipes.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleSave = () => {
