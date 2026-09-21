@@ -9,6 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import InventoryShortageCheck from "./InventoryShortageCheck";
+import ProductSearchSelect from "./ProductSearchSelect";
 import { calcBlendBatchCount } from "@/lib/blendBatchMath";
 
 export default function ProductionOrderFormDialog({ open, onClose, onSave, order, products, flows, suppliers }) {
@@ -164,10 +165,7 @@ export default function ProductionOrderFormDialog({ open, onClose, onSave, order
 
           <div className="space-y-1.5">
             <Label>Product</Label>
-            <Select value={form.product_id} onValueChange={handleProductSelect}>
-              <SelectTrigger><SelectValue placeholder="Select product..." /></SelectTrigger>
-              <SelectContent>{products.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
-            </Select>
+            <ProductSearchSelect products={products} value={form.product_id} onChange={handleProductSelect} />
           </div>
 
           <div className="space-y-1.5">
