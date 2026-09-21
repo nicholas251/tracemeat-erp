@@ -3,7 +3,8 @@ import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Plus, Package, Pencil, Trash2, Upload } from "lucide-react";
+import { Plus, Package, Pencil, Trash2, Upload, Search } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import PageHeader from "@/components/shared/PageHeader";
 import StatusBadge from "@/components/shared/StatusBadge";
 import ProductFormDialog from "@/components/products/ProductFormDialog";
@@ -22,6 +23,7 @@ export default function Products() {
   const [deleting, setDeleting] = useState(null);
   const [editingRecipe, setEditingRecipe] = useState(null);
   const [showImport, setShowImport] = useState(false);
+  const [search, setSearch] = useState("");
   const queryClient = useQueryClient();
 
   const { data: products = [], isLoading } = useQuery({
@@ -63,6 +65,14 @@ export default function Products() {
     },
   });
 
+  const q = search.trim().toLowerCase();
+  const filteredProducts = q
+    ? products.filter(p =>
+        (p.name || "").toLowerCase().includes(q) ||
+        (p.product_number || "").toLowerCase().includes(q)
+      )
+    : products;
+
   return (
     <div>
       <PageHeader 
@@ -80,10 +90,26 @@ export default function Products() {
         }
       />
 
+      <div className="relative mb-4 max-w-md">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <Input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search by name or product number..."
+          className="pl-9 bg-white"
+        />
+      </div>
+
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {[1,2,3].map(i => <Card key={i} className="h-40 animate-pulse bg-muted" />)}
         </div>
+      ) : q && filteredProducts.length === 0 ? (
+        <Card className="p-12 text-center">
+          <Search className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+          <h3 className="text-lg font-semibold mb-1">No products match "{search}"</h3>
+          <p className="text-sm text-muted-foreground">Try a different name or product number</p>
+        </Card>
       ) : products.length === 0 ? (
         <Card className="p-12 text-center">
           <Package className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
@@ -93,7 +119,7 @@ export default function Products() {
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {products.map(product => (
+          {filteredProducts.map(product => (
             <Card key={product.id} className="hover:shadow-md transition-shadow">
               <CardContent className="p-5">
                 <div className="flex items-start justify-between mb-3">
