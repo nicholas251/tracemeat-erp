@@ -156,7 +156,7 @@ export default function ProductFormDialog({ open, onClose, onSave, product, flow
     } catch (err) {
       toast({
         title: "Could not save blend recipe",
-        description: err?.message || "Only admins can create blend recipes.",
+        description: err?.message || "Something went wrong saving the recipe.",
         variant: "destructive",
       });
     }
