@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useQuery } from "@tanstack/react-query";
 import { Plus, Save, BookOpen } from "lucide-react";
 import BlendIngredientRow from "@/components/products/BlendIngredientRow";
+import SpiceMixSearchSelect from "@/components/products/SpiceMixSearchSelect";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/components/ui/use-toast";
 
@@ -294,21 +295,15 @@ export default function ProductFormDialog({ open, onClose, onSave, product, flow
             </div>
             <div className="space-y-2">
               <Label>Spice Mix</Label>
-              <Select value={form.chop_spice_mix_id || ""} onValueChange={v => {
-                const m = spiceMixes.find(x => x.id === v);
-                update("chop_spice_mix_id", v);
-                update("chop_spice_mix_name", m?.name || "");
-              }}>
-                <SelectTrigger className="bg-slate-200 border-slate-400"><SelectValue placeholder="Select spice mix..." /></SelectTrigger>
-                <SelectContent className="bg-slate-100 border-slate-300 max-h-64 overflow-y-auto">
-                  {spiceMixes.length === 0 && (
-                    <div className="px-2 py-3 text-xs text-muted-foreground text-center">No spice mixes yet.</div>
-                  )}
-                  {[...spiceMixes].sort((a, b) => (a.name || "").localeCompare(b.name || "")).map(m => (
-                    <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SpiceMixSearchSelect
+                spiceMixes={spiceMixes}
+                value={form.chop_spice_mix_id || ""}
+                onChange={v => {
+                  const m = spiceMixes.find(x => x.id === v);
+                  update("chop_spice_mix_id", v);
+                  update("chop_spice_mix_name", m?.name || "");
+                }}
+              />
             </div>
             <div className="space-y-2">
               <Label>Spice Mix per Batch (lbs)</Label>
