@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.49';
 
 /**
  * Deducts SpiceMix inventory (available_qty_lbs) when a stage consumes assigned spice.
