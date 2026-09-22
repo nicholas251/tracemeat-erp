@@ -78,7 +78,7 @@ export default function ProductFormDialog({ open, onClose, onSave, product, flow
 
   const { data: spiceMixes = [] } = useQuery({
     queryKey: ["spiceMixes"],
-    queryFn: () => base44.entities.SpiceMix.list(),
+    queryFn: () => base44.entities.SpiceMix.list("name", 1000),
     enabled: open,
   });
 
@@ -299,8 +299,15 @@ export default function ProductFormDialog({ open, onClose, onSave, product, flow
                 update("chop_spice_mix_id", v);
                 update("chop_spice_mix_name", m?.name || "");
               }}>
-                <SelectTrigger><SelectValue placeholder="Select spice mix..." /></SelectTrigger>
-                <SelectContent>{spiceMixes.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}</SelectContent>
+                <SelectTrigger className="bg-slate-200 border-slate-400"><SelectValue placeholder="Select spice mix..." /></SelectTrigger>
+                <SelectContent className="bg-slate-100 border-slate-300 max-h-64 overflow-y-auto">
+                  {spiceMixes.length === 0 && (
+                    <div className="px-2 py-3 text-xs text-muted-foreground text-center">No spice mixes yet.</div>
+                  )}
+                  {[...spiceMixes].sort((a, b) => (a.name || "").localeCompare(b.name || "")).map(m => (
+                    <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                  ))}
+                </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
