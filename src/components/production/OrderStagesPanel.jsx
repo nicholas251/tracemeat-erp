@@ -48,10 +48,20 @@ export default function OrderStagesPanel({ orderId, allowedCapabilityKeys = null
     .filter(step => !existingKeys.has(step.capability_key))
     .sort((a, b) => a.step_number - b.step_number);
 
+  // Finished work drops off the pipeline — otherwise every completed batch card
+  // (9 linking cards for 9 cook batches, etc.) piles up and buries the live steps.
+  const completedCount = stages.filter(s => s.status === "completed").length;
+  const openStages = stages.filter(s => s.status !== "completed");
+
   return (
     <>
+      {completedCount > 0 && (
+        <p className="text-xs text-muted-foreground mb-2">
+          <span className="font-semibold text-chart-2">{completedCount}</span> step{completedCount === 1 ? "" : "s"} completed
+        </p>
+      )}
       <div className="flex flex-wrap items-start gap-2">
-        {stages.sort((a, b) => a.step_number - b.step_number).map((stage, idx) => {
+        {openStages.sort((a, b) => a.step_number - b.step_number).map((stage, idx) => {
           const cfg = STATUS_CONFIG[stage.status] || STATUS_CONFIG.locked;
           const Icon = cfg.icon;
           const clickable = stage.status !== "locked";
@@ -75,7 +85,7 @@ export default function OrderStagesPanel({ orderId, allowedCapabilityKeys = null
                   <p className="text-xs text-muted-foreground">{stage.racks_count} racks</p>
                 )}
               </button>
-              {(idx < stages.length - 1 || upcomingSteps.length > 0) && (
+              {(idx < openStages.length - 1 || upcomingSteps.length > 0) && (
                 <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0 mt-5" />
               )}
             </React.Fragment>
