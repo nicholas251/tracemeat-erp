@@ -42,7 +42,7 @@ export default function FinalStep({ stage, capKey, stageLabel, resolvedBatches, 
     : isRacking
       ? releasedLbs
       : isCooking && cookBatch
-        ? cookBatch.totalLbs
+        ? parseFloat((cookBatch.totalLbs * ((Number(product?.yield_percent) || 100) / 100)).toFixed(2))
         : form.output_qty_lbs || stage?.input_qty_lbs || 0;
 
   const canComplete = isLinking ? !!cookBatch
@@ -171,6 +171,14 @@ export default function FinalStep({ stage, capKey, stageLabel, resolvedBatches, 
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Cook Batch Lot</span>
               <span className="font-mono font-semibold">{cookBatch.lotNumber}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Raw Weight In</span>
+              <span className="font-semibold">{cookBatch.totalLbs} lbs</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Cook Yield</span>
+              <span className="font-semibold">{Number(product?.yield_percent) || 100}%</span>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Racks in Oven</span>

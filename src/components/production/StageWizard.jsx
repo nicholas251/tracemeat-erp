@@ -753,7 +753,10 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
           updates.cook_batch_lot = cookBatch.lotNumber;
           updates.input_lot_number = cookBatch.sourceLots?.join(", ") || stage.input_lot_number || "";
           updates.input_qty_lbs = cookBatch.totalLbs;
-          updates.output_qty_lbs = updates.output_qty_lbs || cookBatch.totalLbs;
+          // Cook loss: apply the product's yield (e.g. 80% → 20% weight lost in the oven), so
+          // chilling receives the cooked weight, not the raw weight that went in.
+          const cookYield = (Number(product?.yield_percent) || 100) / 100;
+          updates.output_qty_lbs = parseFloat((cookBatch.totalLbs * cookYield).toFixed(2));
           updates.racks_count = cookBatch.racksCount ?? cookBatch.rackIds.length;
           // Mark each selected rack as cooked + tie it to this cook batch / stage.
           for (const rackId of cookBatch.rackIds) {
