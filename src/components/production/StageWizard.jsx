@@ -377,6 +377,11 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
           actual_lbs: ing.lot_allocations?.reduce((s, a) => s + (Number(a.actual_lbs) || 0), 0) || 0,
           lot_allocations: ing.lot_allocations,
         }));
+        // Confirmed weight = what the operator actually weighed in, not the planned batch size.
+        const confirmedBatchLbs = parseFloat(
+          (batchIngredients.reduce((s, i) => s + (Number(i.actual_lbs) || 0), 0) || batchLbs).toFixed(2)
+        );
+        subBatch.qty_lbs = confirmedBatchLbs;
         const blendRes = await base44.functions.invoke("deductRawInventoryOnBatchComplete", {
           stage_id: stage.id,
           ingredients: batchIngredients,
@@ -426,7 +431,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
           const porkLbs = porkIngredients.reduce((s, ing) =>
             s + (ing.lot_allocations?.reduce((ss, a) => ss + (Number(a.actual_lbs) || 0), 0) || ing.required_lbs || 0), 0
           );
-          const beefLbs = currentBatch.batchLbs - porkLbs;
+          const beefLbs = confirmedBatchLbs - porkLbs;
 
           const porkLotNumber = porkIngredients[0]?.lot_allocations?.[0]?.lot_number || `${blendOutputLot}-PORK`;
 
@@ -520,7 +525,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
                 work_profile_id: nextStep.work_profile_id || "",
                 work_profile_name: nextStep.work_profile_name || "",
                 status: "available",
-                input_qty_lbs: currentBatch.batchLbs,
+                input_qty_lbs: confirmedBatchLbs,
                 input_lot_number: blendOutputLot,
               });
             }

@@ -16,6 +16,8 @@ import { ProgressBar, NavButtons } from "./wizard/WizardNav";
 export const FinalStep = FinalStepComponent;
 export { ProgressBar, NavButtons, FieldInput };
 
+import BlendInputSummary from "@/components/production/wizard/BlendInputSummary";
+
 export function IntroStep({ stage, capKey, stageLabel, resolvedBatches, measureSteps, product, saving, onStart, usesIngredientBatches }) {
   const isAlreadyStarted = stage?.status === "in_progress";
   const isCooking = capKey === "cooking";
@@ -32,6 +34,8 @@ export function IntroStep({ stage, capKey, stageLabel, resolvedBatches, measureS
               : <><span className="font-semibold text-foreground">{stage?.input_qty_lbs} lbs</span> entering this stage</>}
           </p>
         </div>
+
+        {capKey === "chopping" && <BlendInputSummary stage={stage} />}
 
         {usesIngredientBatches && resolvedBatches && (
           <div className="space-y-2">
@@ -221,6 +225,8 @@ export function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form,
         <p className="font-bold text-base">{stepDef.label}</p>
         <p className="text-xs text-muted-foreground mt-0.5">Step {stepIndex + 1} of {totalSteps}</p>
       </div>
+
+      {capKey === "chopping" && <BlendInputSummary stage={stage} />}
 
       {capKey === "packaging" && stepDef.id === "packaging" && (
         <CarryOverPicker
