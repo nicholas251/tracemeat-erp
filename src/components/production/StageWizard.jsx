@@ -751,7 +751,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
           updates.input_lot_number = cookBatch.sourceLots?.join(", ") || stage.input_lot_number || "";
           updates.input_qty_lbs = cookBatch.totalLbs;
           updates.output_qty_lbs = updates.output_qty_lbs || cookBatch.totalLbs;
-          updates.racks_count = cookBatch.rackIds.length;
+          updates.racks_count = cookBatch.racksCount ?? cookBatch.rackIds.length;
           // Mark each selected rack as cooked + tie it to this cook batch / stage.
           for (const rackId of cookBatch.rackIds) {
             await base44.entities.RackUnit.update(rackId, {

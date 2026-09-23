@@ -174,7 +174,7 @@ export default function FinalStep({ stage, capKey, stageLabel, resolvedBatches, 
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Racks in Oven</span>
-              <span className="font-semibold">{cookBatch.rackIds.length}</span>
+              <span className="font-semibold">{cookBatch.racksCount ?? cookBatch.rackIds.length}</span>
             </div>
             <div className="space-y-1.5 pt-1">
               {cookBatch.racks.map((r, i) => {

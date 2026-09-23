@@ -6,6 +6,7 @@ import IngredientLotPicker from "../blending/IngredientLotPicker";
 import LinkingCookBatchBuilder from "./LinkingCookBatchBuilder";
 import RackReleaseBuilder from "./RackReleaseBuilder";
 import SmokehouseCookBatchBuilder from "./SmokehouseCookBatchBuilder";
+import LinkedCookBatchSummary from "./LinkedCookBatchSummary";
 import CarryOverPicker from "./CarryOverPicker";
 import UnfinishedCaseAllocator from "./UnfinishedCaseAllocator";
 import FieldInput from "./wizard/FieldInput";
@@ -29,7 +30,9 @@ export function IntroStep({ stage, capKey, stageLabel, resolvedBatches, measureS
             {isAlreadyStarted ? `Continue ${stageLabel}` : `Ready to start ${stageLabel}`}
           </p>
           <p className="text-sm text-muted-foreground mt-0.5">
-            {isCooking
+            {isCooking && stage?.cook_batch_lot
+              ? <><span className="font-semibold text-foreground">{stage?.input_qty_lbs} lbs · {stage?.racks_count || 0} rack(s)</span> from linking</>
+              : isCooking
               ? "Select released racks to load into an oven and build a cook batch."
               : <><span className="font-semibold text-foreground">{stage?.input_qty_lbs} lbs</span> entering this stage</>}
           </p>
@@ -367,7 +370,11 @@ export function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form,
         />
       )}
 
-      {isCookStage && (
+      {isCookStage && stage?.cook_batch_lot && (
+        <LinkedCookBatchSummary stage={stage} onChange={setCookBatch} />
+      )}
+
+      {isCookStage && !stage?.cook_batch_lot && (
         <SmokehouseCookBatchBuilder
           stage={stage}
           cookBatch={cookBatch}
