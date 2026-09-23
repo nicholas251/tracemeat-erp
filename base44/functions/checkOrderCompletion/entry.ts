@@ -25,7 +25,12 @@ export default async function(req) {
             return Response.json({ skipped: true, reason: "no stages" });
         }
 
-        const allComplete = stages.every(s => s.status === "completed");
+        // Ignore empty placeholder stubs created with the order (locked, no input, no lot,
+        // no batch tag). Real work is spawned as separate stages, so these never get used
+        // and would otherwise block the order from ever completing.
+        const isPlaceholder = (s) => s.status === "locked" && !(Number(s.input_qty_lbs) > 0)
+            && !s.input_lot_number && !s.batch_tag;
+        const allComplete = stages.filter(s => !isPlaceholder(s)).every(s => s.status === "completed");
         if (!allComplete) {
             return Response.json({ updated: false, reason: "stages still open" });
         }

@@ -332,7 +332,10 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
           if (usesIngredientBatches && currentBatch) {
             stdBatchNumber = currentBatch.batchNumber;
           } else {
-            const cbMatch = (stage.cook_batch_lot || "").match(/CB(\d+)/i);
+            // CB<n> (racking/sous-vide flows) or a trailing -<n> (linking cook batches,
+            // e.g. COOK-…-20260923-3) so each linked cook batch gets its own lot.
+            const cbMatch = (stage.cook_batch_lot || "").match(/CB(\d+)/i)
+              || (stage.cook_batch_lot || "").match(/-(\d+)$/);
             if (cbMatch) stdBatchNumber = parseInt(cbMatch[1], 10);
           }
           const stdLot = buildStageLot({
@@ -1136,7 +1139,9 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
             }
           }
           queryClient.invalidateQueries({ queryKey: ["releasedRacks"] });
-        } else if (nextStage?.status === "locked") {
+        } else if (capKey !== "chilling" && nextStage?.status === "locked") {
+          // Chilling already created its own packaging card above — unlocking the order's
+          // placeholder packaging stage too would create a duplicate packaging job.
           // For other stages: update existing locked stage
           const rawQty = updates.output_qty_lbs || stage.input_qty_lbs || 0;
           const productYield = product?.yield_percent;
