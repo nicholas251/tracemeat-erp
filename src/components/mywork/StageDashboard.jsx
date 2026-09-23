@@ -105,7 +105,14 @@ export default function StageDashboard({ user, profile, onBack, singleProfile = 
                   <p className="font-semibold text-sm">{stage.product_name}</p>
                   {stage.capability_key === "cooking" ? (
                     <p className="text-xs text-muted-foreground">
-                      Order #{stage.order_number} · {releasedByProduct[stage.product_name] || 0} rack(s) released
+                      Order #{stage.order_number} ·{" "}
+                      {/* Rack counts only exist in racking/tumble flows. In linking→cooking
+                          flows no racks are ever created, so show the batch weight instead
+                          of a permanent "0 rack(s)". */}
+                      {releasedByProduct[stage.product_name]
+                        ? `${releasedByProduct[stage.product_name]} rack(s) released`
+                        : `${stage.input_qty_lbs || 0} lbs`}
+                      {stage.cook_batch_lot ? ` · ${stage.cook_batch_lot}` : ""}
                     </p>
                   ) : (
                     <p className="text-xs text-muted-foreground">
