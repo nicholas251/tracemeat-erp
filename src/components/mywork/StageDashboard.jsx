@@ -10,12 +10,17 @@ import SousVidePackWizard from "@/components/production/SousVidePackWizard";
 import TumbleWizard from "@/components/production/TumbleWizard";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import CarryOverToPack from "@/components/dashboard/CarryOverToPack";
+import { useEntitySync } from "@/hooks/useEntitySync";
 
 export default function StageDashboard({ user, profile, onBack, singleProfile = false }) {
   const [activeStage, setActiveStage] = useState(null);
   const queryClient = useQueryClient();
 
   const capKeys = profile.capability_keys || [];
+
+  // Keep the job list live: a card completed anywhere (including sibling linking cards
+  // merged into one cook batch) disappears here without a manual reload.
+  useEntitySync(["ProductionStage", "RackUnit"]);
 
   const { data: allStages = [] } = useQuery({
     queryKey: ["allStages"],
