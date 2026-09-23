@@ -25,18 +25,17 @@ import { CheckCircle2, AlertCircle, FlaskConical, PlusCircle, Trash2 } from "luc
  */
 export default function SpiceMixLotPicker({ label, requiredLbs, value = {}, onChange, disabled, filterSpiceMixId, shortNotes, onShortNotesChange }) {
   const { data: allSpiceMixes = [], isLoading } = useQuery({
-    queryKey: ["spiceMixesAll"],
-    queryFn: () => base44.entities.SpiceMix.list("name", 1000),
+    queryKey: ["spiceMixesActive"],
+    queryFn: () => base44.entities.SpiceMix.filter({ status: "active" }),
     staleTime: 0,
     gcTime: 0,
     refetchOnMount: "always",
   });
 
-  // If a specific spice mix is assigned to the product, show only that one (whatever
-  // its status — a draft mix must still be selectable). Otherwise show active mixes.
+  // If a specific spice mix is assigned to the product, only show that one
   const spiceMixes = filterSpiceMixId
     ? allSpiceMixes.filter(m => m.id === filterSpiceMixId)
-    : allSpiceMixes.filter(m => m.status === "active");
+    : allSpiceMixes;
 
   const EMPTY_LOT = { spice_mix_id: "", spice_mix_name: "", spice_mix_lot_number: "", spice_mix_qty_lbs: 0 };
 
@@ -237,9 +236,7 @@ export default function SpiceMixLotPicker({ label, requiredLbs, value = {}, onCh
                     );
                   })}
                   {spiceMixes.length === 0 && !isLoading && (
-                    <div className="px-3 py-2 text-xs text-muted-foreground">
-                      {filterSpiceMixId ? "The spice mix assigned to this product no longer exists" : "No active spice mixes found"}
-                    </div>
+                    <div className="px-3 py-2 text-xs text-muted-foreground">No active spice mixes found</div>
                   )}
                 </SelectContent>
               </Select>
