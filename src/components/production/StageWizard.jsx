@@ -828,6 +828,19 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
             chopConsumed.push(...tagConsumedLots(spiceRes?.data?.consumed_lots, "spice", { output_lot_number: chopOutLot }));
             updates.spice_mix_lot_number = (spiceRes?.data?.consumed_lots || []).map(l => l.lot_number).filter(Boolean).join(", ");
           }
+          // Water: not an inventory bucket, but recorded as a traceable ingredient with its
+          // source/lot so a recall can show exactly what water went into each chop batch.
+          const waterLbs = Number(form.water_amount_lbs) || 0;
+          if (waterLbs > 0) {
+            chopConsumed.push({
+              material_type: "water",
+              bucket_name: "Water",
+              lot_number: form.water_lot_number || `WATER-${today_str.replace(/-/g, "")}`,
+              received_date: today_str,
+              lbs: parseFloat(waterLbs.toFixed(2)),
+              output_lot_number: chopOutLot,
+            });
+          }
           updates.consumed_lots = chopConsumed;
         }
 

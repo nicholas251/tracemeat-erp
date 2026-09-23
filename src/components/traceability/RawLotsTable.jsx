@@ -2,7 +2,7 @@ import React from "react";
 import { Badge } from "@/components/ui/badge";
 import Hl from "./Hl";
 
-const TYPE_LABEL = { protein: "Protein", spice: "Spice mix", cure: "Cure", casing: "Casings" };
+const TYPE_LABEL = { protein: "Protein", spice: "Spice mix", cure: "Cure", casing: "Casings", water: "Water" };
 
 export default function RawLotsTable({ rawLots, hit }) {
   if (!rawLots.length) {
