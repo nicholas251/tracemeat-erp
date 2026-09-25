@@ -1,6 +1,8 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { CheckCircle2, ChevronLeft, AlertCircle } from "lucide-react";
+import { computePackYield } from "@/lib/packYield";
+import PackYieldSummary from "./PackYieldSummary";
 
 export default function FinalStep({ stage, capKey, stageLabel, resolvedBatches, form, cookBatch, cookPlan, persistedRacks = [], product, saving, onBack, onComplete }) {
   const isLinking = capKey === "linking";
@@ -8,26 +10,12 @@ export default function FinalStep({ stage, capKey, stageLabel, resolvedBatches, 
   const isCooking = capKey === "cooking";
   const isPackaging = capKey === "packaging" && form.case_weights;
 
-  // ── Packaging weight allocation guard ──
-  // The operator must account for ALL incoming weight: original-product cases + any
-  // remainder split into other same-category products. Completion is blocked until the
-  // allocated weight matches the input weight (within a small rounding tolerance).
+  // ── Packaging yield ── packed weight may be more or less than what came from cooling;
+  // any amount > 0 can go to inventory and the gain/loss is shown.
   const isPackagingStage = capKey === "packaging";
-  // Carry-overs pulled into this run add to the incoming weight that must be accounted for.
-  const packCarryoverLbs = (form.carryover_records || []).reduce((s, r) => s + (r.lbs || 0), 0);
-  const packTotalLbs = parseFloat(((stage?.input_qty_lbs || 0) + packCarryoverLbs).toFixed(2));
-  const packCaseWeight = product?.case_weight_lbs || 0;
-  const packOriginalLbs = (Number(form.packages_produced) || 0) * packCaseWeight;
-  const packSplits = Array.isArray(form.finished_product_splits) ? form.finished_product_splits : [];
-  const packSplitLbs = packSplits.reduce((s, raw) => {
-    const sp = typeof raw === "string" ? JSON.parse(raw) : raw;
-    return s + ((Number(sp?.quantity_cases) || 0) * (Number(sp?.case_weight_lbs) || 0));
-  }, 0);
-  // Weight parked as an unfinished-case carry-over counts as fully accounted for.
-  const packUnfinishedLbs = form.unfinished_allocated ? (Number(form.unfinished_remainder_lbs) || 0) : 0;
-  const packAllocatedLbs = parseFloat((packOriginalLbs + packSplitLbs + packUnfinishedLbs).toFixed(2));
-  const packUnallocatedLbs = parseFloat((packTotalLbs - packAllocatedLbs).toFixed(2));
-  const packFullyAllocated = packTotalLbs > 0 && Math.abs(packUnallocatedLbs) < 0.01;
+  const { expectedLbs: packTotalLbs, packedLbs: packAllocatedLbs, diffLbs: packDiffLbs, yieldPct: packYieldPct } =
+    computePackYield(stage, form, product);
+  const packHasOutput = packAllocatedLbs > 0;
 
   const releasedRacks = isRacking && cookPlan?.racks ? cookPlan.racks.filter(r => r.released) : [];
   const releasedLbs = parseFloat(releasedRacks.reduce((s, r) => s + (r.lbs || 0), 0).toFixed(2));
@@ -48,7 +36,7 @@ export default function FinalStep({ stage, capKey, stageLabel, resolvedBatches, 
   const canComplete = isLinking ? !!cookBatch
     : isRacking ? (releasedRacks.length > 0 || persistedReleasedCount > 0 || !!cookPlan?.carriedPartial)
     : isCooking ? !!cookBatch
-    : isPackagingStage ? (packFullyAllocated && (!isPackaging || form.case_weights?.length > 0))
+    : isPackagingStage ? (packHasOutput && (!isPackaging || form.case_weights?.length > 0))
     : true;
 
   return (
@@ -93,22 +81,12 @@ export default function FinalStep({ stage, capKey, stageLabel, resolvedBatches, 
               <span className="text-muted-foreground">Cases (Finished Product)</span>
               <span className="font-semibold">{form.packages_produced || 0}</span>
             </div>
-            <div className={`rounded-lg border p-2.5 mt-1 ${packFullyAllocated ? "border-chart-2/30 bg-chart-2/5" : "border-amber-300 bg-amber-50"}`}>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Weight Allocated</span>
-                <span className={`font-semibold ${packFullyAllocated ? "text-chart-2" : "text-amber-700"}`}>
-                  {packAllocatedLbs.toFixed(2)} / {packTotalLbs.toFixed(2)} lbs
-                </span>
-              </div>
-              {!packFullyAllocated && (
-                <p className="text-xs text-amber-700 mt-1 flex items-center gap-1.5">
-                  <AlertCircle className="w-3.5 h-3.5" />
-                  {packUnallocatedLbs > 0
-                    ? `${packUnallocatedLbs.toFixed(2)} lbs unallocated — add cases or split the remainder into another ${product?.category || "same-category"} product to complete.`
-                    : `Over-allocated by ${Math.abs(packUnallocatedLbs).toFixed(2)} lbs — reduce cases or splits.`}
-                </p>
-              )}
-            </div>
+            <PackYieldSummary
+              expectedLbs={packTotalLbs}
+              packedLbs={packAllocatedLbs}
+              diffLbs={packDiffLbs}
+              yieldPct={packYieldPct}
+            />
             {form.finished_product_splits && Array.isArray(form.finished_product_splits) && form.finished_product_splits.length > 0 && (
               <div className="space-y-1 pt-1">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Split Into Products</p>

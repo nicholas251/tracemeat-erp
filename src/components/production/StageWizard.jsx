@@ -10,6 +10,7 @@ import { fullChopBatchLbs, calcBlendBatchCount } from "@/lib/blendBatchMath";
 import { buildIngredientBatchesMultiple, buildMeasurementSteps } from "./wizardStepBuilders";
 import { tagConsumedLots } from "@/lib/consumedLots";
 import { addCoolingBatchToPackagingJob } from "./addToPackagingJob";
+import { applyPackYield } from "@/lib/packYield";
 
 // ─── Stage icon map ───────────────────────────────────────────────────────────
 const STAGE_ICONS = {
@@ -874,6 +875,9 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
 
         // If this is packaging: push into the FG bucket AND create an InventoryItem lot
         if (capKey === "packaging") {
+          // Record what was actually packed (may differ from cooling weight) so the stage
+          // shows the real packing yield gain/loss.
+          applyPackYield(updates, stage, form, product);
           await pushPackagingToFinishedGoods({ stage, updates, form, queryClient });
         }
 

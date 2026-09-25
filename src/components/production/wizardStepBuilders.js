@@ -157,7 +157,7 @@ export function buildMeasurementSteps(stage, product, capKey, casingBuckets = []
         label: "Packaging Confirmation",
         fields: [
           { key: "output_qty_lbs", label: "Total Output Weight (lbs)", type: "number", defaultValue: stage?.input_qty_lbs, disabled: true },
-          { key: "packages_produced", label: "Cases to Package (Finished Product)", type: "number", defaultValue: maxFullCases, hint: `Max: ${maxFullCases} full cases (${remainderLbs.toFixed(2)} lbs remainder)` },
+          { key: "packages_produced", label: "Cases to Package (Finished Product)", type: "number", defaultValue: maxFullCases, hint: `Expected: ${maxFullCases} full cases (${remainderLbs.toFixed(2)} lbs remainder) — enter what you actually packed` },
           ...(hideLotField ? [] : [{ key: "lot_number", label: "Finished Goods Lot #", type: "text", defaultValue: stage?.input_lot_number || "" }]),
           { key: "finished_product_splits", label: "Package Remainder as Other Product (same category)", type: "finished_product_split" },
           { key: "notes", label: "Notes / Observations", type: "textarea" },
