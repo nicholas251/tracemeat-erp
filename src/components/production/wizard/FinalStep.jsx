@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { CheckCircle2, ChevronLeft, AlertCircle } from "lucide-react";
 import { computePackYield } from "@/lib/packYield";
 import PackYieldSummary from "./PackYieldSummary";
+import CookLossVariance from "./CookLossVariance";
 
 export default function FinalStep({ stage, capKey, stageLabel, resolvedBatches, form, cookBatch, cookPlan, persistedRacks = [], product, saving, onBack, onComplete }) {
   const isLinking = capKey === "linking";
@@ -13,7 +14,7 @@ export default function FinalStep({ stage, capKey, stageLabel, resolvedBatches, 
   // ── Packaging yield ── packed weight may be more or less than what came from cooling;
   // any amount > 0 can go to inventory and the gain/loss is shown.
   const isPackagingStage = capKey === "packaging";
-  const { expectedLbs: packTotalLbs, packedLbs: packAllocatedLbs, diffLbs: packDiffLbs, yieldPct: packYieldPct } =
+  const { expectedLbs: packTotalLbs, packedLbs: packAllocatedLbs, diffLbs: packDiffLbs, yieldPct: packYieldPct, cook: packCook } =
     computePackYield(stage, form, product);
   const packHasOutput = packAllocatedLbs > 0;
 
@@ -87,6 +88,7 @@ export default function FinalStep({ stage, capKey, stageLabel, resolvedBatches, 
               diffLbs={packDiffLbs}
               yieldPct={packYieldPct}
             />
+            {packCook && packAllocatedLbs > 0 && <CookLossVariance cook={packCook} />}
             {form.finished_product_splits && Array.isArray(form.finished_product_splits) && form.finished_product_splits.length > 0 && (
               <div className="space-y-1 pt-1">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Split Into Products</p>
