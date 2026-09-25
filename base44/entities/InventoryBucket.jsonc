@@ -40,6 +40,10 @@
       "default": "lbs",
       "description": "Unit of measure for this bucket"
     },
+    "par_level_lbs": {
+      "type": "number",
+      "description": "Minimum quantity on hand (bucket unit) before this material is flagged low"
+    },
     "status": {
       "type": "string",
       "enum": [

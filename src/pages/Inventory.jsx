@@ -13,7 +13,7 @@ import { format } from "date-fns";
 import PageHeader from "@/components/shared/PageHeader";
 import StatusBadge from "@/components/shared/StatusBadge";
 import InventoryAdjustDialog from "@/components/inventory/InventoryAdjustDialog";
-import MaterialParDashboard from "@/components/inventory/MaterialParDashboard";
+import ParLevelsView from "@/components/inventory/ParLevelsView";
 import FGBucketsView from "@/components/inventory/FGBucketsView";
 
 export default function Inventory() {
@@ -148,7 +148,7 @@ export default function Inventory() {
             title="Par Level Status"
             subtitle="Track consumption and stock levels against par minimums"
           />
-          <MaterialParDashboard materials={rawMaterials} />
+          <ParLevelsView />
         </TabsContent>
 
         {/* FG BUCKETS TAB */}

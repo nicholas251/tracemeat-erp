@@ -80,6 +80,10 @@
       "type": "number",
       "description": "Yield as a percentage (e.g. 95 means 95% \u2014 1000 lbs in \u2192 950 lbs out)"
     },
+    "par_cases": {
+      "type": "number",
+      "description": "Finished-goods par level: minimum cases on hand before this product is flagged low"
+    },
     "blend_batch_lbs": {
       "type": "number",
       "description": "Total protein batch size in lbs (blending step)"
