@@ -129,13 +129,13 @@ export default function Inventory() {
         subtitle="View raw materials and finished goods inventory"
       />
 
-      <Tabs defaultValue="par">
+      <Tabs defaultValue="finished">
         <TabsList className="mb-6">
-          <TabsTrigger value="par" className="flex items-center gap-2">
-            <TrendingDown className="w-4 h-4" /> Par Levels
-          </TabsTrigger>
           <TabsTrigger value="finished" className="flex items-center gap-2">
             <Boxes className="w-4 h-4" /> FG Buckets
+          </TabsTrigger>
+          <TabsTrigger value="par" className="flex items-center gap-2">
+            <TrendingDown className="w-4 h-4" /> Par Levels
           </TabsTrigger>
           <TabsTrigger value="fg_lots" className="flex items-center gap-2">
             <Package className="w-4 h-4" /> FG Lots
