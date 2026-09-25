@@ -11,6 +11,7 @@ import FgLotsTable from "./FgLotsTable";
 import ShipmentsTable from "./ShipmentsTable";
 import HoldsList from "./HoldsList";
 import CarryOversList from "./CarryOversList";
+import OrderCookLoss from "./OrderCookLoss";
 
 function Section({ icon: Icon, title, children }) {
   return (
@@ -38,6 +39,7 @@ export default function OrderTraceCard({ trace, hit }) {
         <div className="flex flex-wrap gap-1 mt-1">
           {reasons.map(r => <Badge key={r} variant="secondary" className="text-[10px] h-5">{r}</Badge>)}
         </div>
+        <OrderCookLoss stages={stages} carryOvers={carryOvers} orderId={order.id} />
       </CardHeader>
       <CardContent className="space-y-5 pt-4">
         <Section icon={Warehouse} title="Raw materials in (backward)"><RawLotsTable rawLots={rawLots} hit={hit} /></Section>
