@@ -201,7 +201,9 @@ export function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form,
   // lbs across the contributing lots — never list lots at their full incoming weight, or
   // an already-consumed carry-over would falsely re-appear as a fresh remainder.
   const remainderSourceLots = [
-    ...(stage?.input_lot_number ? [{ lot_number: stage.input_lot_number, lbs: stage?.input_qty_lbs || 0 }] : []),
+    ...((stage?.sub_batches || []).length
+      ? stage.sub_batches.map(sb => ({ lot_number: sb.lot_number, lbs: sb.qty_lbs || 0 }))
+      : (stage?.input_lot_number ? [{ lot_number: stage.input_lot_number, lbs: stage?.input_qty_lbs || 0 }] : [])),
     ...(form.carryover_records || []).flatMap(r => r.lot_contributions || []),
   ].filter(l => (l.lbs || 0) > 0);
   const remainderSourceTotal = remainderSourceLots.reduce((s, l) => s + (l.lbs || 0), 0);

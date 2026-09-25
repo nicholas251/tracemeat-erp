@@ -9,6 +9,7 @@ import { pushPackagingToFinishedGoods } from "./packagingFgPush";
 import { fullChopBatchLbs, calcBlendBatchCount } from "@/lib/blendBatchMath";
 import { buildIngredientBatchesMultiple, buildMeasurementSteps } from "./wizardStepBuilders";
 import { tagConsumedLots } from "@/lib/consumedLots";
+import { addCoolingBatchToPackagingJob } from "./addToPackagingJob";
 
 // ─── Stage icon map ───────────────────────────────────────────────────────────
 const STAGE_ICONS = {
@@ -331,7 +332,8 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
           let stdBatchNumber = null;
           if (usesIngredientBatches && currentBatch) {
             stdBatchNumber = currentBatch.batchNumber;
-          } else {
+          } else if (!(capKey === "packaging" && (stage.sub_batches || []).length > 1)) {
+            // (An order-level packing job holding several cooling batches gets no -B<n>.)
             // CB<n> (racking/sous-vide flows) or a trailing -<n> (linking cook batches,
             // e.g. COOK-…-20260923-3) so each linked cook batch gets its own lot.
             const cbMatch = (stage.cook_batch_lot || "").match(/CB(\d+)/i)
@@ -933,29 +935,15 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
               // cooling batches; keying on the lot would make the 2nd/3rd cooling batch find
               // the 1st batch's packaging stage already present and skip creation, silently
               // collapsing two cooling batches into one packaging stage (a lost batch).
-              const allPackForOrder = await base44.entities.ProductionStage.filter({
-                order_id: stage.order_id,
-                capability_key: "packaging",
+              // All cooling batches of the order accumulate into ONE packing job.
+              await addCoolingBatchToPackagingJob({
+                stage,
+                packFlowStep,
+                cooledQty,
+                cooledLot,
+                cookBatchLot: cookBatchLotKey,
+                expiryDate: updates.expiry_date,
               });
-              const alreadyPackaged = allPackForOrder.some(s => s.source_chilling_stage_id === stage.id);
-              if (!alreadyPackaged) {
-                await base44.entities.ProductionStage.create({
-                  order_id: stage.order_id,
-                  order_number: stage.order_number,
-                  product_name: stage.product_name,
-                  step_number: packFlowStep.step_number,
-                  capability_id: packFlowStep.capability_id,
-                  capability_key: packFlowStep.capability_key,
-                  capability_name: packFlowStep.capability_name,
-                  work_profile_id: packFlowStep.work_profile_id || "",
-                  work_profile_name: packFlowStep.work_profile_name || "",
-                  status: "available",
-                  input_qty_lbs: cooledQty,
-                  input_lot_number: cooledLot,
-                  cook_batch_lot: cookBatchLotKey,
-                  source_chilling_stage_id: stage.id,
-                });
-              }
             }
           }
         }

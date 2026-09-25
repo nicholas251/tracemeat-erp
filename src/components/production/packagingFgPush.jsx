@@ -24,7 +24,14 @@ export async function pushPackagingToFinishedGoods({ stage, updates, form, query
   // lot can reach the exact finished-goods lots (and from there, the customers).
   const cookBatchLot = stage.cook_batch_lot || stage.input_lot_number || "";
   const componentLots = [];
-  if (cookBatchLot) {
+  // An order-level packing job holds several cooling batches — credit each one with its
+  // own lbs instead of attributing the whole total to a single batch.
+  const coolingBatches = (stage.sub_batches || []).filter(sb => (sb.qty_lbs || 0) > 0);
+  if (coolingBatches.length) {
+    for (const sb of coolingBatches) {
+      componentLots.push({ lot_number: sb.lot_number, lbs: parseFloat(sb.qty_lbs.toFixed(2)), source: "cooling_batch" });
+    }
+  } else if (cookBatchLot) {
     componentLots.push({ lot_number: cookBatchLot, lbs: parseFloat((stage.input_qty_lbs || 0).toFixed(2)), source: "cook_batch" });
   }
   for (const id of (form.carryover_ids || [])) {
@@ -41,8 +48,9 @@ export async function pushPackagingToFinishedGoods({ stage, updates, form, query
   // Try to carry expiry date from the chilling stage that produced this packaging stage.
   // Prefer the DIRECT link (source_chilling_stage_id) — cook lot numbers are often reused
   // across batches, so matching on the lot could pick up ANOTHER batch's expiry date.
-  let expiryDate = null;
-  if (stage.source_chilling_stage_id || stage.cook_batch_lot) {
+  // A multi-batch packing job already carries the earliest expiry of its cooling batches.
+  let expiryDate = stage.expiry_date || null;
+  if (!expiryDate && (stage.source_chilling_stage_id || stage.cook_batch_lot)) {
     const allOrderStages = await base44.entities.ProductionStage.filter({ order_id: stage.order_id });
     const chillingStage =
       (stage.source_chilling_stage_id
