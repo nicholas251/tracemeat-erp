@@ -6,7 +6,7 @@ export async function syncItemLocations(itemIds) {
   for (const id of new Set(itemIds)) {
     const spots = pallets
       .filter(p => (p.lots || []).some(l => l.inventory_item_id === id))
-      .map(p => p.location);
+      .map(p => `${p.building_name ? `${p.building_name} ` : ""}${p.location}`);
     await base44.entities.InventoryItem.update(id, { location: [...new Set(spots)].sort().join(", ") });
   }
 }

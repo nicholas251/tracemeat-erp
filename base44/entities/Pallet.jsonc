@@ -6,9 +6,16 @@
       "type": "string",
       "description": "Pallet identifier"
     },
+    "building_id": {
+      "type": "string",
+      "description": "WarehouseBuilding the pallet sits in"
+    },
+    "building_name": {
+      "type": "string"
+    },
     "location": {
       "type": "string",
-      "description": "Shipping room spot, e.g. A1, B12, C16"
+      "description": "Spot code within the building, e.g. A1, B12"
     },
     "status": {
       "type": "string",

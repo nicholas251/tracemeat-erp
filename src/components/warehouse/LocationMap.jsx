@@ -1,43 +1,28 @@
 import React, { useState } from "react";
 import { Card } from "@/components/ui/card";
-import { ZONES } from "@/lib/warehouseLayout";
+import { Building2 } from "lucide-react";
+import { spotKey, sortLocations } from "@/lib/warehouseLayout";
+import LocationGrid from "./LocationGrid";
 import PalletDetailDialog from "./PalletDetailDialog";
 
-// Grid of every shipping-room spot; occupied spots open the pallet's contents.
-export default function LocationMap({ pallets, spots, onDone }) {
+// Every building → its locations → spot grid.
+export default function LocationMap({ buildings, locations, pallets, spots, onDone }) {
   const [active, setActive] = useState(null);
-  const bySpot = Object.fromEntries(pallets.map(p => [p.location, p]));
+  const bySpot = Object.fromEntries(pallets.map(p => [spotKey(p.building_id, p.location), p]));
+
+  if (buildings.length === 0) {
+    return <p className="text-sm text-muted-foreground p-6 text-center">No buildings yet — add one in Setup.</p>;
+  }
 
   return (
     <div className="space-y-5">
-      {ZONES.map(z => {
-        const used = Array.from({ length: z.spots }, (_, i) => bySpot[`${z.zone}${i + 1}`]).filter(Boolean).length;
+      {buildings.map(b => {
+        const locs = sortLocations(locations.filter(l => l.building_id === b.id));
         return (
-          <Card key={z.zone} className="p-4">
-            <div className="flex justify-between mb-3">
-              <h3 className="font-bold">Location {z.zone}</h3>
-              <span className="text-xs text-muted-foreground">{used} / {z.spots} occupied</span>
-            </div>
-            <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-2">
-              {Array.from({ length: z.spots }, (_, i) => {
-                const id = `${z.zone}${i + 1}`;
-                const p = bySpot[id];
-                const cases = (p?.lots || []).reduce((s, l) => s + (l.cases || 0), 0);
-                const products = [...new Set((p?.lots || []).map(l => l.product_name))];
-                return (
-                  <button key={id} disabled={!p} onClick={() => setActive(p)}
-                    className={`rounded-lg border-2 p-2 text-left h-20 transition ${p ? "border-primary/40 bg-primary/10 hover:bg-primary/20" : "border-dashed bg-muted/30 cursor-default"}`}>
-                    <p className="font-bold text-sm">{id}</p>
-                    {p ? (
-                      <>
-                        <p className="text-[11px] truncate">{products.length > 1 ? `${products.length} products` : products[0]}</p>
-                        <p className="text-[11px] text-muted-foreground">{cases} cs{p.lots.length > 1 ? ` · ${p.lots.length} lots` : ""}</p>
-                      </>
-                    ) : <p className="text-[11px] text-muted-foreground">Empty</p>}
-                  </button>
-                );
-              })}
-            </div>
+          <Card key={b.id} className="p-4 space-y-4">
+            <h3 className="font-bold flex items-center gap-2"><Building2 className="w-4 h-4" /> {b.name}</h3>
+            {locs.length === 0 && <p className="text-sm text-muted-foreground">No locations in this building yet.</p>}
+            {locs.map(l => <LocationGrid key={l.id} loc={l} bySpot={bySpot} onOpen={setActive} />)}
           </Card>
         );
       })}

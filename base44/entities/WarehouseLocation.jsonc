@@ -1,0 +1,44 @@
+{
+  "name": "WarehouseLocation",
+  "type": "object",
+  "properties": {
+    "building_id": {
+      "type": "string",
+      "description": "Parent WarehouseBuilding ID"
+    },
+    "building_name": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string",
+      "description": "Location code, e.g. A \u2014 spots are named A1, A2, \u2026"
+    },
+    "spots": {
+      "type": "number",
+      "description": "Number of pallet spots in this location"
+    }
+  },
+  "required": [
+    "building_id",
+    "name",
+    "spots"
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

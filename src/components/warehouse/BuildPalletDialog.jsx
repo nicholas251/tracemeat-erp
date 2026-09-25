@@ -1,20 +1,23 @@
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { syncItemLocations } from "@/lib/palletSync";
+import SpotSelect from "./SpotSelect";
 
-// Confirm the lots going on one pallet and pick its shipping-room spot.
+// Confirm the lots going on one pallet and pick its building + spot.
 export default function BuildPalletDialog({ open, onClose, lots, spots, onDone }) {
-  const [spot, setSpot] = useState("");
+  const [spotKey, setSpotKey] = useState("");
   const [saving, setSaving] = useState(false);
+  const spot = spots.find(s => s.key === spotKey);
 
   const save = async () => {
     setSaving(true);
     await base44.entities.Pallet.create({
       pallet_number: `PLT-${Date.now().toString().slice(-7)}`,
-      location: spot,
+      building_id: spot.building_id,
+      building_name: spot.building_name,
+      location: spot.code,
       status: "stored",
       stored_at: new Date().toISOString(),
       lots: lots.map(l => ({
@@ -29,7 +32,7 @@ export default function BuildPalletDialog({ open, onClose, lots, spots, onDone }
     });
     await syncItemLocations(lots.map(l => l.id));
     setSaving(false);
-    setSpot("");
+    setSpotKey("");
     onDone();
   };
 
@@ -46,14 +49,11 @@ export default function BuildPalletDialog({ open, onClose, lots, spots, onDone }
           ))}
           {lots.length > 1 && <p className="text-xs text-amber-700">Mixed-lot pallet — {lots.length} lots</p>}
         </div>
-        <Select value={spot} onValueChange={setSpot}>
-          <SelectTrigger className="bg-slate-200 border-slate-400"><SelectValue placeholder="Choose a location" /></SelectTrigger>
-          <SelectContent className="bg-slate-100 border-slate-300 max-h-72">
-            {spots.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        {spots.length === 0 && <p className="text-xs text-destructive">All 48 spots are full.</p>}
-        <Button disabled={!spot || saving} onClick={save}>{saving ? "Saving…" : `Put away at ${spot || "…"}`}</Button>
+        <SpotSelect spots={spots} value={spotKey} onChange={setSpotKey} />
+        {spots.length === 0 && <p className="text-xs text-destructive">No free spots — add locations in Setup.</p>}
+        <Button disabled={!spot || saving} onClick={save}>
+          {saving ? "Saving…" : spot ? `Put away at ${spot.building_name} · ${spot.code}` : "Put away"}
+        </Button>
       </DialogContent>
     </Dialog>
   );
