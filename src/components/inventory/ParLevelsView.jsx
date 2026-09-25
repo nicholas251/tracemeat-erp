@@ -9,7 +9,7 @@ const bySeverity = (a, b) => {
 };
 
 // Par levels for every active finished product (cases) and every raw material bucket (lbs).
-export default function ParLevelsView() {
+export default function ParLevelsView({ finishedOnly = false }) {
   const queryClient = useQueryClient();
   const { data: me } = useQuery({ queryKey: ["me"], queryFn: () => base44.auth.me() });
   const { data: products = [], isLoading: lp } = useQuery({ queryKey: ["parProducts"], queryFn: () => base44.entities.Product.filter({ status: "active" }) });
@@ -52,7 +52,7 @@ export default function ParLevelsView() {
     <div className="space-y-8">
       {!canEdit && <p className="text-xs text-muted-foreground">Only admins can change par levels.</p>}
       <ParSection title="Finished Products" unit="cases" rows={productRows} canEdit={canEdit} onSavePar={saveProductPar} isLoading={lp || lf} />
-      <ParSection title="Raw Material Buckets" unit="lbs" rows={bucketRows} canEdit={canEdit} onSavePar={saveBucketPar} isLoading={lb || lr} />
+      {!finishedOnly && <ParSection title="Raw Material Buckets" unit="lbs" rows={bucketRows} canEdit={canEdit} onSavePar={saveBucketPar} isLoading={lb || lr} />}
     </div>
   );
 }

@@ -1,0 +1,67 @@
+{
+  "name": "Pallet",
+  "type": "object",
+  "properties": {
+    "pallet_number": {
+      "type": "string",
+      "description": "Pallet identifier"
+    },
+    "location": {
+      "type": "string",
+      "description": "Shipping room spot, e.g. A1, B12, C16"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "stored",
+        "removed"
+      ],
+      "default": "stored",
+      "description": "stored = sitting in its spot; removed = shipped/emptied"
+    },
+    "lots": {
+      "type": "array",
+      "description": "Finished-goods lots on this pallet (multi-lot pallets supported)",
+      "items": {
+        "type": "object",
+        "properties": {
+          "inventory_item_id": {
+            "type": "string"
+          },
+          "lot_number": {
+            "type": "string"
+          },
+          "product_id": {
+            "type": "string"
+          },
+          "product_name": {
+            "type": "string"
+          },
+          "cases": {
+            "type": "number"
+          },
+          "lbs": {
+            "type": "number"
+          },
+          "expiry_date": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "stored_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "removed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "location"
+  ]
+}

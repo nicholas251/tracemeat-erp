@@ -26,6 +26,7 @@ import {
   TrendingUp,
   Zap,
   BookOpen,
+  LayoutGrid,
   X
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -50,6 +51,7 @@ const allNavItems = [
   { path: "/raw-materials", label: "Raw Materials", icon: Warehouse, roles: ["admin", "supervisor", "quality_control", "warehouse_operator", "tumble_operator"] },
   { path: "/raw-inventory", label: "Raw Inventory", icon: Boxes, roles: ["admin", "supervisor", "quality_control", "warehouse_operator"] },
   { path: "/inventory", label: "Finished Goods", icon: Boxes, roles: ["admin", "supervisor", "quality_control", "warehouse_operator", "production_worker"] },
+  { path: "/warehouse", label: "Warehouse", icon: LayoutGrid, roles: ["admin", "supervisor", "quality_control", "warehouse_operator", "production_worker"] },
   { path: "/customers", label: "Customers", icon: UserCheck, roles: ["admin", "supervisor"] },
   { path: "/sales-orders", label: "Sales Orders", icon: ClipboardList, roles: ["admin", "supervisor", "warehouse_operator"] },
   { path: "/daily-sales", label: "Daily Sales", icon: TrendingUp, roles: ["admin", "supervisor", "warehouse_operator"] },
