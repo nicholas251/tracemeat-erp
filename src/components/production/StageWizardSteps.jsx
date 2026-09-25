@@ -18,6 +18,8 @@ export const FinalStep = FinalStepComponent;
 export { ProgressBar, NavButtons, FieldInput };
 
 import BlendInputSummary from "@/components/production/wizard/BlendInputSummary";
+import ChopWeightCheck from "@/components/production/wizard/ChopWeightCheck";
+import { chopIsOverweight } from "@/lib/chopWeight";
 
 export function IntroStep({ stage, capKey, stageLabel, resolvedBatches, measureSteps, product, saving, onStart, usesIngredientBatches }) {
   const isAlreadyStarted = stage?.status === "in_progress";
@@ -164,6 +166,9 @@ export function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form,
   const spiceIsShort = spiceRequired > 0 && spiceTotalAllocated > 0 && spiceTotalAllocated < spiceRequired - 0.001;
   const spiceBlocksNext = spiceIsShort && !spiceShortNotes?.trim();
 
+  const isChopStep = capKey === "chopping" && stepDef.id === "bowl_prep";
+  const chopNeedsNote = isChopStep && chopIsOverweight(stage, form) && !form.chop_weight_override_note?.trim();
+
   const isCookStage = capKey === "cooking" && stepDef.id === "cook";
   const cookTempEntered = isCookStage && form.temperature_f !== undefined && form.temperature_f !== "";
   // Cooking must reach the 165°F food-safety minimum — hard gate, no override.
@@ -220,7 +225,7 @@ export function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form,
      : isMixerInputs ? (!!form.pork_lot_confirmed && (stage?.binder_lot_number ? !!form.binder_lot_confirmed : false))
      : isCookStage ? (cookTempEntered && !cookTempTooLow && !cookNeedsBatch)
      : isChillStage ? (chillTempEntered && !chillTempTooHigh)
-     : !spiceBlocksNext;
+     : !spiceBlocksNext && !chopNeedsNote;
 
   return (
     <div className="space-y-5">
@@ -287,6 +292,8 @@ export function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form,
           ))}
         </div>
       )}
+
+      {isChopStep && <ChopWeightCheck stage={stage} form={form} setForm={setForm} />}
 
       {capKey === "packaging" && stepDef.id === "packaging" && (
         <div className="space-y-4">

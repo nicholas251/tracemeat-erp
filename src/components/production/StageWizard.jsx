@@ -11,6 +11,7 @@ import { buildIngredientBatchesMultiple, buildMeasurementSteps } from "./wizardS
 import { tagConsumedLots } from "@/lib/consumedLots";
 import { addCoolingBatchToPackagingJob } from "./addToPackagingJob";
 import { applyPackYield } from "@/lib/packYield";
+import { applyChopWeightOverride } from "@/lib/chopWeight";
 
 // ─── Stage icon map ───────────────────────────────────────────────────────────
 const STAGE_ICONS = {
@@ -27,8 +28,6 @@ const STAGE_ICONS = {
   packaging: Package,
   sous_vide_pack: Layers,
 };
-
-// Step/batch builders extracted to ./wizardStepBuilders.js
 
 // ─── Main wizard ─────────────────────────────────────────────────────────────
 export default function StageWizard({ stage, open, onClose, onCompleted, startBatchNumber = null }) {
@@ -432,7 +431,6 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
             ing.bucket_name?.toLowerCase().includes("pork") ||
             ing.category?.toLowerCase() === "pork";
           const porkIngredients = currentBatch.ingredients.filter(isPorkIngredient);
-          const beefIngredients = currentBatch.ingredients.filter(ing => !isPorkIngredient(ing));
 
           const porkLbs = porkIngredients.reduce((s, ing) =>
             s + (ing.lot_allocations?.reduce((ss, a) => ss + (Number(a.actual_lbs) || 0), 0) || ing.required_lbs || 0), 0
@@ -794,6 +792,9 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
         // Deductions run BEFORE the stage is marked completed, so a failure or
         // shortfall leaves the stage in progress with nothing half-done.
         if (capKey === "chopping") {
+          // Output can't exceed what went into the bowl unless the operator gave a reason.
+          const chopWeightError = applyChopWeightOverride(updates, stage, form);
+          if (chopWeightError) { setSaving(false); alert(chopWeightError); return; }
           const chopConsumed = [...(stage.consumed_lots || [])];
           const chopOutLot = updates.output_lot_number || stage.input_lot_number || "";
           // Cure: a RawInventory bucket on the product. Deduct the entered cure amount.
@@ -1297,5 +1298,3 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
     </Dialog>
   );
 }
-
-// Sub-components moved to ./StageWizardSteps.jsx
