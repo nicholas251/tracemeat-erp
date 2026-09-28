@@ -85,7 +85,7 @@ export default function ProductFormDialog({ open, onClose, onSave, product, flow
 
   const { data: buckets = [] } = useQuery({
     queryKey: ["inventoryBuckets"],
-    queryFn: () => base44.entities.InventoryBucket.list(),
+    queryFn: () => base44.entities.InventoryBucket.list("name", 1000),
     enabled: open,
   });
 
