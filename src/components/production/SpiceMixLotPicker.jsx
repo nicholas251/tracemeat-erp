@@ -25,8 +25,11 @@ import { CheckCircle2, AlertCircle, FlaskConical, PlusCircle, Trash2 } from "luc
  */
 export default function SpiceMixLotPicker({ label, requiredLbs, value = {}, onChange, disabled, filterSpiceMixId, shortNotes, onShortNotesChange }) {
   const { data: allSpiceMixes = [], isLoading } = useQuery({
-    queryKey: ["spiceMixesActive"],
-    queryFn: () => base44.entities.SpiceMix.filter({ status: "active" }),
+    queryKey: ["spiceMixesActive", filterSpiceMixId || ""],
+    // The product's assigned mix always shows, even if it was archived.
+    queryFn: () => filterSpiceMixId
+      ? base44.entities.SpiceMix.filter({ id: filterSpiceMixId })
+      : base44.entities.SpiceMix.filter({ status: "active" }),
     staleTime: 0,
     gcTime: 0,
     refetchOnMount: "always",

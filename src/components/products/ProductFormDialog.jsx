@@ -78,7 +78,7 @@ export default function ProductFormDialog({ open, onClose, onSave, product, flow
   });
 
   const { data: spiceMixes = [] } = useQuery({
-    queryKey: ["spiceMixes"],
+    queryKey: ["allSpiceMixes"],
     queryFn: () => base44.entities.SpiceMix.list("name", 1000),
     enabled: open,
   });
