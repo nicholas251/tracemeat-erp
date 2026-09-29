@@ -53,6 +53,11 @@
       ],
       "default": "active"
     },
+    "received_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When all line items were fully received; moves to the Receiving archive 30 minutes later"
+    },
     "line_items": {
       "type": "array",
       "description": "Order line items",

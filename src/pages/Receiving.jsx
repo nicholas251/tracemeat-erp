@@ -12,6 +12,8 @@ import PageHeader from "@/components/shared/PageHeader";
 import StatusBadge from "@/components/shared/StatusBadge";
 import { format } from "date-fns";
 import { CheckCircle2, ArrowRight, Package, ChevronRight } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import ReceivingArchive from "@/components/receiving/ReceivingArchive";
 
 export default function Receiving() {
   const urlParams = new URLSearchParams(window.location.search);
@@ -40,7 +42,18 @@ export default function Receiving() {
     queryFn: () => base44.entities.InventoryBucket.list(),
   });
 
-  const pendingPOs = pos.filter(p => p.status !== "received" && p.status !== "closed");
+  // Fully received orders stay visible for 30 minutes, then move to the Archive tab.
+  const ARCHIVE_AFTER_MS = 30 * 60 * 1000;
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 60000);
+    return () => clearInterval(t);
+  }, []);
+  const isDone = (p) => ["received", "closed", "archived"].includes(p.status);
+  const isArchived = (p) => isDone(p) && (!p.received_at || now - new Date(p.received_at).getTime() >= ARCHIVE_AFTER_MS);
+  const pendingPOs = pos.filter(p => !isArchived(p) && p.status !== "draft");
+  const archivedPOs = pos.filter(isArchived).sort((a, b) => (b.received_at || b.updated_date || "").localeCompare(a.received_at || a.updated_date || ""));
+  const [tab, setTab] = useState("active");
 
   const currentPO = useMemo(() => {
     if (selectedPOId) return pos.find(p => p.id === selectedPOId);
@@ -127,6 +140,7 @@ export default function Receiving() {
       data: {
         line_items: updatedLineItems,
         status: allReceived ? "received" : "partial_received",
+        ...(allReceived ? { received_at: new Date().toISOString() } : {}),
       },
     });
 
@@ -157,6 +171,14 @@ export default function Receiving() {
         subtitle="Select a purchase order to receive raw materials"
       />
 
+      <Tabs value={tab} onValueChange={setTab}>
+        <TabsList>
+          <TabsTrigger value="active">Receiving ({pendingPOs.length})</TabsTrigger>
+          <TabsTrigger value="archive">Archive ({archivedPOs.length})</TabsTrigger>
+        </TabsList>
+      </Tabs>
+
+      {tab === "archive" ? <ReceivingArchive pos={archivedPOs} /> : <>
       {/* PO Cards */}
       {pendingPOs.length === 0 ? (
         <Card>
@@ -434,6 +456,7 @@ export default function Receiving() {
           </Card>
         </div>
       )}
+      </>}
     </div>
   );
 }
