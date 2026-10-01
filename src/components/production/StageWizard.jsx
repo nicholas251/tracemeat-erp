@@ -93,6 +93,20 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
     : null;
   const rackCapacityLbs = Number(product?.tumble_lbs_per_rack) || 0;
 
+  // Racks always run full (320 lbs) — a partial may only be released on the FINAL racking
+  // card of the order (no other tumbling / racking stages still open).
+  const { data: openFeederCount = 0 } = useQuery({
+    queryKey: ["open_feeders", stage?.order_id, stage?.id],
+    enabled: !!isRackingStage && !!stage?.order_id,
+    queryFn: () => base44.entities.ProductionStage.count({
+      order_id: stage.order_id,
+      capability_key: { $in: ["tumbling", "racking_product"] },
+      status: { $ne: "completed" },
+      id: { $ne: stage.id },
+    }),
+  });
+  const isFinalRacking = openFeederCount === 0;
+
   // Atomically CLAIM the order's open partial for this racking card on open. If it is
   // unclaimed, stamp it with this stage id. If it is already claimed (by me or anyone),
   // leave it — claiming is first-come, single-owner. Re-reads live order state to avoid
@@ -1266,6 +1280,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
              setCookPlan={setCookPlan}
              openPartialRack={openPartialRack}
              rackCapacityLbs={rackCapacityLbs}
+             isFinalRacking={isFinalRacking}
              rackDefaultLot={stage?.input_lot_number || ""}
              persistedRacks={persistedRacks}
              onReleaseRack={handleReleaseRack}

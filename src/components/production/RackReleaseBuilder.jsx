@@ -121,7 +121,7 @@ function buildRacks({ totalLbs, rackCap, openPartialRack, persistedRacks, myLot 
  *   plan             – current value | null
  *   onChange         – (plan) => void
  */
-export default function RackReleaseBuilder({ totalLbs, capacityLbs, openPartialRack, defaultLot = "", persistedRacks = [], onReleaseRack, plan, onChange }) {
+export default function RackReleaseBuilder({ totalLbs, capacityLbs, isFinalRacking = true, openPartialRack, defaultLot = "", persistedRacks = [], onReleaseRack, plan, onChange }) {
   const RACK_CAP = Number(capacityLbs) > 0 ? Number(capacityLbs) : DEFAULT_LBS_PER_RACK;
   const initialLot = plan?.lotNumber || persistedRacks?.[0]?.lot_number || defaultLot || "";
   const [lotNumber, setLotNumber] = useState(initialLot);
@@ -365,7 +365,7 @@ export default function RackReleaseBuilder({ totalLbs, capacityLbs, openPartialR
                         >
                           <Combine className="w-3.5 h-3.5" /> Carry Over
                         </Button>
-                        <Button
+                        {isFinalRacking && <Button
                           size="sm"
                           variant="destructive"
                           disabled={releasing !== null}
@@ -374,7 +374,7 @@ export default function RackReleaseBuilder({ totalLbs, capacityLbs, openPartialR
                         >
                           <Send className="w-3.5 h-3.5" />
                           {releasing === rack.rackNumber ? "Sending…" : "Release"}
-                        </Button>
+                        </Button>}
                       </div>
                     ) : (
                       <Button
@@ -433,8 +433,9 @@ export default function RackReleaseBuilder({ totalLbs, capacityLbs, openPartialR
               <Combine className="w-3.5 h-3.5 shrink-0 mt-0.5" />
               <span>
                 Rack #{trailingPartial.rackNumber} is partial ({trailingPartial.lbs} lbs).
-                Tap <b>Carry Over</b> to top it up on the next card, or <b>Release</b> to send it
-                to the smokehouse now (use Release on the final batch).
+                {isFinalRacking
+                  ? <>This is the final batch — tap <b>Release</b> to send the remainder to the smokehouse, or <b>Carry Over</b>.</>
+                  : <>Tap <b>Carry Over</b> — it gets topped up to a full rack with the next batch's lot.</>}
               </span>
             </div>
           )}
