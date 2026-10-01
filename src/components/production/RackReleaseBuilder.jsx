@@ -160,10 +160,32 @@ export default function RackReleaseBuilder({ totalLbs, capacityLbs, isFinalRacki
   // The trailing partial = the LAST rack that is NOT full, NOT released, NOT carried away.
   // Scanning from the end guarantees only the final leftover is offered the Carry Over /
   // Release choice — middle racks are always full, so they never show partial controls.
+  // A rack flagged as a planned half rack is "full" at half capacity (160 lbs).
+  const HALF_CAP = parseFloat((RACK_CAP / 2).toFixed(2));
+  const capOf = (r) => (r.half ? HALF_CAP : RACK_CAP);
+
+  const toggleHalf = (rackNumber) => {
+    sync(
+      racks.map(r => {
+        if (r.rackNumber !== rackNumber) return r;
+        if (r.half) return { ...r, half: false };
+        if (r.lbs <= HALF_CAP) return { ...r, half: true };
+        // Trim this card's own lot so the rack sits at 160; the excess returns to
+        // "unracked" and goes on the next rack via Add Another Rack.
+        const carried = (r.lot_contributions || []).filter(c => c.lot_number !== lotNumber);
+        const carriedLbs = carried.reduce((s2, c) => s2 + (c.lbs || 0), 0);
+        const myLbs = parseFloat(Math.max(0, HALF_CAP - carriedLbs).toFixed(2));
+        return { ...r, half: true, lbs: HALF_CAP, lot_contributions: myLbs > 0 ? [...carried, { lot_number: lotNumber, lbs: myLbs }] : carried };
+      }),
+      lotNumber,
+      carriedOver
+    );
+  };
+
   const computeTrailingPartial = (rackList) => {
     for (let i = rackList.length - 1; i >= 0; i--) {
       const r = rackList[i];
-      if (!r.released && !r.carried_away && r.lbs > 0 && r.lbs < RACK_CAP - 0.001) return r;
+      if (!r.released && !r.carried_away && r.lbs > 0 && r.lbs < capOf(r) - 0.001) return r;
     }
     return null;
   };
@@ -301,7 +323,7 @@ export default function RackReleaseBuilder({ totalLbs, capacityLbs, isFinalRacki
         </CardHeader>
         <CardContent className="p-4 space-y-2.5">
           {racks.map((rack) => {
-            const isFull = rack.lbs >= RACK_CAP - 0.001;
+            const isFull = rack.lbs >= capOf(rack) - 0.001;
             const isMixed = (rack.lot_contributions || []).filter(c => (c.lbs || 0) > 0).length > 1;
             const isTrailingPartial = !isFull && !rack.released && trailingPartial?.rackNumber === rack.rackNumber;
             return (
@@ -324,8 +346,17 @@ export default function RackReleaseBuilder({ totalLbs, capacityLbs, isFinalRacki
                       )}
                     </p>
                     <span className="text-[11px] text-muted-foreground font-medium">
-                      {isFull ? "Standard capacity" : "Partial capacity"}
+                      {rack.half ? `Half rack (${HALF_CAP} lbs)` : isFull ? "Standard capacity" : "Partial capacity"}
                     </span>
+                    {!rack.released && !rack.carried_away && (
+                      <button
+                        type="button"
+                        onClick={() => toggleHalf(rack.rackNumber)}
+                        className={`ml-2 text-[10px] font-semibold px-2 py-0.5 rounded border ${rack.half ? "bg-chart-3/15 border-chart-3/40 text-chart-3" : "bg-background border-border text-muted-foreground"}`}
+                      >
+                        {rack.half ? "Half rack ✓" : "Half rack"}
+                      </button>
+                    )}
                   </div>
 
                   <div className="flex items-center gap-2">
