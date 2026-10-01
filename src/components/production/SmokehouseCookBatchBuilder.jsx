@@ -1,12 +1,12 @@
 import React, { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Flame, Layers, CheckCircle2, AlertCircle } from "lucide-react";
+import { Flame, Layers, CheckCircle2, AlertCircle, Trash2 } from "lucide-react";
 
 const MAX_RACKS_PER_BATCH = 3;
 
@@ -42,6 +42,24 @@ export default function SmokehouseCookBatchBuilder({ stage, cookBatch, onChange 
     },
     enabled: !!stage,
   });
+
+  const queryClient = useQueryClient();
+  const [deletingId, setDeletingId] = useState(null);
+  const { data: me } = useQuery({ queryKey: ["currentUser"], queryFn: () => base44.auth.me() });
+  const isAdmin = me?.role === "admin";
+
+  const deleteRack = async (rack) => {
+    if (!window.confirm(`Delete Rack #${rack.rack_number ?? ""} (${rack.lbs} lbs)? This cannot be undone.`)) return;
+    setDeletingId(rack.id);
+    await base44.entities.RackUnit.delete(rack.id);
+    if (selectedIds.includes(rack.id)) {
+      const next = selectedIds.filter(id => id !== rack.id);
+      setSelectedIds(next);
+      emit(next, lotNumber);
+    }
+    await queryClient.invalidateQueries({ queryKey: ["releasedRacks"] });
+    setDeletingId(null);
+  };
 
   const toggleRack = (rack) => {
     let next;
@@ -134,8 +152,8 @@ export default function SmokehouseCookBatchBuilder({ stage, cookBatch, onChange 
             // at release), so it stays stable from racking → cooking → cooling and never repeats.
             const displayNumber = rack.rack_number ?? idx + 1;
             return (
+              <div key={rack.id} className="flex items-stretch gap-2">
               <button
-                key={rack.id}
                 type="button"
                 disabled={atCap}
                 onClick={() => toggleRack(rack)}
@@ -163,6 +181,20 @@ export default function SmokehouseCookBatchBuilder({ stage, cookBatch, onChange 
                   </div>
                 </div>
               </button>
+              {isAdmin && (
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="icon"
+                  className="h-auto w-10 shrink-0"
+                  disabled={deletingId === rack.id}
+                  onClick={() => deleteRack(rack)}
+                  title="Delete rack (admin)"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              )}
+              </div>
             );
           })}
         </CardContent>
