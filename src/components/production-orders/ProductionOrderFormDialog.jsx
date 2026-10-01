@@ -12,7 +12,11 @@ import InventoryShortageCheck from "./InventoryShortageCheck";
 import ProductSearchSelect from "./ProductSearchSelect";
 import { calcBlendBatchCount } from "@/lib/blendBatchMath";
 
-export default function ProductionOrderFormDialog({ open, onClose, onSave, order, products, flows, suppliers }) {
+export default function ProductionOrderFormDialog({ open, onClose, onSave, order, products, flows, suppliers, saving }) {
+  // Locks instantly on first click so rapid double-clicks can't create duplicate orders.
+  const submitLock = React.useRef(false);
+  useEffect(() => { if (open) submitLock.current = false; }, [open]);
+  useEffect(() => { if (!saving) submitLock.current = false; }, [saving]);
   const [form, setForm] = useState({
     order_number: "", product_id: "", product_name: "", flow_id: "", flow_name: "",
     supplier_id: "", supplier_name: "", quantity_to_produce: "", order_date: new Date().toISOString().split("T")[0],
@@ -137,6 +141,8 @@ export default function ProductionOrderFormDialog({ open, onClose, onSave, order
 
   const handleSave = () => {
     if (!form.order_number || !form.product_id || !form.quantity_to_produce) return;
+    if (submitLock.current || saving) return;
+    submitLock.current = true;
     onSave({
       ...form,
       quantity_to_produce: Number(form.quantity_to_produce),
@@ -342,8 +348,8 @@ export default function ProductionOrderFormDialog({ open, onClose, onSave, order
 
         <DialogFooter className="gap-2 mt-4">
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={handleSave} disabled={!form.order_number || !form.product_id || !form.quantity_to_produce}>
-            {order ? "Update" : "Create"} Order
+          <Button onClick={handleSave} disabled={saving || !form.order_number || !form.product_id || !form.quantity_to_produce}>
+            {saving ? "Saving..." : `${order ? "Update" : "Create"} Order`}
           </Button>
         </DialogFooter>
       </DialogContent>

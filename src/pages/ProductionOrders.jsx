@@ -315,6 +315,7 @@ export default function ProductionOrders() {
           open={showForm}
           onClose={() => { setShowForm(false); setEditingOrder(null); }}
           onSave={handleSave}
+          saving={createMutation.isPending || updateMutation.isPending}
           order={editingOrder}
           products={products}
           flows={flows}
