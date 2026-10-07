@@ -759,6 +759,7 @@ export default function ProductSetupWizard({ open, onClose, onSave }) {
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
+                {!form.varied_weights && (<>
                 <div className="space-y-1.5">
                   <Label>Pack Size *</Label>
                   <div className="flex gap-2">
@@ -784,6 +785,7 @@ export default function ProductSetupWizard({ open, onClose, onSave }) {
                   <Label>Packs per Case *</Label>
                   <Input type="number" value={form.packages_per_case} onChange={e => up("packages_per_case", e.target.value)} placeholder="e.g. 12" />
                 </div>
+                </>)}
                 <div className="space-y-1.5">
                   <Label>Shelf Life (days)</Label>
                   <Input type="number" value={form.shelf_life_days} onChange={e => up("shelf_life_days", e.target.value)} placeholder="e.g. 30" />
@@ -801,7 +803,7 @@ export default function ProductSetupWizard({ open, onClose, onSave }) {
                   </Select>
                 </div>
               </div>
-              {packSizeNum && form.packages_per_case && (
+              {!form.varied_weights && packSizeNum && form.packages_per_case && (
                 <div className="bg-muted/40 rounded-lg p-3 text-xs">
                   Case weight: <span className="font-semibold">{(packSizeNum * Number(form.packages_per_case)).toFixed(1)} lbs</span>
                 </div>
