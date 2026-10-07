@@ -221,6 +221,7 @@ export default function ProductSetupWizard({ open, onClose, onSave }) {
       mixer_duration_minutes: form.mixer_duration_minutes ? Number(form.mixer_duration_minutes) : undefined,
       yield_percent: form.yield_percent ? Number(form.yield_percent) : undefined,
       package_size: packSizeNum || undefined,
+      package_size_oz: form.package_size_oz !== "" && form.package_size_oz != null ? Number(form.package_size_oz) : undefined,
       packages_per_case: form.packages_per_case ? Number(form.packages_per_case) : undefined,
       case_weight_lbs: caseWeight,
       shelf_life_days: form.shelf_life_days ? Number(form.shelf_life_days) : undefined,
