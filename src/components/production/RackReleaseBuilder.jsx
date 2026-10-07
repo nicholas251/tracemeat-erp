@@ -396,7 +396,7 @@ export default function RackReleaseBuilder({ totalLbs, capacityLbs, isFinalRacki
                         >
                           <Combine className="w-3.5 h-3.5" /> Carry Over
                         </Button>
-                        {isFinalRacking && <Button
+                        <Button
                           size="sm"
                           variant="destructive"
                           disabled={releasing !== null}
@@ -404,8 +404,8 @@ export default function RackReleaseBuilder({ totalLbs, capacityLbs, isFinalRacki
                           className="h-8 text-xs font-semibold gap-1.5"
                         >
                           <Send className="w-3.5 h-3.5" />
-                          {releasing === rack.rackNumber ? "Sending…" : "Release"}
-                        </Button>}
+                          {releasing === rack.rackNumber ? "Sending…" : "Complete Partial"}
+                        </Button>
                       </div>
                     ) : (
                       <Button
@@ -464,9 +464,7 @@ export default function RackReleaseBuilder({ totalLbs, capacityLbs, isFinalRacki
               <Combine className="w-3.5 h-3.5 shrink-0 mt-0.5" />
               <span>
                 Rack #{trailingPartial.rackNumber} is partial ({trailingPartial.lbs} lbs).
-                {isFinalRacking
-                  ? <>This is the final batch — tap <b>Release</b> to send the remainder to the smokehouse, or <b>Carry Over</b>.</>
-                  : <>Tap <b>Carry Over</b> — it gets topped up to a full rack with the next batch's lot.</>}
+                {" "}Tap <b>Carry Over</b> to top it up with the next batch, or <b>Complete Partial</b> to send it to the smokehouse as-is (no carry-over). Adjust the weight first if the actual amount differs.
               </span>
             </div>
           )}
