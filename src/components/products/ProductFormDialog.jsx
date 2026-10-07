@@ -167,6 +167,9 @@ export default function ProductFormDialog({ open, onClose, onSave, product, flow
     onSave({
       ...form,
       case_weight_lbs: form.case_weight_lbs ? Number(form.case_weight_lbs) : undefined,
+      package_size: form.package_size ? Number(form.package_size) : undefined,
+      package_size_oz: form.package_size_oz ? Number(form.package_size_oz) : undefined,
+      packages_per_case: form.packages_per_case ? Number(form.packages_per_case) : undefined,
       shelf_life_days: form.shelf_life_days ? Number(form.shelf_life_days) : undefined,
       storage_temp_c: form.storage_temp_c ? Number(form.storage_temp_c) : undefined,
       blend_batch_lbs: form.blend_batch_lbs ? Number(form.blend_batch_lbs) : undefined,
@@ -378,11 +381,11 @@ export default function ProductFormDialog({ open, onClose, onSave, product, flow
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Pack Size (lbs) *</Label>
+                <Label>Pack Size (lbs) {!form.varied_weights && "*"}</Label>
                 <Input type="number" step="0.1" value={form.package_size} onChange={e => update("package_size", e.target.value)} placeholder="e.g. 2.0" />
               </div>
               <div className="space-y-2">
-                <Label>Packs per {unitLabel} *</Label>
+                <Label>Packs per {unitLabel} {!form.varied_weights && "*"}</Label>
                 <Input type="number" value={form.packages_per_case} onChange={e => update("packages_per_case", e.target.value)} placeholder="e.g. 12" />
               </div>
               <div className="space-y-2">
@@ -468,7 +471,7 @@ export default function ProductFormDialog({ open, onClose, onSave, product, flow
 
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={handleSave} disabled={!form.name || !form.product_number || !form.sku || !form.package_size || !form.packages_per_case}>
+          <Button onClick={handleSave} disabled={!form.name || !form.product_number || !form.sku || (!form.varied_weights && (!form.package_size || !form.packages_per_case))}>
             {product ? "Update" : "Create"} Product
           </Button>
         </DialogFooter>
