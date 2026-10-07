@@ -64,6 +64,7 @@ const EMPTY = {
   finished_product_unit: "lbs", shelf_life_days: "", storage_temp_c: "",
   package_size_unit: "lbs",
   is_hotdog: false, hotdog_family: "", hotdog_length: "", hotdog_casing: "",
+  varied_weights: false,
 };
 
 export default function ProductSetupWizard({ open, onClose, onSave }) {
@@ -119,7 +120,8 @@ export default function ProductSetupWizard({ open, onClose, onSave }) {
 
   // Build visible steps: always show basics + flow, then only steps present in the selected flow
   const visibleSteps = STEPS.filter(s => {
-    if (s.id === "basics" || s.id === "flow") return true;
+    // Blending and chopping data is always collected here, regardless of flow
+    if (["basics", "flow", "blending", "chopping"].includes(s.id)) return true;
     if (flowStepKeys.length === 0) return true; // show all if no flow selected yet
     const match = STEP_KEY_MAP[s.id];
     if (!match) return false;
@@ -323,7 +325,15 @@ export default function ProductSetupWizard({ open, onClose, onSave }) {
                    className="w-4 h-4"
                  />
                  <Label htmlFor="is_hotdog" className="mb-0 cursor-pointer">This is a hotdog product</Label>
-                </div>
+                 </div>
+
+                 <div className="flex items-center gap-3 p-3 bg-secondary/50 rounded-md">
+                 <Switch id="varied_weights" checked={form.varied_weights} onCheckedChange={v => up("varied_weights", v)} />
+                 <div>
+                   <Label htmlFor="varied_weights" className="mb-0 cursor-pointer">Random weight product</Label>
+                   <p className="text-xs text-muted-foreground">Each case weight is recorded individually at packing</p>
+                 </div>
+                 </div>
 
                 {form.is_hotdog && (
                   <div className="grid grid-cols-2 gap-3">
