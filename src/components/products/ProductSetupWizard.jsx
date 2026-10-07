@@ -736,6 +736,13 @@ export default function ProductSetupWizard({ open, onClose, onSave }) {
           {currentStep.id === "packaging" && (
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">Define the finished goods packaging specification.</p>
+              <div className="flex items-center gap-3 p-3 bg-secondary/50 rounded-md">
+                <Switch id="varied_weights_pack" checked={form.varied_weights} onCheckedChange={v => up("varied_weights", v)} />
+                <div>
+                  <Label htmlFor="varied_weights_pack" className="mb-0 cursor-pointer">Random weight product</Label>
+                  <p className="text-xs text-muted-foreground">Each case weight is recorded individually at packing</p>
+                </div>
+              </div>
               <div className="space-y-1.5">
                 <Label>Packaging Type</Label>
                 <div className="grid grid-cols-3 gap-2">
