@@ -14,6 +14,7 @@ import { format } from "date-fns";
 import { CheckCircle2, ArrowRight, Package, ChevronRight } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ReceivingArchive from "@/components/receiving/ReceivingArchive";
+import DeleteReceivingCardButton from "@/components/receiving/DeleteReceivingCardButton";
 
 export default function Receiving() {
   const urlParams = new URLSearchParams(window.location.search);
@@ -193,10 +194,10 @@ export default function Receiving() {
             const receivedItems = (po.line_items || []).filter(li => (li.received_qty_lbs || 0) >= li.quantity_lbs).length;
             const totalItems = (po.line_items || []).length;
             return (
+              <div key={po.id} className="relative">
               <button
-                key={po.id}
                 onClick={() => setSelectedPOId(isSelected ? null : po.id)}
-                className={`text-left rounded-xl border-2 p-4 transition-all hover:shadow-md focus:outline-none ${
+                className={`w-full h-full text-left rounded-xl border-2 p-4 pb-12 transition-all hover:shadow-md focus:outline-none ${
                   isSelected
                     ? "border-primary bg-primary/5 shadow-md"
                     : `${statusColor(po.status)} hover:border-primary/40`
@@ -233,6 +234,8 @@ export default function Receiving() {
                   </p>
                 )}
               </button>
+              <DeleteReceivingCardButton po={po} onDeleted={() => isSelected && setSelectedPOId(null)} />
+              </div>
             );
           })}
         </div>
