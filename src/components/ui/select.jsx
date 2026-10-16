@@ -49,7 +49,23 @@ const SelectScrollDownButton = React.forwardRef(({ className, ...props }, ref) =
 SelectScrollDownButton.displayName =
   SelectPrimitive.ScrollDownButton.displayName
 
-const SelectContent = React.forwardRef(({ className, children, position = "popper", ...props }, ref) => (
+const TapScrollButton = ({ viewportRef, dir }) => (
+  <button
+    type="button"
+    onPointerDown={(e) => {
+      e.preventDefault();
+      viewportRef.current?.scrollBy({ top: dir * 160, behavior: "smooth" });
+    }}
+    className="flex w-full h-9 shrink-0 items-center justify-center bg-muted/60 active:bg-muted border-y border-border"
+    aria-label={dir < 0 ? "Scroll up" : "Scroll down"}
+  >
+    {dir < 0 ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+  </button>
+)
+
+const SelectContent = React.forwardRef(({ className, children, position = "popper", ...props }, ref) => {
+  const viewportRef = React.useRef(null)
+  return (
   <SelectPrimitive.Portal>
     <SelectPrimitive.Content
       ref={ref}
@@ -61,16 +77,18 @@ const SelectContent = React.forwardRef(({ className, children, position = "poppe
       )}
       position={position}
       {...props}>
-      <SelectScrollUpButton />
+      <TapScrollButton viewportRef={viewportRef} dir={-1} />
       <SelectPrimitive.Viewport
+        ref={viewportRef}
         className={cn("p-1", position === "popper" &&
           "h-[var(--radix-select-trigger-height)] w-full min-w-[var(--radix-select-trigger-width)]")}>
         {children}
       </SelectPrimitive.Viewport>
-      <SelectScrollDownButton />
+      <TapScrollButton viewportRef={viewportRef} dir={1} />
     </SelectPrimitive.Content>
   </SelectPrimitive.Portal>
-))
+  )
+})
 SelectContent.displayName = SelectPrimitive.Content.displayName
 
 const SelectLabel = React.forwardRef(({ className, ...props }, ref) => (
