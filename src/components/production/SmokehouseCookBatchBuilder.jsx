@@ -131,8 +131,9 @@ export default function SmokehouseCookBatchBuilder({ stage, cookBatch, onChange 
         <CardHeader className="py-4 border-b">
           <CardTitle className="text-sm font-bold flex items-center gap-2">
             <Layers className="w-4 h-4 text-chart-1" />
-            Select Racks for the Oven ({selectedIds.length}/{MAX_RACKS_PER_BATCH})
+            Select Racks for the Oven ({selectedIds.length} selected · up to {MAX_RACKS_PER_BATCH})
           </CardTitle>
+          <p className="text-xs text-muted-foreground">You can start a cook batch with just 1 rack.</p>
         </CardHeader>
         <CardContent className="p-4 space-y-2.5">
           {isLoading && (
