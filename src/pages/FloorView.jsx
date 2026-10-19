@@ -7,6 +7,7 @@ import PageHeader from "@/components/shared/PageHeader";
 import StageActionDialog from "@/components/production/StageActionDialog";
 import FloorStageColumn from "@/components/floor/FloorStageColumn";
 import { useEntitySync } from "@/hooks/useEntitySync";
+import { buildPoColors } from "@/lib/poColor";
 
 export default function FloorView() {
   const [activeStage, setActiveStage] = useState(null);
@@ -36,6 +37,7 @@ export default function FloorView() {
     groups[key].items.push(s);
   });
   const columns = Object.entries(groups).sort((a, b) => a[1].step - b[1].step);
+  const poColors = buildPoColors(stages.map(s => s.order_number));
   const totalLbs = stages.reduce((s, st) => s + (st.output_qty_lbs || st.input_qty_lbs || 0), 0);
 
   return (
@@ -55,11 +57,21 @@ export default function FloorView() {
       ) : columns.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground">Nothing is on the floor right now.</div>
       ) : (
-        <div className="flex gap-4 overflow-x-auto pb-4">
-          {columns.map(([key, g]) => (
-            <FloorStageColumn key={key} name={g.name} stages={g.items} onSelect={isAdmin ? setActiveStage : null} />
+        <>
+        <div className="flex flex-wrap gap-3 mb-4 text-xs">
+          {Object.entries(poColors).map(([po, c]) => (
+            <span key={po} className="flex items-center gap-1.5 px-2 py-1 rounded-md border bg-card">
+              <span className={`w-2.5 h-2.5 rounded-full ${c.dot}`} />
+              {po} · {stages.find(s => s.order_number === po)?.product_name}
+            </span>
           ))}
         </div>
+        <div className="flex gap-4 overflow-x-auto pb-4">
+          {columns.map(([key, g]) => (
+            <FloorStageColumn key={key} name={g.name} stages={g.items} poColors={poColors} onSelect={isAdmin ? setActiveStage : null} />
+          ))}
+        </div>
+        </>
       )}
 
       {activeStage && (

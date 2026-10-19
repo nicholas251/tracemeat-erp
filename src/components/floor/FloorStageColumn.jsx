@@ -1,7 +1,7 @@
 import React from "react";
 import FloorStageTile from "./FloorStageTile";
 
-export default function FloorStageColumn({ name, stages, onSelect }) {
+export default function FloorStageColumn({ name, stages, onSelect, poColors }) {
   const lbs = stages.reduce((s, st) => s + (st.output_qty_lbs || st.input_qty_lbs || 0), 0);
   const active = stages.filter(s => s.status === "in_progress").length;
   return (
@@ -14,7 +14,7 @@ export default function FloorStageColumn({ name, stages, onSelect }) {
       </div>
       <div className="space-y-2 max-h-[70vh] overflow-y-auto pr-1">
         {stages.map(st => (
-          <FloorStageTile key={st.id} stage={st} onClick={onSelect ? () => onSelect(st) : null} />
+          <FloorStageTile key={st.id} stage={st} color={poColors?.[st.order_number]} onClick={onSelect ? () => onSelect(st) : null} />
         ))}
       </div>
     </div>
