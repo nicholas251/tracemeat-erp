@@ -78,8 +78,16 @@ export default function OrderStagesPanel({ orderId, allowedCapabilityKeys = null
                 </div>
                 <p className="text-sm font-bold leading-tight">{stage.capability_name}</p>
                 <p className="text-xs text-muted-foreground mt-0.5">Step {stage.step_number}</p>
+                <p className="text-xs mt-1.5 text-muted-foreground">
+                  {stage.started_at
+                    ? `Started ${new Date(stage.started_at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}`
+                    : "Not started"}
+                </p>
+                {stage.input_qty_lbs > 0 && (
+                  <p className="text-xs font-semibold text-foreground">{stage.input_qty_lbs} lbs in</p>
+                )}
                 {stage.output_qty_lbs > 0 && (
-                  <p className="text-xs font-semibold mt-1.5 text-foreground">{stage.output_qty_lbs} lbs out</p>
+                  <p className="text-xs font-semibold text-foreground">{stage.output_qty_lbs} lbs out</p>
                 )}
                 {stage.racks_count > 0 && (
                   <p className="text-xs text-muted-foreground">{stage.racks_count} racks</p>
