@@ -51,7 +51,9 @@ export default function ProduceSpiceMixDialog({ mix, open, onClose, onProduced }
 
   const [partialAck, setPartialAck] = useState(false);
   const [initials, setInitials] = useState("");
-  const isPartial = mix && Number(batchQty) > 0 && Number(batchQty) < Number(mix.quantity_lbs || 0);
+  const anyShort = ingredients.some(ing => ing.confirmed &&
+    (ing.lot_allocations || []).reduce((s, a) => s + (Number(a.actual_lbs) || 0), 0) < ing.required_lbs - 0.001);
+  const isPartial = mix && (anyShort || (Number(batchQty) > 0 && Number(batchQty) < Number(mix.quantity_lbs || 0)));
   const partialOk = !isPartial || (partialAck && initials.trim().length >= 2);
   const allConfirmed = ingredients.length > 0 && ingredients.every(i => i.confirmed) && partialOk;
 
@@ -118,7 +120,7 @@ export default function ProduceSpiceMixDialog({ mix, open, onClose, onProduced }
             {isPartial && (
               <div className="rounded-lg border border-accent bg-accent/10 p-3 space-y-2">
                 <p className="text-sm font-medium">
-                  Partial batch: {batchQty} lbs of the {mix.quantity_lbs} lbs base batch.
+                  Partial batch{anyShort ? ": one or more ingredients are below the required weight." : `: ${batchQty} lbs of the ${mix.quantity_lbs} lbs base batch.`}
                 </p>
                 <label className="flex items-start gap-2 text-sm cursor-pointer">
                   <Checkbox checked={partialAck} onCheckedChange={(v) => setPartialAck(!!v)} className="mt-0.5" />
@@ -140,6 +142,7 @@ export default function ProduceSpiceMixDialog({ mix, open, onClose, onProduced }
                   <IngredientLotPicker
                     ing={ing}
                     disabled={ing.confirmed}
+                    allowShort
                     onChange={(field, value) => updateIng(idx, field, value)}
                     onConfirm={() => confirmIng(idx)}
                   />
