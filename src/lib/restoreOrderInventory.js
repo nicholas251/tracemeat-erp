@@ -16,5 +16,15 @@ export async function restoreOrderInventory(orderId) {
     const available = Math.round(((lot.available_qty || 0) + lbs) * 100) / 100;
     await base44.entities.RawInventory.update(id, { available_qty: available, status: "available" });
   }
+  const mixAdd = {};
+  for (const s of stages) {
+    for (const c of s.consumed_lots || []) {
+      if (c.spice_mix_id && c.lbs) mixAdd[c.spice_mix_id] = (mixAdd[c.spice_mix_id] || 0) + c.lbs;
+    }
+  }
+  for (const [id, lbs] of Object.entries(mixAdd)) {
+    const mix = await base44.entities.SpiceMix.get(id);
+    await base44.entities.SpiceMix.update(id, { available_qty_lbs: Math.round(((mix.available_qty_lbs || 0) + lbs) * 100) / 100 });
+  }
   if (stages.length) await base44.entities.ProductionStage.deleteMany({ order_id: orderId });
 }
