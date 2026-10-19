@@ -125,6 +125,11 @@ export default function StageDashboard({ user, profile, onBack, singleProfile = 
                       })()}
                     </p>
                   )}
+                  <p className="text-xs mt-0.5">
+                    <span className="font-medium">Started:</span>{" "}
+                    {stage.started_at ? new Date(stage.started_at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "Not started"}
+                    {" · "}<span className="font-medium">{stage.output_qty_lbs || stage.input_qty_lbs || 0} lbs</span>
+                  </p>
                   <span className="inline-block mt-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{(stage.capability_name || stage.capability_key || "").replace(/_/g, " ")}</span>
                 </div>
                 {stage.status === "in_progress" && <Badge className="bg-accent/15 text-accent border-accent/30 border text-xs">In Progress</Badge>}
