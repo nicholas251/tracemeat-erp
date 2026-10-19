@@ -9,6 +9,7 @@ import PageHeader from "@/components/shared/PageHeader";
 import StatusBadge from "@/components/shared/StatusBadge";
 import SpiceMixFormDialog from "@/components/spice-mixes/SpiceMixFormDialog";
 import ProduceSpiceMixDialog from "@/components/spice-mixes/ProduceSpiceMixDialog";
+import DeleteSpiceBatchButton from "@/components/spice-mixes/DeleteSpiceBatchButton";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 export default function SpiceMixes() {
@@ -120,7 +121,8 @@ export default function SpiceMixes() {
                           {lots.map(l => (
                             <div key={l.id} className="flex justify-between items-center text-xs bg-muted/40 rounded px-2 py-1">
                               <span className="font-mono text-muted-foreground truncate max-w-[60%]">{l.lot_number}</span>
-                              <span className="font-semibold ml-2">{(l.available_qty || 0).toLocaleString()} lbs</span>
+                              <span className="font-semibold ml-auto">{(l.available_qty || 0).toLocaleString()} lbs</span>
+                              <DeleteSpiceBatchButton lot={l} mix={mix} />
                             </div>
                           ))}
                         </div>
