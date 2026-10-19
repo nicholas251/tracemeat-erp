@@ -1,21 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Lock, CheckCircle2, Clock, AlertCircle, RefreshCw, ChevronRight } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 import PageHeader from "@/components/shared/PageHeader";
 import StageActionDialog from "@/components/production/StageActionDialog";
+import FloorStageColumn from "@/components/floor/FloorStageColumn";
 import { useEntitySync } from "@/hooks/useEntitySync";
-
-const STATUS_CONFIG = {
-  locked:      { label: "Locked",      icon: Lock,         color: "text-muted-foreground", bg: "bg-muted/40" },
-  available:   { label: "Available",   icon: ChevronRight, color: "text-chart-1",           bg: "bg-chart-1/10" },
-  in_progress: { label: "In Progress", icon: Clock,        color: "text-accent",            bg: "bg-accent/10" },
-  completed:   { label: "Completed",   icon: CheckCircle2, color: "text-chart-2",           bg: "bg-chart-2/10" },
-  on_hold:     { label: "On Hold",     icon: AlertCircle,  color: "text-destructive",       bg: "bg-destructive/10" },
-};
 
 export default function FloorView() {
   const [activeStage, setActiveStage] = useState(null);
@@ -25,74 +16,49 @@ export default function FloorView() {
   useEffect(() => {
     base44.auth.me().then(setCurrentUser).catch(() => setCurrentUser(null));
   }, []);
-
   const isAdmin = currentUser?.role === "admin";
 
-  const { data: orders = [] } = useQuery({
-    queryKey: ["activeOrders"],
-    queryFn: () => base44.entities.ProductionOrder.filter({ status: { $in: ["pending", "in_progress"] } }, "-created_date"),
+  // Every live card on the floor, across all orders.
+  const { data: stages = [], isLoading } = useQuery({
+    queryKey: ["floorStages"],
+    queryFn: () => base44.entities.ProductionStage.filter(
+      { status: { $in: ["available", "in_progress", "on_hold"] } }, "step_number", 500
+    ),
   });
-
-  const { data: stages = [] } = useQuery({
-    queryKey: ["productionStages"],
-    queryFn: () => base44.entities.ProductionStage.list("-created_date", 200),
-  });
-
-  // Live oversight: stage changes AND order status changes both refresh the board.
   useEntitySync(["ProductionStage", "ProductionOrder"]);
 
-  const activeOrders = orders.filter(o => o.status === "pending" || o.status === "in_progress");
+  // Group by stage type, ordered by flow step.
+  const groups = {};
+  stages.forEach(s => {
+    const key = s.capability_key || "other";
+    if (!groups[key]) groups[key] = { name: s.capability_name || key, step: s.step_number ?? 99, items: [] };
+    groups[key].step = Math.min(groups[key].step, s.step_number ?? 99);
+    groups[key].items.push(s);
+  });
+  const columns = Object.entries(groups).sort((a, b) => a[1].step - b[1].step);
+  const totalLbs = stages.reduce((s, st) => s + (st.output_qty_lbs || st.input_qty_lbs || 0), 0);
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-6 max-w-full">
       <PageHeader
         title="Floor View"
-        subtitle="Real-time production stage tracking across all active orders"
+        subtitle={`${stages.length} active cards · ${stages.filter(s => s.status === "in_progress").length} running · ${totalLbs.toFixed(0)} lbs on the floor`}
         actions={
-          <Button variant="outline" size="sm" onClick={() => queryClient.invalidateQueries()} className="gap-2">
+          <Button variant="outline" size="sm" onClick={() => queryClient.invalidateQueries({ queryKey: ["floorStages"] })} className="gap-2">
             <RefreshCw className="w-3.5 h-3.5" /> Refresh
           </Button>
         }
       />
 
-      {stages.length === 0 ? (
-        <div className="text-center py-16 text-muted-foreground">No active production stages.</div>
+      {isLoading ? (
+        <div className="text-center py-16 text-muted-foreground">Loading floor…</div>
+      ) : columns.length === 0 ? (
+        <div className="text-center py-16 text-muted-foreground">Nothing is on the floor right now.</div>
       ) : (
-        <div className="space-y-2">
-          {activeOrders.map((order) => {
-            const orderStages = stages.filter(s => s.order_id === order.id).sort((a, b) => a.step_number - b.step_number);
-            if (orderStages.length === 0) return null;
-
-            // Find the first in_progress or available stage
-            const currentStage = orderStages.find(s => s.status === "in_progress" || s.status === "available") || orderStages[0];
-            if (!currentStage) return null;
-
-            const cfg = STATUS_CONFIG[currentStage.status] || STATUS_CONFIG.locked;
-            const Icon = cfg.icon;
-
-            return (
-              <Card
-                key={order.id}
-                onClick={() => isAdmin && setActiveStage(currentStage)}
-                className={isAdmin ? "cursor-pointer hover:shadow-md hover:border-primary/30 transition-all" : ""}
-              >
-                <CardContent className="p-3 flex items-center justify-between gap-4">
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-base">{order.order_number}</p>
-                    <p className="text-sm text-muted-foreground">{order.product_name}</p>
-                    <p className="text-xs text-muted-foreground">{currentStage.capability_name}</p>
-                  </div>
-                  
-                  <div className="flex items-center gap-2">
-                    <div className={`rounded px-2 py-1 ${cfg.bg}`}>
-                      <p className="text-xs font-semibold text-foreground">{cfg.label}</p>
-                    </div>
-                    <Icon className={`w-4 h-4 ${cfg.color}`} />
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
+        <div className="flex gap-4 overflow-x-auto pb-4">
+          {columns.map(([key, g]) => (
+            <FloorStageColumn key={key} name={g.name} stages={g.items} onSelect={isAdmin ? setActiveStage : null} />
+          ))}
         </div>
       )}
 
@@ -102,8 +68,7 @@ export default function FloorView() {
           open={!!activeStage}
           onClose={() => setActiveStage(null)}
           onUpdated={() => {
-            queryClient.invalidateQueries({ queryKey: ["productionStages"] });
-            queryClient.invalidateQueries({ queryKey: ["activeOrders"] });
+            queryClient.invalidateQueries({ queryKey: ["floorStages"] });
             setActiveStage(null);
           }}
         />
