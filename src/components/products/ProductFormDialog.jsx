@@ -12,6 +12,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Plus, Save, BookOpen } from "lucide-react";
 import BlendIngredientRow from "@/components/products/BlendIngredientRow";
 import SpiceMixSearchSelect from "@/components/products/SpiceMixSearchSelect";
+import CasingInventoryFields from "@/components/products/CasingInventoryFields";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/components/ui/use-toast";
 
@@ -463,6 +464,7 @@ export default function ProductFormDialog({ open, onClose, onSave, product, flow
                     <Label>Casing Type</Label>
                     <Input value={form.hotdog_casing || ""} onChange={e => update("hotdog_casing", e.target.value)} placeholder="e.g. Collagen, Natural" />
                   </div>
+                  {!form.no_casings && <CasingInventoryFields form={form} update={update} buckets={buckets} />}
                 </>
               )}
               </div>
