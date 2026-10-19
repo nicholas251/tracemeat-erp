@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 
 export default function ProductSearchSelect({ products = [], value, onChange, placeholder = "Select product..." }) {
   const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
   const selected = products.find(p => p.id === value);
 
   return (
@@ -20,12 +21,15 @@ export default function ProductSearchSelect({ products = [], value, onChange, pl
         </Button>
       </PopoverTrigger>
       <PopoverContent className="p-0 w-[--radix-popover-trigger-width] bg-slate-100 border-slate-300" align="start">
-        <Command>
-          <CommandInput placeholder="Search by name or product number..." />
+        <Command shouldFilter={false}>
+          <CommandInput placeholder="Search by name or product number..." value={search} onValueChange={setSearch} />
           <CommandList>
             <CommandEmpty>No products found.</CommandEmpty>
             <CommandGroup>
-              {products.map(p => (
+              {products.filter(p => {
+                const q = search.trim().toLowerCase();
+                return !q || (p.product_number || "").toLowerCase().includes(q) || (p.name || "").toLowerCase().includes(q);
+              }).map(p => (
                 <CommandItem
                   key={p.id}
                   value={`${p.product_number || ""} ${p.name || ""}`}
