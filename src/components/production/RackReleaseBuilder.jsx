@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, Layers, Plus, Send, Combine } from "lucide-react";
+import { CheckCircle2, Layers, Plus, Send, Combine, Undo2 } from "lucide-react";
 
 const DEFAULT_LBS_PER_RACK = 320;
 
@@ -27,6 +27,7 @@ function buildRacks({ totalLbs, rackCap, openPartialRack, persistedRacks, myLot 
       lbs: parseFloat((r.lbs || 0).toFixed(2)),
       released: true,
       persisted: true,
+      unit_id: r.id,
       lot_contributions: r.lot_contributions?.length
         ? r.lot_contributions
         : [{ lot_number: r.lot_number || "", lbs: parseFloat((r.lbs || 0).toFixed(2)) }],
@@ -121,7 +122,7 @@ function buildRacks({ totalLbs, rackCap, openPartialRack, persistedRacks, myLot 
  *   plan             – current value | null
  *   onChange         – (plan) => void
  */
-export default function RackReleaseBuilder({ totalLbs, capacityLbs, isFinalRacking = true, openPartialRack, defaultLot = "", persistedRacks = [], onReleaseRack, plan, onChange }) {
+export default function RackReleaseBuilder({ totalLbs, capacityLbs, isFinalRacking = true, openPartialRack, defaultLot = "", persistedRacks = [], onReleaseRack, onUnreleaseRack, plan, onChange }) {
   const RACK_CAP = Number(capacityLbs) > 0 ? Number(capacityLbs) : DEFAULT_LBS_PER_RACK;
   const initialLot = plan?.lotNumber || persistedRacks?.[0]?.lot_number || defaultLot || "";
   const [lotNumber, setLotNumber] = useState(initialLot);
@@ -233,8 +234,21 @@ export default function RackReleaseBuilder({ totalLbs, capacityLbs, isFinalRacki
     if (!rack || rack.released || rack.persisted) return;
     setReleasing(rackNumber);
     try {
-      if (onReleaseRack) await onReleaseRack(rack, lotNumber);
-      sync(racks.map(r => r.rackNumber === rackNumber ? { ...r, released: true, persisted: true } : r), lotNumber, carriedOver);
+      const unitId = onReleaseRack ? await onReleaseRack(rack, lotNumber) : undefined;
+      sync(racks.map(r => r.rackNumber === rackNumber ? { ...r, released: true, persisted: true, unit_id: unitId } : r), lotNumber, carriedOver);
+    } finally {
+      setReleasing(null);
+    }
+  };
+
+  const unreleaseRack = async (rackNumber) => {
+    if (releasing !== null) return;
+    const rack = racks.find(r => r.rackNumber === rackNumber);
+    if (!rack || !rack.released) return;
+    setReleasing(rackNumber);
+    try {
+      const ok = onUnreleaseRack ? await onUnreleaseRack(rack) : true;
+      if (ok) sync(racks.map(r => r.rackNumber === rackNumber ? { ...r, released: false, persisted: false, unit_id: undefined } : r), lotNumber, carriedOver);
     } finally {
       setReleasing(null);
     }
@@ -373,9 +387,23 @@ export default function RackReleaseBuilder({ totalLbs, capacityLbs, isFinalRacki
                     </div>
 
                     {rack.released ? (
-                      <Badge className="bg-chart-2/15 text-chart-2 border-chart-2/30 border gap-1 h-8">
-                        <CheckCircle2 className="w-3.5 h-3.5" /> Released
-                      </Badge>
+                      <div className="flex items-center gap-1.5">
+                        <Badge className="bg-chart-2/15 text-chart-2 border-chart-2/30 border gap-1 h-8">
+                          <CheckCircle2 className="w-3.5 h-3.5" /> Released
+                        </Badge>
+                        {onUnreleaseRack && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={releasing !== null}
+                            onClick={() => unreleaseRack(rack.rackNumber)}
+                            className="h-8 text-xs font-semibold gap-1.5"
+                          >
+                            <Undo2 className="w-3.5 h-3.5" />
+                            {releasing === rack.rackNumber ? "Undoing…" : "Unrelease"}
+                          </Button>
+                        )}
+                      </div>
                     ) : rack.carried_away ? (
                       <Button
                         size="sm"

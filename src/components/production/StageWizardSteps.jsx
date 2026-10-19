@@ -134,7 +134,7 @@ export function BatchConfirmStep({ batch, batchIdx, totalBatches, progressPct, o
   );
 }
 
-export function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form, setForm, casingBuckets, cureInventory = [], compatibleHotdogProducts = [], capKey, stage, product, cookBatch, setCookBatch, cookPlan, setCookPlan, openPartialRack = null, rackCapacityLbs = 0, isFinalRacking = true, rackDefaultLot = "", persistedRacks = [], onReleaseRack, onBack, onNext, isLast, autoCalculatedCases = 0 }) {
+export function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form, setForm, casingBuckets, cureInventory = [], compatibleHotdogProducts = [], capKey, stage, product, cookBatch, setCookBatch, cookPlan, setCookPlan, openPartialRack = null, rackCapacityLbs = 0, isFinalRacking = true, rackDefaultLot = "", persistedRacks = [], onReleaseRack, onUnreleaseRack, onBack, onNext, isLast, autoCalculatedCases = 0 }) {
   const [spiceShortNotes, setSpiceShortNotes] = React.useState("");
   const [caseWeights, setCaseWeights] = React.useState(form.case_weights || []);
 
@@ -375,6 +375,7 @@ export function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form,
           defaultLot={rackDefaultLot}
           persistedRacks={persistedRacks}
           onReleaseRack={onReleaseRack}
+          onUnreleaseRack={onUnreleaseRack}
           plan={cookPlan}
           onChange={setCookPlan}
         />

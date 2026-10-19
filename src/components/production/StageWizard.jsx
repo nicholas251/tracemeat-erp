@@ -187,7 +187,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
     // number is the highest existing rack number for this order + 1.
     const existingOrderRacks = await base44.entities.RackUnit.filter({ order_id: stage.order_id }, "-rack_number", 1);
     const nextRackNumber = (existingOrderRacks?.[0]?.rack_number || 0) + 1;
-    await base44.entities.RackUnit.create({
+    const created = await base44.entities.RackUnit.create({
       order_id: stage.order_id,
       order_number: stage.order_number,
       product_id: order?.product_id || "",
@@ -220,6 +220,22 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
     queryClient.invalidateQueries({ queryKey: ["persistedRacks", stage.id] });
     queryClient.invalidateQueries({ queryKey: ["releasedRacks"] });
     queryClient.invalidateQueries({ queryKey: ["allStages"] });
+    return created?.id;
+  };
+
+  // Pull a released rack back from the smokehouse — only while it hasn't been cooked yet.
+  const handleUnreleaseRack = async (rack) => {
+    const unit = rack.unit_id ? await base44.entities.RackUnit.get(rack.unit_id) : null;
+    if (!unit) throw new Error("Rack record not found");
+    if (unit.status !== "released") {
+      alert("This rack is already in the smokehouse and can't be unreleased.");
+      return false;
+    }
+    await base44.entities.RackUnit.delete(unit.id);
+    queryClient.invalidateQueries({ queryKey: ["persistedRacks", stage.id] });
+    queryClient.invalidateQueries({ queryKey: ["releasedRacks"] });
+    queryClient.invalidateQueries({ queryKey: ["allStages"] });
+    return true;
   };
 
   const { data: cureBucket = null } = useQuery({
@@ -1284,6 +1300,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
              rackDefaultLot={stage?.input_lot_number || ""}
              persistedRacks={persistedRacks}
              onReleaseRack={handleReleaseRack}
+             onUnreleaseRack={handleUnreleaseRack}
              onBack={() => setStep(s => s - 1)}
              onNext={() => setStep(s => s + 1)}
              isLast={step === totalMeasureSteps}
