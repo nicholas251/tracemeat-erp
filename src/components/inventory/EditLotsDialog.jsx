@@ -30,11 +30,17 @@ export default function EditLotsDialog({ open, onClose, bucket, lots, onSaveLot,
     setEditingLot(null);
   };
 
+  const [removedIds, setRemovedIds] = useState([]);
+
+  const deleteLot = async (lot) => {
+    if (!window.confirm(`Delete lot ${lot.lot_number || ""}? This cannot be undone.`)) return false;
+    await onDeleteLot(lot.id);
+    setRemovedIds((ids) => [...ids, lot.id]);
+    return true;
+  };
+
   const handleDelete = async () => {
-    if (window.confirm("Delete this lot?")) {
-      await onDeleteLot(editingLot.id);
-      setEditingLot(null);
-    }
+    if (await deleteLot(editingLot)) setEditingLot(null);
   };
 
   if (editingLot) {
@@ -133,11 +139,11 @@ export default function EditLotsDialog({ open, onClose, bucket, lots, onSaveLot,
                 <TableHead>Available Qty</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Expiry</TableHead>
-                <TableHead className="w-12"></TableHead>
+                <TableHead className="w-20"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {lots.map((lot) => (
+              {lots.filter((l) => !removedIds.includes(l.id)).map((lot) => (
                 <TableRow key={lot.id}>
                   <TableCell className="font-mono text-xs">{lot.lot_number || "—"}</TableCell>
                   <TableCell className="text-xs">{lot.description || "—"}</TableCell>
@@ -154,6 +160,15 @@ export default function EditLotsDialog({ open, onClose, bucket, lots, onSaveLot,
                       onClick={() => handleEditClick(lot)}
                     >
                       <Pencil className="w-3.5 h-3.5" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-7 w-7 text-destructive hover:text-destructive"
+                      disabled={loading}
+                      onClick={() => deleteLot(lot)}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
                     </Button>
                   </TableCell>
                 </TableRow>
