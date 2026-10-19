@@ -464,9 +464,9 @@ export default function ProductFormDialog({ open, onClose, onSave, product, flow
                     <Label>Casing Type</Label>
                     <Input value={form.hotdog_casing || ""} onChange={e => update("hotdog_casing", e.target.value)} placeholder="e.g. Collagen, Natural" />
                   </div>
-                  {!form.no_casings && <CasingInventoryFields form={form} update={update} buckets={buckets} />}
                 </>
               )}
+              {!form.no_casings && <CasingInventoryFields form={form} update={update} buckets={buckets} />}
               </div>
               </TabsContent>
         </Tabs>
