@@ -8,7 +8,7 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { spiceMixId, batchQtyLbs, ingredientLots } = await req.json();
+    const { spiceMixId, batchQtyLbs, ingredientLots, partialInitials } = await req.json();
     if (!spiceMixId || !batchQtyLbs) {
       return Response.json({ error: 'spiceMixId and batchQtyLbs are required' }, { status: 400 });
     }
@@ -130,6 +130,7 @@ Deno.serve(async (req) => {
       unit: 'lbs',
       received_date: now.toISOString().slice(0, 10),
       status: 'available',
+      ...(partialInitials ? { notes: `Partial batch (${batchQtyLbs} of ${mix.quantity_lbs} lbs) — confirmed by ${partialInitials}` } : {}),
       // Recall traceability: which raw spice lots went into this produced mix batch.
       component_lots: deductions.map(d => ({
         bucket_name: d.bucket_name || "",

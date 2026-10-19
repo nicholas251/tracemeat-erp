@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { CheckCircle2 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import IngredientLotPicker from "@/components/blending/IngredientLotPicker";
 
 export default function ProduceSpiceMixDialog({ mix, open, onClose, onProduced }) {
@@ -18,6 +19,8 @@ export default function ProduceSpiceMixDialog({ mix, open, onClose, onProduced }
     if (mix) {
       setBatchQty(mix.quantity_lbs || "");
       setResult(null);
+      setPartialAck(false);
+      setInitials("");
       setIngredients(buildIngredients(mix, mix.quantity_lbs || 0));
     }
   }, [mix]);
@@ -46,7 +49,11 @@ export default function ProduceSpiceMixDialog({ mix, open, onClose, onProduced }
 
   const confirmIng = (idx) => updateIng(idx, "confirmed", true);
 
-  const allConfirmed = ingredients.length > 0 && ingredients.every(i => i.confirmed);
+  const [partialAck, setPartialAck] = useState(false);
+  const [initials, setInitials] = useState("");
+  const isPartial = mix && Number(batchQty) > 0 && Number(batchQty) < Number(mix.quantity_lbs || 0);
+  const partialOk = !isPartial || (partialAck && initials.trim().length >= 2);
+  const allConfirmed = ingredients.length > 0 && ingredients.every(i => i.confirmed) && partialOk;
 
   const handleProduce = async () => {
     if (!allConfirmed || !batchQty) return;
@@ -65,6 +72,7 @@ export default function ProduceSpiceMixDialog({ mix, open, onClose, onProduced }
       spiceMixId: mix.id,
       batchQtyLbs: Number(batchQty),
       ingredientLots,
+      partialInitials: isPartial ? initials.trim().toUpperCase() : undefined,
     });
     setResult(res.data);
     setProducing(false);
@@ -106,6 +114,22 @@ export default function ProduceSpiceMixDialog({ mix, open, onClose, onProduced }
                 placeholder={`Base batch: ${mix?.quantity_lbs} lbs`}
               />
             </div>
+
+            {isPartial && (
+              <div className="rounded-lg border border-accent bg-accent/10 p-3 space-y-2">
+                <p className="text-sm font-medium">
+                  Partial batch: {batchQty} lbs of the {mix.quantity_lbs} lbs base batch.
+                </p>
+                <label className="flex items-start gap-2 text-sm cursor-pointer">
+                  <Checkbox checked={partialAck} onCheckedChange={(v) => setPartialAck(!!v)} className="mt-0.5" />
+                  I understand I am making a partial batch and ingredient amounts have been scaled down.
+                </label>
+                <div className="space-y-1">
+                  <Label className="text-xs">Your initials</Label>
+                  <Input value={initials} onChange={e => setInitials(e.target.value)} maxLength={4} className="w-24 uppercase" placeholder="e.g. JD" />
+                </div>
+              </div>
+            )}
 
             <div className="space-y-3">
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
