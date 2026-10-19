@@ -430,6 +430,16 @@ export function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form,
         </div>
       )}
 
+      {isCookStage && !canProceed && (
+        <div className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-2.5">
+          To continue: {[
+            cookNeedsBatch && "select at least 1 rack",
+            !cookTempEntered && "enter the Cook End Temperature (°F)",
+            cookTempTooLow && "end temperature must be at least 165°F",
+          ].filter(Boolean).join(" · ")}
+        </div>
+      )}
+
       <NavButtons
         onBack={onBack}
         onNext={onNext}
