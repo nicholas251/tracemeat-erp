@@ -13,6 +13,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { isUserAdminOrSupervisor } from "@/lib/accessControl";
 import { useEntitySync } from "@/hooks/useEntitySync";
+import { restoreOrderInventory } from "@/lib/restoreOrderInventory";
 
 export default function ProductionOrders() {
   const [showForm, setShowForm] = useState(false);
@@ -184,7 +185,10 @@ export default function ProductionOrders() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id) => base44.entities.ProductionOrder.delete(id),
+    mutationFn: async (id) => {
+      await restoreOrderInventory(id);
+      await base44.entities.ProductionOrder.delete(id);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["productionOrders"] });
       setDeletingOrderId(null);
