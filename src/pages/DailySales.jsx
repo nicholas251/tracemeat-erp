@@ -34,15 +34,17 @@ export default function DailySales() {
         }
       }
       
-      if (records.length > 0) {
-        await Promise.all(records.map(r => 
-          base44.functions.invoke("recordDailySales", {
-            product_id: r.product_id,
-            quantity_lbs: r.quantity_lbs,
-            sales_date: r.sales_date
-          })
-        ));
+      // One at a time so sales for the same product don't overwrite each other
+      const errors = [];
+      for (const r of records) {
+        if (!(r.quantity_lbs > 0)) continue;
+        try {
+          await base44.functions.invoke("recordDailySales", r);
+        } catch (e) {
+          errors.push(`${r.sales_date}: ${e.response?.data?.error || e.message}`);
+        }
       }
+      if (errors.length) alert(`Some sales were not recorded:\n\n${errors.join("\n")}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["fg_buckets"] });
@@ -61,7 +63,7 @@ export default function DailySales() {
         products={products}
         fgBuckets={fgBuckets}
         onReconcileWeek={({ weekStart, data }) => 
-          reconcileWeekMutation.mutate({ weekStart, data })
+          reconcileWeekMutation.mutateAsync({ weekStart, data })
         }
       />
 
