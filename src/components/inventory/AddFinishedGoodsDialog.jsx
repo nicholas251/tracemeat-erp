@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import ProductSearchSelect from "@/components/production-orders/ProductSearchSelect";
 
 const today = new Date().toISOString().slice(0, 10);
 
@@ -56,10 +56,7 @@ export default function AddFinishedGoodsDialog({ open, onClose }) {
         <DialogHeader><DialogTitle>Add Finished Goods Lot</DialogTitle></DialogHeader>
         <div className="space-y-3">
           <div><Label>Product</Label>
-            <Select value={f.product_id} onValueChange={(v) => setF({ ...f, product_id: v })}>
-              <SelectTrigger><SelectValue placeholder="Select product" /></SelectTrigger>
-              <SelectContent>{products.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
-            </Select>
+            <ProductSearchSelect products={products} value={f.product_id} onChange={(v) => setF({ ...f, product_id: v })} />
           </div>
           <div><Label>Lot Number</Label><Input value={f.lot_number} onChange={set("lot_number")} /></div>
           <div className="grid grid-cols-2 gap-3">
