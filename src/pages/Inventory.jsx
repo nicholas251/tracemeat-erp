@@ -8,7 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Boxes, TrendingDown, Package, Search } from "lucide-react";
+import { Boxes, TrendingDown, Package, Search, Plus } from "lucide-react";
+import AddFinishedGoodsDialog from "@/components/inventory/AddFinishedGoodsDialog";
 import { format } from "date-fns";
 import PageHeader from "@/components/shared/PageHeader";
 import StatusBadge from "@/components/shared/StatusBadge";
@@ -21,6 +22,8 @@ export default function Inventory() {
   const [search, setSearch] = useState("");
   const [adjustItem, setAdjustItem] = useState(null);
   const queryClient = useQueryClient();
+  const [showAdd, setShowAdd] = useState(false);
+  const { data: me } = useQuery({ queryKey: ["currentUser"], queryFn: () => base44.auth.me() });
 
   // Refetch raw materials when page mounts to sync with updates from other pages
   useEffect(() => {
@@ -127,7 +130,11 @@ export default function Inventory() {
       <PageHeader
         title="Inventory"
         subtitle="View raw materials and finished goods inventory"
+        actions={me?.role === "admin" && (
+          <Button onClick={() => setShowAdd(true)}><Plus className="w-4 h-4 mr-1" /> Add Finished Goods</Button>
+        )}
       />
+      {showAdd && <AddFinishedGoodsDialog open onClose={() => setShowAdd(false)} />}
 
       <Tabs defaultValue="finished">
         <TabsList className="mb-6">
