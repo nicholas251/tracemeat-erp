@@ -8,6 +8,12 @@ import { Label } from "@/components/ui/label";
 import ProductSearchSelect from "@/components/production-orders/ProductSearchSelect";
 
 const today = new Date().toISOString().slice(0, 10);
+const UNITS = {
+  cases: { label: "Cases", count: "Cases" },
+  weight: { label: "Weight", count: "" },
+  gaylords: { label: "Gaylords", count: "Gaylords" },
+  bins: { label: "Bulk Bins", count: "Bulk Bins" },
+};
 
 export default function AddFinishedGoodsDialog({ open, onClose }) {
   const qc = useQueryClient();
@@ -17,16 +23,19 @@ export default function AddFinishedGoodsDialog({ open, onClose }) {
 
   const { data: products = [] } = useQuery({
     queryKey: ["products-active-fg"],
-    queryFn: async () => (await base44.entities.Product.filter({ status: "active" }, { sort: "name", limit: 1000, fields: ["name", "sku", "product_number", "category", "case_weight_lbs", "shelf_life_days"] })).items,
+    queryFn: async () => (await base44.entities.Product.filter({ status: "active" }, { sort: "name", limit: 1000, fields: ["name", "sku", "product_number", "category", "case_weight_lbs", "shelf_life_days", "finished_product_unit"] })).items,
   });
   const product = products.find((p) => p.id === f.product_id);
-  const lbs = Number(f.lbs) || (Number(f.cases) || 0) * (product?.case_weight_lbs || 0);
+  const unit = f.unit || (product?.finished_product_unit === "gaylords" ? "gaylords" : product?.finished_product_unit === "lbs" ? "weight" : "cases");
+  const lbs = Number(f.lbs) || (unit === "cases" ? (Number(f.cases) || 0) * (product?.case_weight_lbs || 0) : 0);
   const valid = product && f.lot_number.trim() && lbs > 0 && f.initials.trim().length >= 2;
 
   const save = async () => {
     setSaving(true);
-    const cases = Number(f.cases) || 0;
-    const note = `Manual entry by ${f.initials.trim().toUpperCase()} on ${new Date().toLocaleString()}`;
+    const count = unit === "weight" ? 0 : Number(f.cases) || 0;
+    const cases = unit === "cases" ? count : 0;
+    const packed = unit === "weight" ? `${lbs} lbs (by weight)` : `${count} ${UNITS[unit].count.toLowerCase()}, ${lbs} lbs`;
+    const note = `Manual entry by ${f.initials.trim().toUpperCase()} on ${new Date().toLocaleString()} — ${packed}`;
     await base44.entities.InventoryItem.create({
       product_id: product.id, product_name: product.name, sku: product.sku,
       batch_id: "manual", batch_number: f.lot_number.trim(), lot_number: f.lot_number.trim(),
@@ -59,9 +68,16 @@ export default function AddFinishedGoodsDialog({ open, onClose }) {
             <ProductSearchSelect products={products} value={f.product_id} onChange={(v) => setF({ ...f, product_id: v })} />
           </div>
           <div><Label>Lot Number</Label><Input value={f.lot_number} onChange={set("lot_number")} /></div>
+          <div><Label>Packed As</Label>
+            <div className="grid grid-cols-4 gap-1 mt-1">
+              {Object.entries(UNITS).map(([k, u]) => (
+                <Button key={k} type="button" size="sm" variant={unit === k ? "default" : "outline"} onClick={() => setF({ ...f, unit: k })}>{u.label}</Button>
+              ))}
+            </div>
+          </div>
           <div className="grid grid-cols-2 gap-3 [&>div]:min-w-0 [&_input]:w-full [&_input]:min-w-0">
-            <div><Label>Cases</Label><Input type="number" value={f.cases} onChange={set("cases")} /></div>
-            <div><Label>Lbs {product?.case_weight_lbs && !f.lbs ? `(auto: ${lbs})` : ""}</Label><Input type="number" value={f.lbs} onChange={set("lbs")} /></div>
+            {unit !== "weight" && <div><Label>{UNITS[unit].count}</Label><Input type="number" value={f.cases} onChange={set("cases")} /></div>}
+            <div><Label>Total Lbs {unit === "cases" && product?.case_weight_lbs && !f.lbs ? `(auto: ${lbs})` : "*"}</Label><Input type="number" value={f.lbs} onChange={set("lbs")} /></div>
             <div><Label>Production Date</Label><Input type="date" value={f.production_date} onChange={set("production_date")} /></div>
             <div><Label>Expiry Date</Label><Input type="date" value={f.expiry_date} onChange={set("expiry_date")} /></div>
           </div>
