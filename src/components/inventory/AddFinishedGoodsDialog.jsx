@@ -32,6 +32,8 @@ export default function AddFinishedGoodsDialog({ open, onClose }) {
 
   const save = async () => {
     setSaving(true);
+    const me = await base44.auth.me();
+    if (me?.role !== "admin") { setSaving(false); alert("Only admins can add finished goods lots."); return; }
     const count = unit === "weight" ? 0 : Number(f.cases) || 0;
     const cases = unit === "cases" ? count : 0;
     const packed = unit === "weight" ? `${lbs} lbs (by weight)` : `${count} ${UNITS[unit].count.toLowerCase()}, ${lbs} lbs`;
