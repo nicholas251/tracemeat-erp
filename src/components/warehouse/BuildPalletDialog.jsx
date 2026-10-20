@@ -38,7 +38,7 @@ export default function BuildPalletDialog({ open, onClose, lots, spots, onDone }
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="w-[calc(100vw-2rem)] max-w-md max-h-[90vh] overflow-y-auto overflow-x-hidden [&>*]:min-w-0">
         <DialogHeader><DialogTitle>Build Pallet</DialogTitle></DialogHeader>
         <div className="space-y-2">
           {lots.map(l => (

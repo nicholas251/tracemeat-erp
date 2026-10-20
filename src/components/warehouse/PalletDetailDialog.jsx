@@ -27,7 +27,7 @@ export default function PalletDetailDialog({ pallet, spots, onClose, onDone }) {
 
   return (
     <Dialog open={!!pallet} onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="w-[calc(100vw-2rem)] max-w-md max-h-[90vh] overflow-y-auto overflow-x-hidden [&>*]:min-w-0">
         <DialogHeader><DialogTitle>{pallet.building_name} · {pallet.location} — {pallet.pallet_number}</DialogTitle></DialogHeader>
         <div className="space-y-2">
           {(pallet.lots || []).map((l, i) => (
