@@ -41,6 +41,11 @@ export default function PalletDetailDialog({ pallet, spots, onClose, onDone }) {
           <div className="flex-1"><SpotSelect spots={spots} value={moveTo} onChange={setMoveTo} placeholder="Move to…" /></div>
           <Button disabled={!moveTo || saving} onClick={move}>Move</Button>
         </div>
+        <Button variant="outline" disabled={saving}
+          onClick={() => confirm(`Send pallet ${pallet.pallet_number} back to Put-Away? Its cases return to the unplaced pool.`) &&
+            run({ status: "removed", removed_at: new Date().toISOString(), notes: "Returned to put-away" })}>
+          Return to Put-Away
+        </Button>
         <Button variant="destructive" disabled={saving}
           onClick={() => confirm(`Remove pallet from ${pallet.location}? Its lots go back to the put-away queue unless shipped.`) &&
             run({ status: "removed", removed_at: new Date().toISOString() })}>
