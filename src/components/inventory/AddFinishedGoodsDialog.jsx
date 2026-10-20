@@ -52,14 +52,14 @@ export default function AddFinishedGoodsDialog({ open, onClose }) {
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto overflow-x-hidden">
         <DialogHeader><DialogTitle>Add Finished Goods Lot</DialogTitle></DialogHeader>
         <div className="space-y-3">
           <div><Label>Product</Label>
             <ProductSearchSelect products={products} value={f.product_id} onChange={(v) => setF({ ...f, product_id: v })} />
           </div>
           <div><Label>Lot Number</Label><Input value={f.lot_number} onChange={set("lot_number")} /></div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3 [&>div]:min-w-0 [&_input]:w-full [&_input]:min-w-0">
             <div><Label>Cases</Label><Input type="number" value={f.cases} onChange={set("cases")} /></div>
             <div><Label>Lbs {product?.case_weight_lbs && !f.lbs ? `(auto: ${lbs})` : ""}</Label><Input type="number" value={f.lbs} onChange={set("lbs")} /></div>
             <div><Label>Production Date</Label><Input type="date" value={f.production_date} onChange={set("production_date")} /></div>
