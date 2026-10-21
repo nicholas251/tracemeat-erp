@@ -6,6 +6,7 @@ import { Lock, CheckCircle2, Clock, ChevronRight, AlertCircle } from "lucide-rea
 import StageWizard from "./StageWizard";
 import SousVidePackWizard from "./SousVidePackWizard";
 import TumbleWizard from "./TumbleWizard";
+import MakeFullBatchButton from "./MakeFullBatchButton";
 
 const STATUS_CONFIG = {
   locked:      { icon: Lock,         color: "text-muted-foreground",  bg: "bg-muted/30 border-dashed" },
@@ -67,6 +68,7 @@ export default function OrderStagesPanel({ orderId, allowedCapabilityKeys = null
           const clickable = stage.status !== "locked";
           return (
             <React.Fragment key={stage.id}>
+              <div className="flex flex-col">
               <button
                 disabled={!clickable}
                 onClick={() => clickable && setActiveStage(stage)}
@@ -93,6 +95,8 @@ export default function OrderStagesPanel({ orderId, allowedCapabilityKeys = null
                   <p className="text-xs text-muted-foreground">{stage.racks_count} racks</p>
                 )}
               </button>
+              <MakeFullBatchButton stage={stage} productName={stage.product_name} orderId={orderId} />
+              </div>
               {(idx < openStages.length - 1 || upcomingSteps.length > 0) && (
                 <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0 mt-5" />
               )}
