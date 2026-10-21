@@ -1,0 +1,49 @@
+{
+  "name": "AuditLog",
+  "type": "object",
+  "properties": {
+    "action": {
+      "type": "string",
+      "enum": [
+        "deleted",
+        "corrected",
+        "manual_entry"
+      ]
+    },
+    "area": {
+      "type": "string",
+      "description": "e.g. Finished Goods"
+    },
+    "product_name": {
+      "type": "string"
+    },
+    "lot_number": {
+      "type": "string"
+    },
+    "quantity_lbs": {
+      "type": "number"
+    },
+    "cases": {
+      "type": "number"
+    },
+    "details": {
+      "type": "string",
+      "description": "What changed"
+    },
+    "reason": {
+      "type": "string"
+    },
+    "initials": {
+      "type": "string"
+    },
+    "user_name": {
+      "type": "string"
+    },
+    "user_email": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "action"
+  ]
+}

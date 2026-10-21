@@ -1,8 +1,8 @@
 import { base44 } from "@/api/base44Client";
+import { logAudit } from "@/lib/auditLog";
 
 // Removes a finished-goods lot everywhere (bucket + inventory items) and logs who did it.
 export async function deleteFgLot({ productId, productName, lotNumber, initials, reason }) {
-  const me = await base44.auth.me();
   const [bucket] = await base44.entities.FinishedGoodsBucket.filter({ product_id: productId });
   const items = await base44.entities.InventoryItem.filter({ product_id: productId, lot_number: lotNumber });
 
@@ -23,16 +23,14 @@ export async function deleteFgLot({ productId, productName, lotNumber, initials,
   }
   await Promise.all(items.map(i => base44.entities.InventoryItem.delete(i.id)));
 
-  await base44.entities.FGLotDeletion.create({
-    product_id: productId,
+  await logAudit({
+    action: "deleted",
     product_name: productName,
     lot_number: lotNumber,
     quantity_lbs: lbs,
     cases,
-    initials: initials.trim().toUpperCase(),
+    initials,
     reason: reason || "",
-    deleted_by_email: me?.email,
-    deleted_by_name: me?.full_name,
-    deleted_at: new Date().toISOString(),
+    details: `Lot removed from inventory (${lbs} lbs, ${cases} cases)`,
   });
 }

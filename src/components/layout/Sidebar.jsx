@@ -27,6 +27,7 @@ import {
   Zap,
   BookOpen,
   LayoutGrid,
+  History,
   X
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -56,6 +57,7 @@ const allNavItems = [
   { path: "/sales-orders", label: "Sales Orders", icon: ClipboardList, roles: ["admin", "supervisor", "warehouse_operator"] },
   { path: "/daily-sales", label: "Daily Sales", icon: TrendingUp, roles: ["admin", "supervisor", "warehouse_operator"] },
   { path: "/forecast", label: "Forecast", icon: Zap, roles: ["admin", "supervisor", "warehouse_operator"] },
+  { path: "/audit-log", label: "Audit Log", icon: History, roles: ["admin", "supervisor"] },
   { path: "/user-guide", label: "User Guide", icon: BookOpen, roles: ["all"] },
 ];
 

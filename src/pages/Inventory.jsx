@@ -17,6 +17,7 @@ import InventoryAdjustDialog from "@/components/inventory/InventoryAdjustDialog"
 import ParLevelsView from "@/components/inventory/ParLevelsView";
 import FGBucketsView from "@/components/inventory/FGBucketsView";
 import { deleteFgLot } from "@/lib/deleteFgLot";
+import { logAudit } from "@/lib/auditLog";
 
 export default function Inventory() {
   const [statusFilter, setStatusFilter] = useState("all");
@@ -52,7 +53,12 @@ export default function Inventory() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.InventoryItem.update(id, data),
+    mutationFn: async ({ id, data }) => {
+      const before = items.find(i => i.id === id) || {};
+      await base44.entities.InventoryItem.update(id, data);
+      const changes = ["status", "location", "notes"].filter(k => (before[k] || "") !== (data[k] || "")).map(k => `${k}: "${before[k] || ""}" → "${data[k] || ""}"`);
+      await logAudit({ action: "corrected", product_name: before.product_name, lot_number: before.lot_number || before.batch_number, quantity_lbs: before.quantity_lbs, details: changes.join("; ") || "Saved with no changes", reason: data.notes });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["inventory"] });
       setAdjustItem(null);

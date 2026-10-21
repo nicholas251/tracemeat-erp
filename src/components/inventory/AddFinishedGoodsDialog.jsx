@@ -1,3 +1,4 @@
+import { logAudit } from "@/lib/auditLog";
 import React, { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -56,6 +57,7 @@ export default function AddFinishedGoodsDialog({ open, onClose }) {
         case_weight_lbs: product.case_weight_lbs, quantity_lbs: lbs, cases_on_hand: cases, lots: [lot], status: "active",
       });
     }
+    await logAudit({ action: "manual_entry", product_name: product.name, lot_number: f.lot_number.trim(), quantity_lbs: lbs, cases, initials: f.initials, details: `Manual add: ${packed}` });
     qc.invalidateQueries();
     setSaving(false);
     onClose();

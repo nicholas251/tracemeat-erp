@@ -32,6 +32,7 @@ import DailySales from './pages/DailySales';
 import Forecast from './pages/Forecast';
 import CasesReport from './pages/CasesReport';
 import UserGuide from './pages/UserGuide';
+import AuditLog from './pages/AuditLog';
 import Warehouse from './pages/Warehouse';
 
 const AuthenticatedApp = () => {
@@ -85,6 +86,7 @@ const AuthenticatedApp = () => {
         <Route path="/forecast" element={<Forecast />} />
         <Route path="/cases-report" element={<CasesReport />} />
         <Route path="/user-guide" element={<UserGuide />} />
+        <Route path="/audit-log" element={<AuditLog />} />
         <Route path="/warehouse" element={<Warehouse />} />
       </Route>
       <Route path="/signup" element={<ProfileCreation />} />
