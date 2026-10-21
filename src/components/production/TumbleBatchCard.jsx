@@ -53,9 +53,15 @@ export default function TumbleBatchCard({
     queryFn: () => base44.entities.InventoryBucket.filter({ category: "protein", status: "active" }),
   });
   // Only show buckets matching the product's protein (chicken → chicken, beef → beef).
-  const species = { poultry: "chicken", beef: "beef" }[productCategory];
+  // Each protein category is isolated; only "mixed" products see every bucket.
+  const species = {
+    poultry: ["chicken", "poultry", "turkey"],
+    beef: ["beef"],
+    pork: ["pork"],
+    lamb: ["lamb"],
+  }[productCategory];
   const proteinBuckets = useMemo(
-    () => species ? allProteinBuckets.filter((b) => { const n = (b.name || "").toLowerCase(); return n.includes(species) || n.includes("mix"); }) : allProteinBuckets,
+    () => species ? allProteinBuckets.filter((b) => { const n = (b.name || "").toLowerCase(); return species.some((s) => n.includes(s)); }) : allProteinBuckets,
     [allProteinBuckets, species]
   );
 
