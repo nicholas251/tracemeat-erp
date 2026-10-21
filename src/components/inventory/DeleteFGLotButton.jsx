@@ -7,26 +7,21 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import DeleteLotFields from "./DeleteLotFields";
+import { deleteFgLot } from "@/lib/deleteFgLot";
 
 export default function DeleteFGLotButton({ bucket, lot }) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [initials, setInitials] = useState("");
+  const [reason, setReason] = useState("");
   const queryClient = useQueryClient();
   const { data: me } = useQuery({ queryKey: ["me"], queryFn: () => base44.auth.me() });
   if (me?.role !== "admin") return null;
 
   const handleDelete = async () => {
     setBusy(true);
-    const lots = (bucket.lots || []).filter(l => l !== lot && l.lot_number !== lot.lot_number);
-    const qty = Math.max(0, (bucket.quantity_lbs || 0) - (lot.quantity_lbs || 0));
-    const caseWeight = bucket.case_weight_lbs || 0;
-    await base44.entities.FinishedGoodsBucket.update(bucket.id, {
-      lots,
-      quantity_lbs: qty,
-      cases_on_hand: caseWeight ? Math.floor(qty / caseWeight) : Math.max(0, (bucket.cases_on_hand || 0) - (lot.cases || 0)),
-    });
-    const items = await base44.entities.InventoryItem.filter({ product_id: bucket.product_id, lot_number: lot.lot_number });
-    await Promise.all(items.map(i => base44.entities.InventoryItem.delete(i.id)));
+    await deleteFgLot({ productId: bucket.product_id, productName: bucket.product_name, lotNumber: lot.lot_number, initials, reason });
     queryClient.invalidateQueries({ queryKey: ["fg_buckets"] });
     queryClient.invalidateQueries({ queryKey: ["inventory"] });
     setBusy(false);
@@ -35,7 +30,7 @@ export default function DeleteFGLotButton({ bucket, lot }) {
 
   return (
     <>
-      <Button size="icon" variant="ghost" className="w-7 h-7 text-destructive" onClick={() => setOpen(true)}>
+      <Button size="icon" variant="ghost" className="w-7 h-7 text-destructive" onClick={() => { setInitials(""); setReason(""); setOpen(true); }}>
         <Trash2 className="w-3.5 h-3.5" />
       </Button>
       <AlertDialog open={open} onOpenChange={setOpen}>
@@ -43,12 +38,13 @@ export default function DeleteFGLotButton({ bucket, lot }) {
           <AlertDialogHeader>
             <AlertDialogTitle>Remove lot {lot.lot_number}?</AlertDialogTitle>
             <AlertDialogDescription>
-              This removes {(lot.quantity_lbs || 0).toLocaleString()} lbs ({lot.cases || 0} cases) of {bucket.product_name} from finished goods inventory.
+              This removes {(lot.quantity_lbs || 0).toLocaleString()} lbs ({lot.cases || 0} cases) of {bucket.product_name} from inventory. The deletion will be logged.
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <DeleteLotFields initials={initials} setInitials={setInitials} reason={reason} setReason={setReason} />
           <AlertDialogFooter>
             <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
-            <AlertDialogAction disabled={busy} onClick={(e) => { e.preventDefault(); handleDelete(); }} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+            <AlertDialogAction disabled={busy || !initials.trim()} onClick={(e) => { e.preventDefault(); handleDelete(); }} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               {busy ? "Removing..." : "Remove Lot"}
             </AlertDialogAction>
           </AlertDialogFooter>

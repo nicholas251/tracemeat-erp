@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Trash2 } from "lucide-react";
+import DeleteLotFields from "./DeleteLotFields";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
@@ -23,6 +24,8 @@ export default function InventoryAdjustDialog({ open, item, onClose, onSave, onD
     notes: item.notes || "",
   });
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [initials, setInitials] = useState("");
+  const [reason, setReason] = useState("");
 
   const handleSave = () => {
     onSave(item.id, {
@@ -107,12 +110,13 @@ export default function InventoryAdjustDialog({ open, item, onClose, onSave, onD
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Inventory Item?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently remove <strong>{item.product_name || item.lot_number}</strong> from inventory. This action cannot be undone.
+              This will permanently remove lot <strong>{item.lot_number || item.batch_number}</strong> of {item.product_name} from inventory. The deletion will be logged.
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <DeleteLotFields initials={initials} setInitials={setInitials} reason={reason} setReason={setReason} />
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => setConfirmDelete(false)}>Cancel</AlertDialogCancel>
-            <AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={() => { setConfirmDelete(false); onDelete(item.id); }}>
+            <AlertDialogAction disabled={!initials.trim()} className="bg-destructive hover:bg-destructive/90" onClick={() => { setConfirmDelete(false); onDelete(item, { initials, reason }); }}>
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>

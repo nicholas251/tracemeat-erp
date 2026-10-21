@@ -1,0 +1,44 @@
+{
+  "name": "FGLotDeletion",
+  "type": "object",
+  "properties": {
+    "product_id": {
+      "type": "string"
+    },
+    "product_name": {
+      "type": "string"
+    },
+    "lot_number": {
+      "type": "string"
+    },
+    "quantity_lbs": {
+      "type": "number",
+      "description": "Lbs removed from inventory"
+    },
+    "cases": {
+      "type": "number",
+      "description": "Cases removed"
+    },
+    "initials": {
+      "type": "string",
+      "description": "Initials of the person who deleted"
+    },
+    "reason": {
+      "type": "string"
+    },
+    "deleted_by_email": {
+      "type": "string"
+    },
+    "deleted_by_name": {
+      "type": "string"
+    },
+    "deleted_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "lot_number",
+    "initials"
+  ]
+}
