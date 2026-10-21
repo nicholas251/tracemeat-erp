@@ -55,7 +55,7 @@ export default function TumbleBatchCard({
   // Only show buckets matching the product's protein (chicken → chicken, beef → beef).
   const species = { poultry: "chicken", beef: "beef" }[productCategory];
   const proteinBuckets = useMemo(
-    () => species ? allProteinBuckets.filter((b) => (b.name || "").toLowerCase().includes(species)) : allProteinBuckets,
+    () => species ? allProteinBuckets.filter((b) => { const n = (b.name || "").toLowerCase(); return n.includes(species) || n.includes("mix"); }) : allProteinBuckets,
     [allProteinBuckets, species]
   );
 
