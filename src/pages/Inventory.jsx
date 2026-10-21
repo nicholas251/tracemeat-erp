@@ -59,9 +59,29 @@ export default function Inventory() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id) => base44.entities.InventoryItem.delete(id),
+    mutationFn: async (id) => {
+      const item = items.find(i => i.id === id);
+      await base44.entities.InventoryItem.delete(id);
+      // Also take this lot's weight out of the product's FG bucket
+      const lotNo = item?.lot_number || item?.batch_number;
+      const [bucket] = item ? await base44.entities.FinishedGoodsBucket.filter({ product_id: item.product_id }) : [];
+      if (!bucket) return;
+      const removeLbs = item.quantity_lbs || 0;
+      const lots = (bucket.lots || []).flatMap(l => {
+        if (l.lot_number !== lotNo) return [l];
+        const left = (l.quantity_lbs || 0) - removeLbs;
+        return left > 0 ? [{ ...l, quantity_lbs: left, cases: bucket.case_weight_lbs ? Math.floor(left / bucket.case_weight_lbs) : l.cases }] : [];
+      });
+      const qty = Math.max(0, (bucket.quantity_lbs || 0) - removeLbs);
+      await base44.entities.FinishedGoodsBucket.update(bucket.id, {
+        lots,
+        quantity_lbs: qty,
+        cases_on_hand: bucket.case_weight_lbs ? Math.floor(qty / bucket.case_weight_lbs) : bucket.cases_on_hand,
+      });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["inventory"] });
+      queryClient.invalidateQueries({ queryKey: ["fg_buckets"] });
       setAdjustItem(null);
     },
   });
