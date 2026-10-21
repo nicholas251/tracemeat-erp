@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Search, TrendingDown, ChevronDown, ChevronRight, Boxes } from "lucide-react";
 import FGBucketAdjustDialog from "./FGBucketAdjustDialog";
+import DeleteFGLotButton from "./DeleteFGLotButton";
 
 export default function FGBucketsView() {
   const [search, setSearch] = useState("");
@@ -150,7 +151,7 @@ export default function FGBucketsView() {
                             {lot.production_date ? lot.production_date.slice(0, 10) : "—"}
                             {lot.expiry_date && <span className="ml-1">→ {lot.expiry_date.slice(0, 10)}</span>}
                           </TableCell>
-                          <TableCell />
+                          <TableCell><DeleteFGLotButton bucket={bucket} lot={lot} /></TableCell>
                         </TableRow>
                       ))}
                     </React.Fragment>
