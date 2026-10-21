@@ -362,6 +362,7 @@ export default function TumbleWizard({ stage, open, onClose, onCompleted }) {
                   batch={b}
                   proteinBucket={proteinBucket}
                   spiceMixId={product?.chop_spice_mix_id}
+                  productCategory={product?.category}
                   released={!!releasedBatches[b.batch_number]}
                   releaseDetails={releasedBatches[b.batch_number] || null}
                   releasing={releasingBatch === b.batch_number}

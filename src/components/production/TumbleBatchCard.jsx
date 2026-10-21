@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
@@ -29,6 +29,7 @@ export default function TumbleBatchCard({
   batch,
   proteinBucket,
   spiceMixId,
+  productCategory,
   released,
   releaseDetails,
   releasing,
@@ -47,10 +48,17 @@ export default function TumbleBatchCard({
   const [spice, setSpice] = useState({});
 
   // Available protein buckets to choose from.
-  const { data: proteinBuckets = [] } = useQuery({
+  const { data: allProteinBuckets = [] } = useQuery({
     queryKey: ["proteinBuckets"],
     queryFn: () => base44.entities.InventoryBucket.filter({ category: "protein", status: "active" }),
   });
+  // Only show buckets matching the product's protein (chicken → chicken, beef → beef).
+  const species = { poultry: "chicken", beef: "beef" }[productCategory];
+  const proteinBuckets = useMemo(
+    () => species ? allProteinBuckets.filter((b) => (b.name || "").toLowerCase().includes(species)) : allProteinBuckets,
+    [allProteinBuckets, species]
+  );
+
 
   // Auto-select the protein bucket if the product didn't pre-set one and there's
   // exactly one active protein bucket — so deduction never silently gets skipped.
