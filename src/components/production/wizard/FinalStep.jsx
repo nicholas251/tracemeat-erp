@@ -37,7 +37,7 @@ export default function FinalStep({ stage, capKey, stageLabel, resolvedBatches, 
   const canComplete = isLinking ? !!cookBatch
     : isRacking ? (releasedRacks.length > 0 || persistedReleasedCount > 0 || !!cookPlan?.carriedPartial)
     : isCooking ? !!cookBatch
-    : isPackagingStage ? (packHasOutput && (!isPackaging || form.case_weights?.length > 0))
+    : isPackagingStage ? (packHasOutput && (!isPackaging || (form.case_weights || []).length >= (parseInt(form.packages_produced) || 0)))
     : true;
 
   return (

@@ -185,6 +185,8 @@ export function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form,
   // Effective input = stage input + any carry-over pulled in. Remainder = effective
   // input minus the main-product full cases minus any split-to-other-product lbs.
   const caseWeightLbs = product?.case_weight_lbs || 0;
+  // Varied-weight products: one weight entry per case packed.
+  const caseCount = parseInt(form.packages_produced) || 0;
   const carryoverLbs = (form.carryover_records || []).reduce((s, r) => s + (r.lbs || 0), 0);
   const effectiveInputLbs = (stage?.input_qty_lbs || 0) + carryoverLbs;
   const mainCaseLbs = (Number(form.packages_produced) || 0) * caseWeightLbs;
@@ -221,7 +223,7 @@ export function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form,
 
   const canProceed = isLinking ? !!cookBatch
      : isRacking ? (cookPlan?.racks?.some(r => r.released) || !!cookPlan?.carriedPartial)
-     : isPackaging ? (form.case_count > 0 && caseWeights.length === parseInt(form.case_count))
+     : isPackaging ? (caseCount > 0 || form.unfinished_allocated) && caseWeights.slice(0, caseCount).filter(c => c?.weight_lbs > 0).length === caseCount
      : isMixerInputs ? (!!form.pork_lot_confirmed && (stage?.binder_lot_number ? !!form.binder_lot_confirmed : false))
      : isCookStage ? (cookTempEntered && !cookTempTooLow && !cookNeedsBatch)
      : isChillStage ? (chillTempEntered && !chillTempTooHigh)
@@ -399,10 +401,10 @@ export function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form,
         <div className="space-y-3 rounded-lg border border-border p-4 bg-muted/20">
           <div>
             <p className="font-semibold text-sm">Individual Case Weights</p>
-            <p className="text-xs text-muted-foreground">Enter weight for each case ({form.case_count} total)</p>
+            <p className="text-xs text-muted-foreground">Enter weight for each case ({caseCount} total)</p>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-            {Array.from({ length: parseInt(form.case_count) || 0 }).map((_, i) => (
+            {Array.from({ length: caseCount }).map((_, i) => (
               <div key={i} className="space-y-1">
                 <label className="text-xs font-medium">Case {i + 1}</label>
                 <input
