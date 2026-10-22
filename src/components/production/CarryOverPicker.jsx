@@ -9,10 +9,15 @@ import { Layers } from "lucide-react";
 // At packing, lets the operator pull in OPEN unfinished-case carry-overs for THIS product
 // (multi-select). Selected carry-overs add their lbs + lot contributions into the run's
 // packable weight. Original expiry is preserved on the carry-over record.
-export default function CarryOverPicker({ productId, selectedIds = [], onChange }) {
+// Carry-overs from OTHER products in the same category are also offered, so leftover
+// cases can be packed as something else.
+export default function CarryOverPicker({ productId, category, selectedIds = [], onChange }) {
   const { data: carryOvers = [] } = useQuery({
-    queryKey: ["openCarryOvers", productId],
-    queryFn: () => base44.entities.UnfinishedCase.filter({ product_id: productId, status: "open" }),
+    queryKey: ["openCarryOvers", productId, category],
+    queryFn: async () => {
+      const open = await base44.entities.UnfinishedCase.filter({ status: "open" }, "-created_date", 200);
+      return open.filter(c => c.product_id === productId || (category && c.category === category));
+    },
     enabled: !!productId,
     staleTime: 0,
   });
@@ -48,7 +53,9 @@ export default function CarryOverPicker({ productId, selectedIds = [], onChange 
                 <div className="flex-1 min-w-0 text-sm" onClick={() => toggle(c.id)} role="button">
                   <div className="flex justify-between">
                     <span className="font-semibold">{(c.lbs || 0).toFixed(2)} lbs</span>
-                    <span className="text-xs text-muted-foreground">#{c.source_order_number || "—"}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {c.product_id !== productId ? `${c.product_name} · ` : ""}#{c.source_order_number || "—"}
+                    </span>
                   </div>
                   <div className="text-xs text-muted-foreground mt-0.5">
                     {(c.lot_contributions || []).length

@@ -6,7 +6,7 @@ import { Boxes, Check } from "lucide-react";
 // Lets the operator park leftover weight (that doesn't fill a full case) as a traceable
 // "unfinished case" carry-over to be packed in a future run. Shows the remaining lbs and a
 // single button. Once allocated, the remainder is accounted for so completion isn't blocked.
-export default function UnfinishedCaseAllocator({ remainderLbs = 0, lotContributions = [], allocated = false, onAllocate }) {
+export default function UnfinishedCaseAllocator({ remainderLbs = 0, lotContributions = [], allocated = false, onAllocate, caseWeightLbs = 0 }) {
   if (remainderLbs <= 0.001) return null;
 
   const contribs = (lotContributions || []).filter(c => (c.lbs || 0) > 0);
@@ -19,7 +19,7 @@ export default function UnfinishedCaseAllocator({ remainderLbs = 0, lotContribut
           <div>
             <p className="text-sm font-semibold text-amber-900">Unfinished Case Remainder</p>
             <p className="text-xs text-amber-700 mt-0.5">
-              {remainderLbs.toFixed(2)} lbs left over — park it as a carry-over to pack with a future run.
+              {remainderLbs.toFixed(2)} lbs left over{caseWeightLbs > 0 && remainderLbs >= caseWeightLbs ? ` (~${Math.floor(remainderLbs / caseWeightLbs)} cases)` : ""}. Finish the job and park it to pack later, as this or another product.
             </p>
           </div>
         </div>

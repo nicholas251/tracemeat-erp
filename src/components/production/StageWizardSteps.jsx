@@ -241,6 +241,7 @@ export function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form,
       {capKey === "packaging" && stepDef.id === "packaging" && (
         <CarryOverPicker
           productId={product?.id}
+          category={product?.category}
           selectedIds={form.carryover_ids || []}
           onChange={(ids, records) => {
             const addedLbs = records.reduce((s, r) => s + (r.lbs || 0), 0);
@@ -299,6 +300,7 @@ export function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form,
         <div className="space-y-4">
           <UnfinishedCaseAllocator
             remainderLbs={packagingRemainderLbs}
+            caseWeightLbs={caseWeightLbs}
             lotContributions={packagingRemainderLots}
             allocated={!!form.unfinished_allocated}
             onAllocate={() => setForm(f => ({
