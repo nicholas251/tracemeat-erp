@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -36,6 +36,24 @@ export default function PurchaseOrders() {
     queryKey: ["purchase_orders"],
     queryFn: () => base44.entities.PurchaseOrder.list(),
   });
+
+  // Received POs auto-archive 12 hours after receipt.
+  const ARCHIVE_AFTER_MS = 12 * 60 * 60 * 1000;
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 60 * 1000);
+    return () => clearInterval(t);
+  }, []);
+  useEffect(() => {
+    const expired = pos.filter(p => p.status === "received" && (!p.received_at || now - new Date(p.received_at).getTime() >= ARCHIVE_AFTER_MS));
+    if (expired.length === 0) return;
+    Promise.all(expired.map(p => base44.entities.PurchaseOrder.update(p.id, { status: "archived" })))
+      .then(() => queryClient.invalidateQueries({ queryKey: ["purchase_orders"] }));
+  }, [pos, now]);
+  const timeLeft = (po) => {
+    const ms = ARCHIVE_AFTER_MS - (now - new Date(po.received_at).getTime());
+    return `${Math.floor(ms / 3600000)}h ${Math.floor((ms % 3600000) / 60000)}m`;
+  };
 
   const createMutation = useMutation({
     mutationFn: async (data) => {
@@ -171,7 +189,12 @@ export default function PurchaseOrders() {
                      <TableCell>{po.order_date ? format(parseISO(po.order_date), 'MMM dd, yyyy') : '-'}</TableCell>
                      <TableCell>{po.expected_delivery_date ? format(parseISO(po.expected_delivery_date), 'MMM dd, yyyy') : '-'}</TableCell>
                      <TableCell>{(po.line_items?.reduce((sum, item) => sum + (item.quantity_lbs || 0), 0) || 0).toFixed(2)} lbs</TableCell>
-                     <TableCell><StatusBadge status={po.status} /></TableCell>
+                     <TableCell>
+                       <StatusBadge status={po.status} />
+                       {po.status === "received" && po.received_at && (
+                         <p className="text-xs text-muted-foreground mt-1 whitespace-nowrap">Archives in {timeLeft(po)}</p>
+                       )}
+                     </TableCell>
                      <TableCell onClick={(e) => e.stopPropagation()}>
                        <POEmailStatus
                          po={po}

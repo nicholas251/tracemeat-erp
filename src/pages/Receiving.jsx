@@ -44,7 +44,7 @@ export default function Receiving() {
   });
 
   // Fully received orders stay visible for 30 minutes, then move to the Archive tab.
-  const ARCHIVE_AFTER_MS = 30 * 60 * 1000;
+  const ARCHIVE_AFTER_MS = 12 * 60 * 60 * 1000;
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 60000);
