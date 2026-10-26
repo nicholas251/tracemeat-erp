@@ -204,6 +204,15 @@ export default function PurchaseOrders() {
                      </TableCell>
                      <TableCell onClick={(e) => e.stopPropagation()}>
                        <div className="flex gap-2">
+                         {po.status === "partial_received" && (
+                           <Button size="sm" variant="outline" onClick={() => {
+                             if (window.confirm(`Acknowledge partial delivery for PO #${po.po_number} and archive it?`)) {
+                               updateMutation.mutate({ id: po.id, data: { status: "archived", received_at: new Date().toISOString(), notes: [po.notes, `Partial receipt acknowledged ${new Date().toLocaleString()}`].filter(Boolean).join("\n") } });
+                             }
+                           }}>
+                             <Archive className="w-4 h-4 mr-1" /> Acknowledge
+                           </Button>
+                         )}
                          {po.status === "received" && (
                            <Button size="sm" variant="outline" onClick={() => updateMutation.mutate({ id: po.id, data: { status: "archived" } })}>
                              <Archive className="w-4 h-4 mr-1" /> Archive
