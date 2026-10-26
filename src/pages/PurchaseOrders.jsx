@@ -37,6 +37,9 @@ export default function PurchaseOrders() {
     queryFn: () => base44.entities.PurchaseOrder.list(),
   });
 
+  const { data: me } = useQuery({ queryKey: ["me"], queryFn: () => base44.auth.me() });
+  const isAdmin = me?.role === "admin";
+
   // Received POs auto-archive 12 hours after receipt.
   const ARCHIVE_AFTER_MS = 12 * 60 * 60 * 1000;
   const [now, setNow] = useState(Date.now());
@@ -221,9 +224,11 @@ export default function PurchaseOrders() {
                          <Button size="sm" variant="ghost" onClick={() => { setEditingPO(po); setShowForm(true); }}>
                            Edit
                          </Button>
-                         <Button size="sm" variant="ghost" onClick={() => setDeletingPO(po)}>
-                           <Trash2 className="w-4 h-4" />
-                         </Button>
+                         {isAdmin && (
+                           <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => setDeletingPO(po)}>
+                             <Trash2 className="w-4 h-4" />
+                           </Button>
+                         )}
                          </div>
                          </TableCell>
                    </TableRow>
