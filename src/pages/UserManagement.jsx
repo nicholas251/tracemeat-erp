@@ -4,7 +4,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Users, Pencil, Trash2 } from "lucide-react";
+import { Users, Pencil, Trash2, UserPlus } from "lucide-react";
+import AddOperatorDialog from "@/components/users/AddOperatorDialog";
 import PageHeader from "@/components/shared/PageHeader";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
@@ -25,7 +26,9 @@ export default function UserManagement() {
 function UserManagementContent() {
   const [editing, setEditing] = useState(null);
   const [deleting, setDeleting] = useState(null);
+  const [addingOperator, setAddingOperator] = useState(false);
   const queryClient = useQueryClient();
+  const { data: me } = useQuery({ queryKey: ["me"], queryFn: () => base44.auth.me() });
 
   const { data: users = [], isLoading } = useQuery({
     queryKey: ["users"],
@@ -71,11 +74,16 @@ function UserManagementContent() {
         title="User Management" 
         subtitle="Manage user work profile assignments"
         actions={
+          <div className="flex items-center gap-2">
+          <Button size="sm" onClick={() => setAddingOperator(true)}>
+            <UserPlus className="w-4 h-4 mr-1" /> Add Operator
+          </Button>
           <div className="flex items-center gap-2 bg-muted px-3 py-2 rounded-lg">
             <code className="text-xs text-muted-foreground truncate max-w-xs">{signupLink}</code>
             <Button size="sm" variant="ghost" onClick={copyToClipboard}>
               Copy
             </Button>
+          </div>
           </div>
         }
       />
@@ -202,6 +210,8 @@ function UserManagementContent() {
          }}
        />
       )}
+
+      <AddOperatorDialog open={addingOperator} onClose={() => setAddingOperator(false)} managerEmail={me?.email} />
 
       <AlertDialog open={!!deleting} onOpenChange={() => setDeleting(null)}>
         <AlertDialogContent>
