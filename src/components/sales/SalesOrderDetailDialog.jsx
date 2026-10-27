@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { FileText, CheckCircle } from "lucide-react";
 import FulfillmentDialog from "./FulfillmentDialog";
+import BolPromptDialog from "./BolPromptDialog";
 
 const STATUS_STYLES = {
   draft: "bg-gray-100 text-gray-700",
@@ -16,6 +17,7 @@ const STATUS_STYLES = {
 
 export default function SalesOrderDetailDialog({ open, order, onClose, onUpdated }) {
   const [fulfillOpen, setFulfillOpen] = useState(false);
+  const [bolOrderId, setBolOrderId] = useState(null);
   const queryClient = useQueryClient();
 
   const updateMutation = useMutation({
@@ -144,11 +146,13 @@ export default function SalesOrderDetailDialog({ open, order, onClose, onUpdated
           onClose={() => setFulfillOpen(false)}
           onFulfilled={() => {
             setFulfillOpen(false);
+            setBolOrderId(order.id);
             onUpdated();
             queryClient.invalidateQueries({ queryKey: ["salesOrders"] });
           }}
         />
       )}
+      <BolPromptDialog orderId={bolOrderId} onClose={() => setBolOrderId(null)} />
     </Dialog>
   );
 }
