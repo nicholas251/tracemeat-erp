@@ -43,8 +43,8 @@ export default function Forecast() {
         const totalSalesSixWeeks = recentSales.reduce((sum, r) => sum + (r.quantity_lbs || 0), 0);
         const rollingAvg = recentSales.length > 0 ? totalSalesSixWeeks / 42 : 0;
 
-        // Full inventory target = rolling average × 2
-        const fullInventory = rollingAvg * 2;
+        // Full inventory target = 2 weeks (14 days) of average daily sales
+        const fullInventory = rollingAvg * 14;
 
         // Current inventory
         const bucket = fgBuckets.find(b => b.product_id === product.id);
@@ -104,7 +104,7 @@ export default function Forecast() {
     <div className="space-y-6">
       <PageHeader 
         title="Inventory Forecast" 
-        subtitle="6-week rolling average analysis with full inventory targets"
+        subtitle="6-week rolling average analysis with a 2-week inventory target"
       />
 
       <Input
