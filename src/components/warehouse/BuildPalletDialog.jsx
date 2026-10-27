@@ -4,16 +4,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { syncItemLocations } from "@/lib/palletSync";
 import SpotSelect from "./SpotSelect";
+import { Printer } from "lucide-react";
+import { printPalletLabel } from "@/lib/palletLabel";
 
 // Confirm the lots going on one pallet and pick its building + spot.
 export default function BuildPalletDialog({ open, onClose, lots, spots, onDone }) {
   const [spotKey, setSpotKey] = useState("");
   const [saving, setSaving] = useState(false);
+  const [built, setBuilt] = useState(null);
   const spot = spots.find(s => s.key === spotKey);
 
   const save = async () => {
     setSaving(true);
-    await base44.entities.Pallet.create({
+    const created = await base44.entities.Pallet.create({
       pallet_number: `PLT-${Date.now().toString().slice(-7)}`,
       building_id: spot.building_id,
       building_name: spot.building_name,
@@ -33,8 +36,21 @@ export default function BuildPalletDialog({ open, onClose, lots, spots, onDone }
     await syncItemLocations(lots.map(l => l.id));
     setSaving(false);
     setSpotKey("");
-    onDone();
+    setBuilt(created);
   };
+
+  const finish = () => { setBuilt(null); onDone(); };
+
+  if (built) return (
+    <Dialog open={open} onOpenChange={finish}>
+      <DialogContent className="w-[calc(100vw-2rem)] max-w-md">
+        <DialogHeader><DialogTitle>Pallet {built.pallet_number} stored</DialogTitle></DialogHeader>
+        <p className="text-sm text-muted-foreground">{built.building_name} · {built.location}</p>
+        <Button onClick={() => printPalletLabel(built)}><Printer className="w-4 h-4 mr-2" />Print Pallet Label</Button>
+        <Button variant="outline" onClick={finish}>Done</Button>
+      </DialogContent>
+    </Dialog>
+  );
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
