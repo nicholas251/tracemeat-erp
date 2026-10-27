@@ -121,6 +121,7 @@ export function buildMeasurementSteps(stage, product, capKey, casingBuckets = []
           { key: "temperature_f", label: "Cook End Temperature (°F) — required", type: "number" },
           { key: "temp_initials", label: "Initials (required if under 165°F)", type: "text" },
           { key: "duration_minutes", label: "Cook Time (minutes)", type: "number" },
+          ...(hideLotField ? [] : [{ key: "output_lot_number", label: "Cooked Lot # (auto-assigned)", type: "text", defaultValue: cookLotDefault, disabled: true }]),
           { key: "notes", label: "Notes / Observations", type: "textarea" },
         ],
       });
@@ -139,6 +140,7 @@ export function buildMeasurementSteps(stage, product, capKey, casingBuckets = []
         { key: "temperature_f", label: "Cooling Exit Temp (°F) — required", type: "number" },
         { key: "temp_initials", label: "Initials (required if above 40°F)", type: "text" },
         { key: "duration_minutes", label: "Chill Duration (minutes)", type: "number" },
+        ...(hideLotField ? [] : [{ key: "output_lot_number", label: "Chilled Lot # (auto-assigned)", type: "text", defaultValue: chillLotDefault, disabled: true }]),
         { key: "notes", label: "Notes / Observations", type: "textarea" },
       ],
     });

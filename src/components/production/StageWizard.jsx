@@ -786,7 +786,9 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
           delete updates.temp_initials;
           // Auto-assign the cook / cool lot
           const ymd = today_str.replace(/-/g, "");
-          if (isCook) {
+          if (updates.output_lot_number) {
+            // keep the auto-filled lot shown in the wizard
+          } else if (isCook) {
             updates.output_lot_number = cookBatch?.lotNumber || stage.cook_batch_lot || `COOK-${stage.order_number}-${ymd}`;
           } else {
             const cb = stage.cook_batch_lot?.match(/CB(\d+)/)?.[1];
