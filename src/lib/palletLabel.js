@@ -25,8 +25,22 @@ export function code39Svg(value, height = 80) {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${x + 10}" height="${height}" viewBox="0 0 ${x + 10} ${height}">${bars}</svg>`;
 }
 
+// Combine entries sharing product + lot + expiry into one display line.
+export function mergeLots(lots = []) {
+  const map = new Map();
+  for (const l of lots) {
+    const key = `${l.product_id || l.product_name}|${l.lot_number}|${l.expiry_date || ""}`;
+    const cur = map.get(key);
+    if (cur) {
+      cur.cases = (cur.cases || 0) + (l.cases || 0);
+      cur.lbs = parseFloat(((cur.lbs || 0) + (l.lbs || 0)).toFixed(2));
+    } else map.set(key, { ...l });
+  }
+  return [...map.values()];
+}
+
 export function printPalletLabel(pallet) {
-  const rows = (pallet.lots || []).map(l =>
+  const rows = mergeLots(pallet.lots).map(l =>
     `<tr><td>${l.product_name || ""}</td><td>${l.lot_number || ""}</td><td>${l.cases ?? ""}</td><td>${l.lbs ?? ""}</td><td>${l.expiry_date || ""}</td></tr>`).join("");
   const totalCases = (pallet.lots || []).reduce((s, l) => s + (l.cases || 0), 0);
   const win = window.open("", "_blank", "width=600,height=700");

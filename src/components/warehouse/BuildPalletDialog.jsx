@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { syncItemLocations } from "@/lib/palletSync";
 import SpotSelect from "./SpotSelect";
 import { Printer } from "lucide-react";
-import { printPalletLabel } from "@/lib/palletLabel";
+import { printPalletLabel, mergeLots } from "@/lib/palletLabel";
 
 // Confirm the lots going on one pallet and pick its building + spot.
 export default function BuildPalletDialog({ open, onClose, lots, spots, onDone }) {
@@ -57,13 +57,13 @@ export default function BuildPalletDialog({ open, onClose, lots, spots, onDone }
       <DialogContent className="w-[calc(100vw-2rem)] max-w-md max-h-[90vh] overflow-y-auto overflow-x-hidden [&>*]:min-w-0">
         <DialogHeader><DialogTitle>Build Pallet</DialogTitle></DialogHeader>
         <div className="space-y-2">
-          {lots.map(l => (
+          {mergeLots(lots.map(l => ({ ...l, cases: l.cases }))).map(l => (
             <div key={l.id} className="flex justify-between text-sm bg-muted/50 rounded px-3 py-2">
               <span className="min-w-0 truncate"><span className="font-medium">{l.product_name}</span> <span className="font-mono text-xs text-muted-foreground">{l.lot_number}</span></span>
               <span className="font-semibold shrink-0 ml-2">{l.cases} cs</span>
             </div>
           ))}
-          {lots.length > 1 && <p className="text-xs text-amber-700">Mixed-lot pallet — {lots.length} lots</p>}
+          {mergeLots(lots).length > 1 && <p className="text-xs text-amber-700">Mixed-lot pallet — {mergeLots(lots).length} lots</p>}
         </div>
         <SpotSelect spots={spots} value={spotKey} onChange={setSpotKey} />
         {spots.length === 0 && <p className="text-xs text-destructive">No free spots — add locations in Setup.</p>}

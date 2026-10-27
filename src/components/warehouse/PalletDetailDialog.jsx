@@ -4,6 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { syncItemLocations } from "@/lib/palletSync";
 import SpotSelect from "./SpotSelect";
+import { mergeLots } from "@/lib/palletLabel";
 
 // Pallet contents, with move-to-another-spot and remove (shipped/emptied).
 export default function PalletDetailDialog({ pallet, spots, onClose, onDone }) {
@@ -30,7 +31,7 @@ export default function PalletDetailDialog({ pallet, spots, onClose, onDone }) {
       <DialogContent className="w-[calc(100vw-2rem)] max-w-md max-h-[90vh] overflow-y-auto overflow-x-hidden [&>*]:min-w-0">
         <DialogHeader><DialogTitle>{pallet.building_name} · {pallet.location} — {pallet.pallet_number}</DialogTitle></DialogHeader>
         <div className="space-y-2">
-          {(pallet.lots || []).map((l, i) => (
+          {mergeLots(pallet.lots).map((l, i) => (
             <div key={i} className="bg-muted/50 rounded px-3 py-2 text-sm">
               <div className="flex justify-between"><span className="font-medium">{l.product_name}</span><span className="font-semibold">{l.cases} cs</span></div>
               <p className="text-xs text-muted-foreground font-mono">{l.lot_number} · Exp {l.expiry_date || "—"}</p>

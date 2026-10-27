@@ -1,5 +1,6 @@
 import React from "react";
 import { spotKey } from "@/lib/warehouseLayout";
+import { mergeLots } from "@/lib/palletLabel";
 
 // One location's spots (e.g. A1…A12); occupied spots are clickable.
 export default function LocationGrid({ loc, bySpot, onOpen }) {
@@ -24,7 +25,7 @@ export default function LocationGrid({ loc, bySpot, onOpen }) {
               {p ? (
                 <>
                   <p className="text-[11px] truncate">{products.length > 1 ? `${products.length} products` : products[0]}</p>
-                  <p className="text-[11px] text-muted-foreground">{cases} cs{p.lots.length > 1 ? ` · ${p.lots.length} lots` : ""}</p>
+                  <p className="text-[11px] text-muted-foreground">{cases} cs{mergeLots(p.lots).length > 1 ? ` · ${mergeLots(p.lots).length} lots` : ""}</p>
                 </>
               ) : <p className="text-[11px] text-muted-foreground">Empty</p>}
             </button>
