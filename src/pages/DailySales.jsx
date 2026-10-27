@@ -9,8 +9,12 @@ export default function DailySales() {
   const queryClient = useQueryClient();
 
   const { data: products = [] } = useQuery({
-    queryKey: ["products"],
-    queryFn: () => base44.entities.Product.filter({ status: "active" })
+    queryKey: ["products", "daily_sales_all"],
+    queryFn: async () => {
+      const all = await base44.entities.Product.filter({ status: { $ne: "discontinued" } });
+      return all.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+    },
+    refetchOnMount: "always"
   });
 
   const { data: fgBuckets = [] } = useQuery({
