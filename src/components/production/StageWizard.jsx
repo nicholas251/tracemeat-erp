@@ -762,20 +762,35 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
 
         // ── Food-safety temperature gates — checked FIRST, before ANY writes ──
         // Cook must reach ≥165°F; chill must drop to ≤40°F. Block completion otherwise.
-        if (capKey === "cooking") {
-          const cookF = Number(updates.temperature_f);
-          if (!updates.temperature_f || isNaN(cookF) || cookF < 165) {
+        if (capKey === "cooking" || capKey === "chilling") {
+          const tempF = Number(updates.temperature_f);
+          const isCook = capKey === "cooking";
+          if (!updates.temperature_f || isNaN(tempF)) {
             setSaving(false);
-            alert("Cook temperature must reach at least 165°F before this stage can be completed.");
+            alert(`Enter the ${isCook ? "cook" : "cooling"} temperature before completing this stage.`);
             return;
           }
-        }
-        if (capKey === "chilling") {
-          const chillF = Number(updates.temperature_f);
-          if (!updates.temperature_f || isNaN(chillF) || chillF > 40) {
+          const outOfRange = isCook ? tempF < 165 : tempF > 40;
+          const initials = (updates.temp_initials || "").trim();
+          if (outOfRange && !initials) {
             setSaving(false);
-            alert("Chill exit temperature must be 40°F or lower before this stage can be completed.");
+            alert(isCook
+              ? "Cook temperature is under 165°F — enter your initials to continue."
+              : "Cooling temperature is above 40°F — enter your initials to continue.");
             return;
+          }
+          if (outOfRange) {
+            const flag = `${isCook ? "Cook" : "Cooling"} temp ${tempF}°F ${isCook ? "under 165°F" : "above 40°F"} — approved by ${initials.toUpperCase()}`;
+            updates.notes = [updates.notes, flag].filter(Boolean).join(" | ");
+          }
+          delete updates.temp_initials;
+          // Auto-assign the cook / cool lot
+          const ymd = today_str.replace(/-/g, "");
+          if (isCook) {
+            updates.output_lot_number = cookBatch?.lotNumber || stage.cook_batch_lot || `COOK-${stage.order_number}-${ymd}`;
+          } else {
+            const cb = stage.cook_batch_lot?.match(/CB(\d+)/)?.[1];
+            updates.output_lot_number = `CHILL-${ymd}-${cb ? `CB${cb}` : stage.order_number}`;
           }
         }
 

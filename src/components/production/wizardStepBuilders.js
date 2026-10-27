@@ -118,9 +118,9 @@ export function buildMeasurementSteps(stage, product, capKey, casingBuckets = []
         id: "cook",
         label: "Cook Parameters",
         fields: [
-          { key: "temperature_f", label: "Cook End Temperature (°F)", type: "number" },
+          { key: "temperature_f", label: "Cook End Temperature (°F) — required", type: "number" },
+          { key: "temp_initials", label: "Initials (required if under 165°F)", type: "text" },
           { key: "duration_minutes", label: "Cook Time (minutes)", type: "number" },
-          ...(hideLotField ? [] : [{ key: "output_lot_number", label: "Cooked Lot #", type: "text", placeholder: "e.g. COOK-2024-001", defaultValue: cookLotDefault }]),
           { key: "notes", label: "Notes / Observations", type: "textarea" },
         ],
       });
@@ -136,9 +136,9 @@ export function buildMeasurementSteps(stage, product, capKey, casingBuckets = []
       id: "chill",
       label: "Chill Check",
       fields: [
-        { key: "temperature_f", label: "Exit Temp (°F)", type: "number" },
+        { key: "temperature_f", label: "Cooling Exit Temp (°F) — required", type: "number" },
+        { key: "temp_initials", label: "Initials (required if above 40°F)", type: "text" },
         { key: "duration_minutes", label: "Chill Duration (minutes)", type: "number" },
-        ...(hideLotField ? [] : [{ key: "output_lot_number", label: "Chilled Lot #", type: "text", placeholder: "e.g. CHILL-2024-001", defaultValue: chillLotDefault }]),
         { key: "notes", label: "Notes / Observations", type: "textarea" },
       ],
     });
