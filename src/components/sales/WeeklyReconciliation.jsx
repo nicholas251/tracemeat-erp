@@ -4,13 +4,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { CheckCircle2, AlertCircle, Save } from "lucide-react";
+import { CheckCircle2, AlertCircle, Save, Search } from "lucide-react";
 import { format, startOfWeek, addDays } from "date-fns";
 
 export default function WeeklyReconciliation({ products, fgBuckets, onReconcileWeek }) {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [reconciliation, setReconciliation] = useState({});
   const [saving, setSaving] = useState(false);
+  const [search, setSearch] = useState("");
   const [completedDays, setCompletedDays] = useState(new Set());
 
   // Get Monday of current week
@@ -111,8 +112,17 @@ export default function WeeklyReconciliation({ products, fgBuckets, onReconcileW
 
       {/* Products Grid */}
       <div className="space-y-3">
-        <h4 className="font-semibold text-sm">Enter Sales by Product & Day</h4>
-        {products.map(product => {
+        <div className="flex items-center justify-between gap-3">
+          <h4 className="font-semibold text-sm">Enter Sales by Product & Day</h4>
+          <div className="relative w-64">
+            <Search className="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Input placeholder="Search products..." value={search} onChange={e => setSearch(e.target.value)} className="pl-8 h-9" />
+          </div>
+        </div>
+        {products.filter(p => {
+          const q = search.trim().toLowerCase();
+          return !q || [p.name, p.sku, p.product_number].some(v => (v || "").toLowerCase().includes(q));
+        }).map(product => {
           const bucket = fgBuckets.find(b => b.product_id === product.id);
           const inventory = bucket?.quantity_lbs || 0;
           
