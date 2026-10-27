@@ -174,9 +174,11 @@ export function buildMeasurementSteps(stage, product, capKey, casingBuckets = []
       label: "Cook & Cool",
       fields: [
         { key: "cook_temp_f", label: "Cook End Temperature (°F) — required", type: "number" },
-        { key: "cook_initials", label: "Initials (required if under 165°F)", type: "text" },
+        { key: "cook_initials", label: "Initials (required if under 165°F)", type: "text",
+          disabledWhen: f => f.cook_temp_f === "" || f.cook_temp_f == null || Number(f.cook_temp_f) >= 165 },
         { key: "cool_temp_f", label: "Cooling Exit Temp (°F) — required", type: "number" },
-        { key: "cool_initials", label: "Initials (required if above 40°F)", type: "text" },
+        { key: "cool_initials", label: "Initials (required if above 40°F)", type: "text",
+          disabledWhen: f => f.cool_temp_f === "" || f.cool_temp_f == null || Number(f.cool_temp_f) <= 40 },
         { key: "output_qty_lbs", label: "Output Qty (lbs)", type: "number" },
         ...(hideLotField ? [] : [{ key: "output_lot_number", label: "Cook/Cool Lot # (auto-assigned)", type: "text", disabled: true, defaultValue: `OC-${stage?.order_number || ""}-${ymd}${stage?.cook_batch_lot?.match(/CB\d+/) ? "-" + stage.cook_batch_lot.match(/CB\d+/)[0] : ""}` }]),
         { key: "notes", label: "Notes / Observations", type: "textarea" },

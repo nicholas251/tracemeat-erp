@@ -263,7 +263,7 @@ export function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form,
           {stepDef.fields.map(field => (
            <FieldInput
              key={field.key}
-             field={field}
+             field={field.disabledWhen ? { ...field, disabled: field.disabledWhen(form) } : field}
              value={form[field.key]}
              casingBuckets={casingBuckets}
              cureInventory={cureInventory}
