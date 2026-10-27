@@ -131,7 +131,9 @@ export default function FieldInput({ field, value, onChange, casingBuckets = [],
           onChange(val);
         }}
         placeholder={field.placeholder || ""}
-        className="h-11 text-base"
+        className={field.disabledWhen
+          ? `h-11 text-base ${field.disabled ? "bg-slate-500 border-slate-600 disabled:opacity-100 cursor-not-allowed" : "bg-white border-slate-400"}`
+          : "h-11 text-base"}
         disabled={field.disabled}
       />
       {field.hint && <p className="text-xs text-muted-foreground">{field.hint}</p>}
