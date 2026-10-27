@@ -12,6 +12,7 @@ import { tagConsumedLots } from "@/lib/consumedLots";
 import { addCoolingBatchToPackagingJob } from "./addToPackagingJob";
 import { applyPackYield } from "@/lib/packYield";
 import { applyChopWeightOverride } from "@/lib/chopWeight";
+import { applyOvenCoolingChecks } from "@/lib/ovenCoolingChecks";
 
 // ─── Stage icon map ───────────────────────────────────────────────────────────
 const STAGE_ICONS = {
@@ -796,6 +797,11 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
           }
         }
 
+        if (capKey === "ovencooling") {
+          const err = applyOvenCoolingChecks(updates);
+          if (err) { setSaving(false); alert(err); return; }
+        }
+
         // ── Cooking: assemble cook batch from the racks the operator selected ──
         if (capKey === "cooking" && cookBatch) {
           updates.cook_batch_lot = cookBatch.lotNumber;
@@ -1208,7 +1214,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
           let nextInputLot = "";
           if (capKey === "packaging") {
             nextInputLot = updates.lot_number || "";
-          } else if (capKey === "cooking" || capKey === "chilling" || capKey === "racking") {
+          } else if (capKey === "cooking" || capKey === "chilling" || capKey === "racking" || capKey === "ovencooling") {
             nextInputLot = updates.output_lot_number || stage.cook_batch_lot || stage.input_lot_number || "";
           } else {
             nextInputLot = stage.cook_batch_lot || stage.input_lot_number || "";

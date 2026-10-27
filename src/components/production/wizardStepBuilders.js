@@ -167,8 +167,25 @@ export function buildMeasurementSteps(stage, product, capKey, casingBuckets = []
       });
     }
 
+  if (capKey === "ovencooling") {
+    const ymd = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+    steps.push({
+      id: "oven_cooling",
+      label: "Cook & Cool",
+      fields: [
+        { key: "cook_temp_f", label: "Cook End Temperature (°F) — required", type: "number" },
+        { key: "cook_initials", label: "Initials (required if under 165°F)", type: "text" },
+        { key: "cool_temp_f", label: "Cooling Exit Temp (°F) — required", type: "number" },
+        { key: "cool_initials", label: "Initials (required if above 40°F)", type: "text" },
+        { key: "output_qty_lbs", label: "Output Qty (lbs)", type: "number" },
+        ...(hideLotField ? [] : [{ key: "output_lot_number", label: "Cook/Cool Lot # (auto-assigned)", type: "text", disabled: true, defaultValue: `OC-${stage?.order_number || ""}-${ymd}${stage?.cook_batch_lot?.match(/CB\d+/) ? "-" + stage.cook_batch_lot.match(/CB\d+/)[0] : ""}` }]),
+        { key: "notes", label: "Notes / Observations", type: "textarea" },
+      ],
+    });
+  }
+
   // Generic fallback for any capability not explicitly handled above
-  const knownKeys = ["chopping", "linking", "cooking", "chilling", "packaging", "racking", "racking_product", "tumble", "tumbling", "mixer"];
+  const knownKeys = ["ovencooling", "chopping", "linking", "cooking", "chilling", "packaging", "racking", "racking_product", "tumble", "tumbling", "mixer"];
   if (!knownKeys.includes(capKey)) {
     steps.push({
       id: "generic",
