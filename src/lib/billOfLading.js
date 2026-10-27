@@ -1,15 +1,36 @@
 import { jsPDF } from "jspdf";
 import { base44 } from "@/api/base44Client";
 
+const LOGO_URL = "https://media.base44.com/images/public/69fa3d25d6b48b9b300a8c3a/b83d65d90_MittysFoods_GroteWiegel_MuckesLogos.webp";
+
+// jsPDF can't read webp, so convert to PNG via canvas
+function loadLogoPng() {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      const c = document.createElement("canvas");
+      c.width = img.naturalWidth;
+      c.height = img.naturalHeight;
+      c.getContext("2d").drawImage(img, 0, 0);
+      resolve(c.toDataURL("image/png"));
+    };
+    img.onerror = reject;
+    img.src = LOGO_URL;
+  });
+}
+
 export async function generateBillOfLading(orderId) {
   const order = await base44.entities.SalesOrder.get(orderId);
   const customer = order.customer_id ? await base44.entities.Customer.get(order.customer_id) : null;
   const doc = new jsPDF();
   const items = order.line_items || [];
-  let y = 18;
+  const logo = await loadLogoPng();
+  doc.addImage(logo, "PNG", 14, 8, 35, 28);
+  let y = 22;
 
-  doc.setFontSize(18).setFont(undefined, "bold").text("BILL OF LADING", 105, y, { align: "center" });
-  y += 10;
+  doc.setFontSize(18).setFont(undefined, "bold").text("BILL OF LADING", 120, y, { align: "center" });
+  y += 18;
   doc.setFontSize(10).setFont(undefined, "normal");
   doc.text(`BOL #: BOL-${order.order_number || order.id.slice(-6)}`, 14, y);
   doc.text(`Date: ${new Date().toLocaleDateString()}`, 140, y);
