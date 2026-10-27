@@ -6,12 +6,15 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { CheckCircle2, AlertCircle, Save, Search } from "lucide-react";
 import { format, startOfWeek, addDays } from "date-fns";
+import CustomerAllocationDialog from "@/components/sales/CustomerAllocationDialog";
 
 export default function WeeklyReconciliation({ products, fgBuckets, onReconcileWeek }) {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [reconciliation, setReconciliation] = useState({});
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
+  const [allocations, setAllocations] = useState({});
+  const [editing, setEditing] = useState(null);
   const [completedDays, setCompletedDays] = useState(new Set());
 
   // Get Monday of current week
@@ -49,9 +52,11 @@ export default function WeeklyReconciliation({ products, fgBuckets, onReconcileW
     try {
       await onReconcileWeek({
         weekStart: format(weekStart, "yyyy-MM-dd"),
-        data: reconciliation
+        data: reconciliation,
+        allocations
       });
       setReconciliation({});
+      setAllocations({});
       setCompletedDays(new Set());
     } finally {
       setSaving(false);
@@ -144,15 +149,16 @@ export default function WeeklyReconciliation({ products, fgBuckets, onReconcileW
                       <label className="text-xs text-muted-foreground block text-center font-medium">
                         {dayLabels[dayIdx]}
                       </label>
-                      <Input
-                        type="number"
-                        placeholder="0"
-                        value={reconciliation[`${product.id}-day${dayIdx}`] ?? ""}
-                        onChange={e => handleProductDayInput(product.id, dayIdx, e.target.value)}
-                        min="0"
-                        step="0.1"
-                        className="h-8 text-center text-sm"
-                      />
+                      <button
+                        type="button"
+                        onClick={() => setEditing({ product, dayIdx })}
+                        className="h-8 w-full rounded-md border border-input bg-background text-center text-sm hover:border-primary"
+                      >
+                        {reconciliation[`${product.id}-day${dayIdx}`] ?? <span className="text-muted-foreground">0</span>}
+                        {allocations[`${product.id}-day${dayIdx}`]?.length > 0 && (
+                          <span className="ml-1 text-[10px] text-muted-foreground">({allocations[`${product.id}-day${dayIdx}`].length})</span>
+                        )}
+                      </button>
                     </div>
                   ))}
                 </div>
@@ -161,6 +167,20 @@ export default function WeeklyReconciliation({ products, fgBuckets, onReconcileW
           );
         })}
       </div>
+
+      <CustomerAllocationDialog
+        open={!!editing}
+        onClose={() => setEditing(null)}
+        product={editing?.product}
+        dayLabel={editing ? `${dayLabels[editing.dayIdx]} ${format(weekDays[editing.dayIdx], "MMM d")}` : ""}
+        initial={editing ? allocations[`${editing.product.id}-day${editing.dayIdx}`] : []}
+        onSave={(rows, total) => {
+          const key = `${editing.product.id}-day${editing.dayIdx}`;
+          setAllocations(prev => ({ ...prev, [key]: rows }));
+          handleProductDayInput(editing.product.id, editing.dayIdx, total > 0 ? String(total) : "");
+          setEditing(null);
+        }}
+      />
 
       {/* Submit Button */}
       <div className="flex gap-2">

@@ -19,6 +19,27 @@
       "format": "date",
       "description": "Date of the sale"
     },
+    "customer_allocations": {
+      "type": "array",
+      "description": "How this day's sales split across customers",
+      "items": {
+        "type": "object",
+        "properties": {
+          "customer_id": {
+            "type": "string"
+          },
+          "customer_name": {
+            "type": "string"
+          },
+          "cases": {
+            "type": "number"
+          },
+          "lbs": {
+            "type": "number"
+          }
+        }
+      }
+    },
     "notes": {
       "type": "string"
     }

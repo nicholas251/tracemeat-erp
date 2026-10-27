@@ -23,7 +23,7 @@ export default function DailySales() {
   });
 
   const reconcileWeekMutation = useMutation({
-    mutationFn: async ({ weekStart, data }) => {
+    mutationFn: async ({ weekStart, data, allocations = {} }) => {
       // Batch create/update daily sales records for the week
       const records = [];
       for (const [key, qty] of Object.entries(data)) {
@@ -33,6 +33,7 @@ export default function DailySales() {
           records.push({
             product_id: productId,
             quantity_lbs: qty,
+            customer_allocations: allocations[key] || [],
             sales_date: new Date(new Date(weekStart).getTime() + dayIndex * 24 * 60 * 60 * 1000).toISOString().split("T")[0]
           });
         }
@@ -66,8 +67,8 @@ export default function DailySales() {
       <WeeklyReconciliation 
         products={products}
         fgBuckets={fgBuckets}
-        onReconcileWeek={({ weekStart, data }) => 
-          reconcileWeekMutation.mutateAsync({ weekStart, data })
+        onReconcileWeek={({ weekStart, data, allocations }) => 
+          reconcileWeekMutation.mutateAsync({ weekStart, data, allocations })
         }
       />
 

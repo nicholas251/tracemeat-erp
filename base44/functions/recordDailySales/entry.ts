@@ -6,7 +6,7 @@ export default async function(req) {
     const user = await base44.auth.me();
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const { product_id, quantity_lbs, sales_date } = await req.json();
+    const { product_id, quantity_lbs, sales_date, customer_allocations } = await req.json();
     if (!product_id || !quantity_lbs || quantity_lbs <= 0) {
       return Response.json({ error: 'Invalid product_id or quantity_lbs' }, { status: 400 });
     }
@@ -61,6 +61,7 @@ export default async function(req) {
       product_id,
       product_name: bucket.product_name,
       quantity_lbs,
+      customer_allocations: Array.isArray(customer_allocations) ? customer_allocations : [],
       sales_date: sales_date || new Date().toISOString().split('T')[0],
     });
 
