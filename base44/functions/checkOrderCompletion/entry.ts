@@ -56,6 +56,19 @@ export default async function(req) {
             }
         }
 
+        // The whole order quantity must have gone through the first step — otherwise only part
+        // of the order has been produced (remaining batches not started yet).
+        const target = Number(order.quantity_to_produce) || 0;
+        if (target > 0) {
+            const firstStep = Math.min(...stages.map(s => Number(s.step_number) || 0));
+            const processed = stages
+                .filter(s => Number(s.step_number) === firstStep && s.status === "completed")
+                .reduce((sum, s) => sum + (Number(s.input_qty_lbs) || Number(s.output_qty_lbs) || 0), 0);
+            if (processed < target * 0.95) {
+                return Response.json({ updated: false, reason: `only ${processed} of ${target} lbs processed` });
+            }
+        }
+
         await base44.asServiceRole.entities.ProductionOrder.update(orderId, { status: "completed", archived: true });
         return Response.json({ updated: true, order_id: orderId, archived: true });
     } catch (error) {
