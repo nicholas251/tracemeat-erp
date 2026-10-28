@@ -800,6 +800,9 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
         if (capKey === "ovencooling") {
           const err = applyOvenCoolingChecks(updates);
           if (err) { setSaving(false); alert(err); return; }
+          // Cook loss: output is the input weight × the product's yield.
+          const ocYield = (Number(product?.yield_percent) || 100) / 100;
+          updates.output_qty_lbs = parseFloat(((stage.input_qty_lbs || 0) * ocYield).toFixed(2));
         }
 
         // ── Cooking: assemble cook batch from the racks the operator selected ──
