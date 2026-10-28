@@ -64,7 +64,7 @@ export default async function(req) {
             const processed = stages
                 .filter(s => Number(s.step_number) === firstStep && s.status === "completed")
                 .reduce((sum, s) => sum + (Number(s.input_qty_lbs) || Number(s.output_qty_lbs) || 0), 0);
-            if (processed < target * 0.95) {
+            if (processed < target) {
                 return Response.json({ updated: false, reason: `only ${processed} of ${target} lbs processed` });
             }
         }
