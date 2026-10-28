@@ -831,7 +831,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
         }
 
         // For chilling: calculate and store expiry_date on the stage so packaging can carry it forward
-        if (capKey === "chilling") {
+        if (capKey === "chilling" || capKey === "ovencooling") {
           const chillOrder = await base44.entities.ProductionOrder.filter({ id: stage.order_id }).then(r => r?.[0]);
           if (chillOrder?.product_id) {
             const chillProduct = await base44.entities.Product.filter({ id: chillOrder.product_id }).then(r => r?.[0]);
@@ -978,7 +978,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
         let nextStage = allStages.find(s => s.step_number === stage.step_number + 1 && s.status !== "completed" && s.id !== stage.id);
         
         // For chilling, create a packaging stage if one doesn't exist for this cook batch
-        if (capKey === "chilling") {
+        if (capKey === "chilling" || capKey === "ovencooling") {
           const chillOrder = await base44.entities.ProductionOrder.filter({ id: stage.order_id }).then(r => r?.[0]);
           if (chillOrder?.flow_id) {
             const chillFlow = await base44.entities.ProductFlow.filter({ id: chillOrder.flow_id }).then(r => r?.[0]);
@@ -1201,7 +1201,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
             }
           }
           queryClient.invalidateQueries({ queryKey: ["releasedRacks"] });
-        } else if (capKey !== "chilling" && nextStage?.status === "locked") {
+        } else if (capKey !== "chilling" && capKey !== "ovencooling" && nextStage?.status === "locked") {
           // Chilling already created its own packaging card above — unlocking the order's
           // placeholder packaging stage too would create a duplicate packaging job.
           // For other stages: update existing locked stage
