@@ -80,7 +80,7 @@ export default function ProductionOrderFormDialog({ open, onClose, onSave, order
   // Same batch size the tumble wizard uses, so the preview matches the cards that get created.
   const tumbleBatchSize = Number(selectedProduct?.tumble_batch_lbs) || Number(selectedProduct?.blend_batch_lbs) || 800;
   // Raw needed = finished goods + the loss added back on top
-  const tumbleRawInputLbs = yieldPct && finishedLbs > 0 ? finishedLbs * (1 + lossPct / 100) : finishedLbs;
+  const tumbleRawInputLbs = yieldPct && finishedLbs > 0 ? finishedLbs / (yieldPct / 100) : finishedLbs;
   const numTumbleBatches = tumbleRawInputLbs > 0 ? Math.ceil(tumbleRawInputLbs / tumbleBatchSize) : null;
   const tumbleExpectedFinished = finishedLbs;
 
@@ -90,7 +90,7 @@ export default function ProductionOrderFormDialog({ open, onClose, onSave, order
   const spicePerBatch = selectedProduct?.chop_spice_qty_lbs || 0;
   const curePerBatch = selectedProduct?.chop_cure_lbs || 0;
   // For blending: raw protein = finished goods + the loss added back on top
-  const blendRawInputLbs = yieldPct && finishedLbs > 0 ? finishedLbs * (1 + lossPct / 100) : finishedLbs;
+  const blendRawInputLbs = yieldPct && finishedLbs > 0 ? finishedLbs / (yieldPct / 100) : finishedLbs;
   // Full batch weight includes protein + water + spice + cure (not just protein),
   // so batch count divides the grossed-up raw input by the complete chop-batch size.
   const fullBatchLbs = blendBatchLbs + waterPerBatch + spicePerBatch + curePerBatch;

@@ -13,7 +13,11 @@ export function buildIngredientBatchesMultiple(stage, product, capKey, numBatche
 
   return Array.from({ length: numBatches }, (_, i) => {
     const isLast = i === numBatches - 1;
-    const batchLbs = isLast ? totalLbs - (batchSize * i) : batchSize;
+    // Chop-batch weight (protein + water + spice + cure) for this batch…
+    const chopLbs = isLast ? totalLbs - (batchSize * i) : batchSize;
+    // …but blending only weighs the PROTEIN share; water/spice/cure are added at chopping.
+    const proteinShare = Number(product?.blend_batch_lbs) > 0 ? Number(product.blend_batch_lbs) / batchSize : 1;
+    const batchLbs = parseFloat((chopLbs * proteinShare).toFixed(2));
     const ratio = recipeTotalLbs > 0 ? batchLbs / recipeTotalLbs : 1;
 
     return {
