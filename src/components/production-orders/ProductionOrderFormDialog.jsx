@@ -238,6 +238,13 @@ export default function ProductionOrderFormDialog({ open, onClose, onSave, order
                   <span>{finishedLbs.toFixed(1)} lbs</span>
                 </div>
 
+                {selectedProduct && (isTumbleFlow
+                  ? !(Number(selectedProduct.tumble_batch_lbs) || Number(selectedProduct.blend_batch_lbs))
+                  : !Number(selectedProduct.blend_batch_lbs)) && (
+                  <p className="rounded bg-amber-100 border border-amber-300 text-amber-900 px-2 py-1 font-medium">
+                    This product has no batch size set. The whole order will run as one batch. Set the batch size in Products to split it correctly.
+                  </p>
+                )}
                 {isTumbleFlow ? (
                   // ── TUMBLE FLOW SUMMARY ──
                   yieldPct && numTumbleBatches ? (
