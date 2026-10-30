@@ -7,6 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Pencil, Trash2 } from "lucide-react";
 import { format } from "date-fns";
+import SpiceLotDeleteChoice from "./SpiceLotDeleteChoice";
+import { adjustForSpiceMixLotRemoval, isSpiceMixLot } from "@/lib/spiceMixLotRemoval";
 
 const STATUS_OPTIONS = ["available", "in_use", "depleted", "quarantined", "expired"];
 
@@ -32,7 +34,18 @@ export default function EditLotsDialog({ open, onClose, bucket, lots, onSaveLot,
 
   const [removedIds, setRemovedIds] = useState([]);
 
+  const [mixLot, setMixLot] = useState(null);
+
+  const finishMixDelete = async (mode) => {
+    await adjustForSpiceMixLotRemoval(mixLot, mode);
+    await onDeleteLot(mixLot.id);
+    setRemovedIds((ids) => [...ids, mixLot.id]);
+    if (editingLot?.id === mixLot.id) setEditingLot(null);
+    setMixLot(null);
+  };
+
   const deleteLot = async (lot) => {
+    if (isSpiceMixLot(lot)) { setMixLot(lot); return false; }
     if (!window.confirm(`Delete lot ${lot.lot_number || ""}? This cannot be undone.`)) return false;
     await onDeleteLot(lot.id);
     setRemovedIds((ids) => [...ids, lot.id]);
@@ -184,6 +197,7 @@ export default function EditLotsDialog({ open, onClose, bucket, lots, onSaveLot,
             Close
           </Button>
         </DialogFooter>
+        <SpiceLotDeleteChoice lot={mixLot} onChoose={finishMixDelete} onCancel={() => setMixLot(null)} />
       </DialogContent>
     </Dialog>
   );
