@@ -58,7 +58,11 @@ export default async function(req) {
 
         // The whole order quantity must have gone through the first step — otherwise only part
         // of the order has been produced (remaining batches not started yet).
-        const target = Number(order.quantity_to_produce) || 0;
+        // quantity_to_produce is FINISHED lbs; the first step handles RAW lbs, so gross the
+        // target up by the product yield (raw = finished / yield) before comparing.
+        const product = order.product_id ? await base44.asServiceRole.entities.Product.get(order.product_id).catch(() => null) : null;
+        const yieldFrac = (Number(product?.yield_percent) || 100) / 100;
+        const target = (Number(order.quantity_to_produce) || 0) / yieldFrac - 0.5;
         if (target > 0) {
             const firstStep = Math.min(...stages.map(s => Number(s.step_number) || 0));
             const processed = stages

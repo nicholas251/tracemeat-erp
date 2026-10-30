@@ -53,11 +53,12 @@ export default function Inventory() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: async ({ id, data }) => {
+    mutationFn: async ({ id, data: rawData }) => {
       const before = items.find(i => i.id === id) || {};
+      const { initials, ...data } = rawData;
       await base44.entities.InventoryItem.update(id, data);
-      const changes = ["status", "location", "notes"].filter(k => (before[k] || "") !== (data[k] || "")).map(k => `${k}: "${before[k] || ""}" → "${data[k] || ""}"`);
-      await logAudit({ action: "corrected", product_name: before.product_name, lot_number: before.lot_number || before.batch_number, quantity_lbs: before.quantity_lbs, details: changes.join("; ") || "Saved with no changes", reason: data.notes });
+      const changes = ["quantity_lbs", "status", "location", "notes"].filter(k => (before[k] || "") !== (data[k] || "")).map(k => `${k}: "${before[k] || ""}" → "${data[k] || ""}"`);
+      await logAudit({ action: "corrected", product_name: before.product_name, lot_number: before.lot_number || before.batch_number, quantity_lbs: before.quantity_lbs, details: changes.join("; ") || "Saved with no changes", reason: data.notes, initials });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["inventory"] });

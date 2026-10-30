@@ -78,9 +78,10 @@ export default function ProductionOrderFormDialog({ open, onClose, onSave, order
   const lossPct = yieldPct ? 100 - yieldPct : 0;
   // ── TUMBLE FLOW MATH ──
   // Same batch size the tumble wizard uses, so the preview matches the cards that get created.
-  const tumbleBatchSize = Number(selectedProduct?.tumble_batch_lbs) || Number(selectedProduct?.blend_batch_lbs) || 800;
   // Raw needed = finished goods + the loss added back on top
   const tumbleRawInputLbs = yieldPct && finishedLbs > 0 ? finishedLbs / (yieldPct / 100) : finishedLbs;
+  // Product's own batch size; with none set, the whole order runs as one batch.
+  const tumbleBatchSize = Number(selectedProduct?.tumble_batch_lbs) || Number(selectedProduct?.blend_batch_lbs) || tumbleRawInputLbs || 1;
   const numTumbleBatches = tumbleRawInputLbs > 0 ? Math.ceil(tumbleRawInputLbs / tumbleBatchSize) : null;
   const tumbleExpectedFinished = finishedLbs;
 

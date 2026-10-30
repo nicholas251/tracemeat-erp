@@ -580,6 +580,14 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
             status: "completed",
             completed_at: new Date().toISOString(),
           });
+          // Blending is done — remove the empty locked placeholder stubs created with the
+          // order. Real downstream work was spawned per batch, so these would sit orphaned.
+          const leftovers = await base44.entities.ProductionStage.filter({ order_id: stage.order_id, status: "locked" });
+          for (const s of leftovers) {
+            if (!(Number(s.input_qty_lbs) > 0) && !s.input_lot_number && !s.batch_tag) {
+              await base44.entities.ProductionStage.delete(s.id);
+            }
+          }
           onCompleted?.();
           onClose();
         } else {
@@ -1209,8 +1217,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
           // For other stages: update existing locked stage
           const rawQty = updates.output_qty_lbs || stage.input_qty_lbs || 0;
           const productYield = product?.yield_percent;
-          if (!productYield) console.warn(`Product missing yield_percent; using default 85%`);
-          const yieldFraction = (productYield ?? 85) / 100;
+          const yieldFraction = (productYield || 100) / 100;
           // Cooking output already has yield applied — only apply it if no output was recorded.
           const nextInputQty = capKey === "cooking" && !updates.output_qty_lbs ? parseFloat((rawQty * yieldFraction).toFixed(2)) : rawQty;
           

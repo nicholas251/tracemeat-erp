@@ -117,7 +117,7 @@ export default function ProductionOrders() {
               if (isTumblingStep) {
                 // Same batch size the tumble wizard and order form use.
                 // Racks and cook batches are assembled later at the racking stage.
-                const tumblingBatchSize = Number(product?.tumble_batch_lbs) || Number(product?.blend_batch_lbs) || 800;
+                const tumblingBatchSize = Number(product?.tumble_batch_lbs) || Number(product?.blend_batch_lbs) || totalRawInputLbs;
                 const numTumbleBatches = Math.ceil(totalRawInputLbs / tumblingBatchSize);
                 // Build batch sizes with full batches first and the smaller (partial) batch at the end
                 const numFullBatches = Math.floor(totalRawInputLbs / tumblingBatchSize);

@@ -18,7 +18,7 @@ const lbsToKg = (lbs) => (lbs || 0) / 2.20462;
 
 export default function InventoryAdjustDialog({ open, item, onClose, onSave, onDelete }) {
   const [form, setForm] = useState({
-    quantity_lbs: kgToLbs(item.quantity_kg),
+    quantity_lbs: item.quantity_lbs ?? kgToLbs(item.quantity_kg),
     status: item.status || "available",
     location: item.location || "",
     notes: item.notes || "",
@@ -27,10 +27,14 @@ export default function InventoryAdjustDialog({ open, item, onClose, onSave, onD
   const [initials, setInitials] = useState("");
   const [reason, setReason] = useState("");
 
+  const [saveInitials, setSaveInitials] = useState("");
+
   const handleSave = () => {
+    const { id, created_date, updated_date, created_by_id, ...rest } = item;
     onSave(item.id, {
-      ...item,
-      quantity_kg: lbsToKg(Number(form.quantity_lbs)),
+      ...rest,
+      initials: saveInitials,
+      quantity_lbs: Number(form.quantity_lbs),
       status: form.status,
       location: form.location,
       notes: form.notes,
@@ -100,7 +104,8 @@ export default function InventoryAdjustDialog({ open, item, onClose, onSave, onD
               <Trash2 className="w-4 h-4 mr-1" /> Delete
             </Button>
             <Button variant="outline" onClick={onClose}>Cancel</Button>
-            <Button onClick={handleSave}>Save Adjustment</Button>
+            <Input className="sm:w-28" placeholder="Initials" value={saveInitials} onChange={e => setSaveInitials(e.target.value)} />
+            <Button onClick={handleSave} disabled={!saveInitials.trim()}>Save Adjustment</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
