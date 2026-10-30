@@ -34,6 +34,12 @@ export default function BucketFormDialog({ open, bucket, onClose, onSave, allBuc
     onEdit(b);
   };
 
+  // Next unused number: one above the highest number found in any existing code.
+  const nextCode = () => {
+    const nums = allBuckets.map(b => parseInt((b.code || "").match(/(\d+)\D*$/)?.[1], 10)).filter(n => !isNaN(n));
+    return String((nums.length ? Math.max(...nums) : 0) + 1).padStart(3, "0");
+  };
+
   const categories = ["protein", "spice", "packaging", "casing"];
 
   return (
@@ -46,7 +52,7 @@ export default function BucketFormDialog({ open, bucket, onClose, onSave, allBuc
         {mode === "list" && (
           <div>
             <div className="flex justify-end mb-3">
-              <Button size="sm" onClick={() => { setForm(EMPTY); setMode("add"); }}>
+              <Button size="sm" onClick={() => { setForm({ ...EMPTY, code: nextCode() }); setMode("add"); }}>
                 <Plus className="w-4 h-4 mr-1" /> Add Bucket
               </Button>
             </div>
