@@ -382,7 +382,7 @@ export default function POFormDialog({ open, onClose, onSave, po, isSaving }) {
                     setShowSaveSupplier(true);
                   } else {
                     const sup = suppliers.find(s => s.name === v);
-                    setForm(prev => ({ ...prev, supplier: v, supplier_email: sup?.email || prev.supplier_email }));
+                    setForm(prev => ({ ...prev, supplier: v, supplier_email: sup?.email || "" }));
                   }
                 }}>
                     <SelectTrigger className="flex-1">
