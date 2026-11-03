@@ -14,7 +14,7 @@ export async function pushPackagingToFinishedGoods({ stage, updates, form, query
 
   const datePart = today_str.replace(/-/g, "");
   const rand = Math.floor(Math.random() * 900 + 100);
-  const baseFgLot = updates.lot_number || `FG-${datePart}-${(order.order_number || "").replace(/\D/g, "").slice(-4)}-${rand}`;
+  let baseFgLot = updates.lot_number || `FG-${datePart}-${(order.order_number || "").replace(/\D/g, "").slice(-4)}-${rand}`;
 
   const packagesProduced = updates.packages_produced || 0;
 
@@ -173,6 +173,14 @@ export async function pushPackagingToFinishedGoods({ stage, updates, form, query
 
   if (!expiryDate && shelfLifeDays) {
     expiryDate = new Date(today.getTime() + shelfLifeDays * 86400000).toISOString().slice(0, 10);
+  }
+
+  // Lot number = expiry date (MMDDYY, from the product's shelf life) + order number.
+  if (shelfLifeDays) {
+    const shelfExpiry = new Date(today.getTime() + shelfLifeDays * 86400000).toISOString().slice(0, 10);
+    const [y, m, d] = shelfExpiry.split("-");
+    const orderDigits = (order.order_number || "").replace(/\D/g, "").slice(-4).padStart(4, "0");
+    baseFgLot = `${m}${d}${y.slice(2)}-${orderDigits}`;
   }
 
   const casesProduced = Number(packagesProduced) || 0;
