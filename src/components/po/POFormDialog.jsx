@@ -52,7 +52,7 @@ export default function POFormDialog({ open, onClose, onSave, po, isSaving }) {
   useEffect(() => {
     if (open) {
       base44.entities.Supplier.list().then(data => {
-        setSuppliers(data.map(s => ({ id: s.id, name: s.name })));
+        setSuppliers(data.map(s => ({ id: s.id, name: s.name, email: s.email })));
       });
       base44.entities.ShipToAddress.list().then(data => {
         setSavedAddresses(data);
@@ -381,7 +381,8 @@ export default function POFormDialog({ open, onClose, onSave, po, isSaving }) {
                   if (v === "__CREATE_NEW__") {
                     setShowSaveSupplier(true);
                   } else {
-                    setForm(prev => ({ ...prev, supplier: v }));
+                    const sup = suppliers.find(s => s.name === v);
+                    setForm(prev => ({ ...prev, supplier: v, supplier_email: sup?.email || prev.supplier_email }));
                   }
                 }}>
                     <SelectTrigger className="flex-1">
