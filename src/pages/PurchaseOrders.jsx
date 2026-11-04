@@ -171,7 +171,7 @@ export default function PurchaseOrders() {
                   </TableCell>
                 </TableRow>
               ) : (
-                pos.filter(po => po && po.status !== "archived").map((po) => (
+                pos.filter(po => po && po.status !== "archived" && !(po.expected_delivery_date && po.expected_delivery_date < format(new Date(), 'yyyy-MM-dd'))).map((po) => (
                    <TableRow key={po.id} className="cursor-pointer hover:bg-slate-50" onClick={() => setViewingPO(po)}>
                      <TableCell className="font-medium">{po.po_number}</TableCell>
                      <TableCell>{po.supplier}</TableCell>
