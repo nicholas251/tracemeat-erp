@@ -1,0 +1,48 @@
+{
+  "name": "Auto-archive fulfilled sales orders",
+  "description": "Archives a sales order 9 hours after it is marked fulfilled",
+  "trigger": {
+    "condition": "${ ((.trigger.changed_fields | index(\"status\") != null) and (.trigger.data.status == \"fulfilled\")) }",
+    "config": {
+      "trigger_type": "entity",
+      "events": [
+        "update"
+      ],
+      "entity_name": "SalesOrder"
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "auto_archive_fulfilled_sales_orders",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "wait_9_hours": {
+          "wait": "PT9H",
+          "then": "archive_order",
+          "x-base44": {
+            "title": "Wait 9 hours"
+          }
+        }
+      },
+      {
+        "archive_order": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "archiveSalesOrder",
+            "args": {
+              "order_id": "${ .trigger.data.id }"
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Archive sales order"
+          }
+        }
+      }
+    ]
+  }
+}

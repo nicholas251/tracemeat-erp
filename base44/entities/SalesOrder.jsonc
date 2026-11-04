@@ -126,6 +126,15 @@
     },
     "fulfilled_by": {
       "type": "string"
+    },
+    "archived": {
+      "type": "boolean",
+      "default": false,
+      "description": "Auto-set 9 hours after fulfillment; hidden from the active list"
+    },
+    "archived_at": {
+      "type": "string",
+      "format": "date-time"
     }
   },
   "required": [

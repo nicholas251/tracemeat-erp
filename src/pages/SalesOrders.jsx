@@ -32,11 +32,14 @@ export default function SalesOrders() {
   const [selected, setSelected] = useState(null);
   const [view, setView] = useState("orders"); // "orders" | "routes"
   const [closeOutOpen, setCloseOutOpen] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
 
-  const { data: orders = [], isLoading } = useQuery({
+  const { data: allOrders = [], isLoading } = useQuery({
     queryKey: ["salesOrders"],
     queryFn: () => base44.entities.SalesOrder.list("-created_date"),
   });
+
+  const orders = allOrders.filter(o => !!o.archived === showArchived);
 
   // Show close-out banner daily at 1pm for today's routes
   const now = new Date();
@@ -89,6 +92,12 @@ export default function SalesOrders() {
         >
           <Truck className="w-4 h-4" /> By Route
         </button>
+        <button
+          onClick={() => setShowArchived(v => !v)}
+          className={`ml-auto px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${showArchived ? "bg-slate-700 text-white border-slate-700" : "bg-white text-muted-foreground border-border hover:bg-muted/30"}`}
+        >
+          {showArchived ? "Showing Archived" : "Show Archived"}
+        </button>
       </div>
 
       {view === "routes" ? (
@@ -97,7 +106,7 @@ export default function SalesOrders() {
         <div className="text-center py-12 text-muted-foreground">Loading...</div>
       ) : orders.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground border-2 border-dashed rounded-lg">
-          No sales orders yet. Create your first order to get started.
+          {showArchived ? "No archived sales orders." : "No sales orders yet. Create your first order to get started."}
         </div>
       ) : (
         <div className="border rounded-lg overflow-hidden bg-card">
