@@ -101,6 +101,10 @@ export default function PurchaseOrders() {
       queryClient.invalidateQueries({ queryKey: ["purchase_orders"] });
       setShowForm(false);
       setEditingPO(null);
+      toast({ title: "Purchase Order Updated", description: "Your changes have been saved.", duration: 4000 });
+    },
+    onError: (error) => {
+      toast({ title: "Error", description: `Failed to save purchase order: ${error.message}`, variant: "destructive", duration: 8000 });
     },
   });
 

@@ -21,6 +21,7 @@ export default function POFormDialog({ open, onClose, onSave, po, isSaving }) {
   const [savedAddresses, setSavedAddresses] = useState([]);
   const [showSaveAddressForm, setShowSaveAddressForm] = useState(false);
   const [addressLabel, setAddressLabel] = useState("");
+  const [error, setError] = useState("");
   const [form, setForm] = useState(po && po.po_number ? {
     po_number: po.po_number,
     supplier: po.supplier,
@@ -51,6 +52,7 @@ export default function POFormDialog({ open, onClose, onSave, po, isSaving }) {
 
   useEffect(() => {
     if (open) {
+      setError("");
       base44.entities.Supplier.list().then(data => {
         setSuppliers(data.map(s => ({ id: s.id, name: s.name, email: s.email })));
       });
@@ -137,17 +139,18 @@ export default function POFormDialog({ open, onClose, onSave, po, isSaving }) {
   const handleSave = () => {
     if (isSaving) return;
     if (!form.po_number || !form.supplier) {
-      alert("PO Number and Supplier are required");
+      setError("PO Number and Supplier are required");
       return;
     }
     if (!form.supplier_email) {
-      alert("Supplier email is required");
+      setError("Supplier email is required");
       return;
     }
     if (!form.ship_to_address || !form.ship_to_contact_name || !form.ship_to_contact_phone) {
-      alert("Ship-to address, contact name, and contact phone are required");
+      setError("Ship-to address, contact name, and contact phone are required");
       return;
     }
+    setError("");
     onSave(form);
   };
 
@@ -701,7 +704,8 @@ export default function POFormDialog({ open, onClose, onSave, po, isSaving }) {
           </div>
           </div>
 
-        <DialogFooter className="flex gap-2">
+        <DialogFooter className="sticky bottom-0 -mx-6 -mb-6 px-6 py-4 bg-background border-t flex gap-2">
+          {error && <p className="text-sm font-medium text-destructive sm:mr-auto self-center">{error}</p>}
           <Button variant="outline" onClick={onClose} disabled={isSaving}>Cancel</Button>
           {po && form.line_items?.length > 0 && (
             <Button
