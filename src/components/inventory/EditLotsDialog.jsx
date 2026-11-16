@@ -163,7 +163,7 @@ export default function EditLotsDialog({ open, onClose, bucket, lots, onSaveLot,
                   <TableCell className="font-semibold">{lot.available_qty?.toLocaleString()} {lot.unit}</TableCell>
                   <TableCell className="text-xs capitalize">{lot.status}</TableCell>
                   <TableCell className="text-xs">
-                    {lot.expiry_date ? format(new Date(lot.expiry_date), "MMM d, yyyy") : "—"}
+                    {lot.expiry_date ? format(new Date(lot.expiry_date.slice(0, 10) + "T00:00:00"), "MMM d, yyyy") : "—"}
                   </TableCell>
                   <TableCell>
                     <Button

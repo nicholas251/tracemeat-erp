@@ -270,7 +270,7 @@ export default function Inventory() {
                         <TableCell>
                           {item.expiry_date ? (
                             <span className={`text-sm font-medium ${isExpired(item.expiry_date) ? "text-destructive" : isExpiringSoon(item.expiry_date) ? "text-accent" : "text-muted-foreground"}`}>
-                              {format(new Date(item.expiry_date), "MMM d, yyyy")}
+                              {format(new Date(item.expiry_date.slice(0, 10) + "T00:00:00"), "MMM d, yyyy")}
                               {isExpiringSoon(item.expiry_date) && !isExpired(item.expiry_date) && (
                                 <span className="ml-1 text-xs">(soon)</span>
                               )}

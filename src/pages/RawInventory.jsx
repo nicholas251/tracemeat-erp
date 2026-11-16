@@ -182,7 +182,7 @@ function LotLedger({ allLots, buckets }) {
                   <TableCell>
                     {lot.expiry_date ? (
                       <span className={`text-xs font-medium ${isExpiringSoon(lot.expiry_date) ? "text-accent" : "text-muted-foreground"}`}>
-                        {format(new Date(lot.expiry_date), "MMM d, yyyy")}
+                        {format(new Date(lot.expiry_date.slice(0, 10) + "T00:00:00"), "MMM d, yyyy")}
                       </span>
                     ) : "—"}
                   </TableCell>
