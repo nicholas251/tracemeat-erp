@@ -334,8 +334,17 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
       });
       setSaving(false);
     }
-    // For blending, jump directly to the specific batch if startBatchNumber is given
-    setStep(startBatchNumber ?? 1);
+    // For blending, jump directly to the specific batch if startBatchNumber is given,
+    // otherwise resume at the first batch that hasn't been completed yet.
+    let firstOpen = 1;
+    if (usesIngredientBatches && !startBatchNumber) {
+      const live = await base44.entities.ProductionStage.get(stage.id);
+      const done = new Set((live?.sub_batches || [])
+        .filter(sb => sb.status === "completed")
+        .map(sb => parseInt(sb.label?.match(/#(\d+)/)?.[1], 10)));
+      while (done.has(firstOpen) && firstOpen < totalBatches) firstOpen++;
+    }
+    setStep(startBatchNumber ?? firstOpen);
   };
 
   // ── Complete ──
@@ -591,8 +600,9 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
           onCompleted?.();
           onClose();
         } else {
-          // Advance to the next batch step
-          setStep(s => s + 1);
+          // Batch done — close the wizard and return to the dashboard
+          onCompleted?.();
+          onClose();
         }
       } else if (capKey === "linking" && cookBatch) {
         // ── Linking: complete this stage and mark all selected sibling stages as part of this cook batch ──
