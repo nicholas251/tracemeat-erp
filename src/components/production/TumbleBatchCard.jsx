@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { CheckCircle2, Loader2, PackageCheck, Lock } from "lucide-react";
 import IngredientLotPicker from "@/components/blending/IngredientLotPicker";
 import SpiceMixLotPicker from "@/components/production/SpiceMixLotPicker";
+import { filterBucketsBySpecies } from "@/lib/proteinSpecies";
 
 /**
  * TumbleBatchCard
@@ -54,15 +55,9 @@ export default function TumbleBatchCard({
   });
   // Only show buckets matching the product's protein (chicken → chicken, beef → beef).
   // Each protein category is isolated; only "mixed" products see every bucket.
-  const species = {
-    poultry: ["chicken", "poultry", "turkey"],
-    beef: ["beef"],
-    pork: ["pork"],
-    lamb: ["lamb"],
-  }[productCategory];
   const proteinBuckets = useMemo(
-    () => species ? allProteinBuckets.filter((b) => { const n = (b.name || "").toLowerCase(); return species.some((s) => n.includes(s)); }) : allProteinBuckets,
-    [allProteinBuckets, species]
+    () => filterBucketsBySpecies(allProteinBuckets, productCategory),
+    [allProteinBuckets, productCategory]
   );
 
 

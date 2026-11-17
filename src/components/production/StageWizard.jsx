@@ -779,7 +779,43 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
           return s + (r.lbs || 0);
         }, 0).toFixed(2));
 
+        // Racking is the FIRST step of this flow (no tumbling before it), so the raw
+        // protein comes out of inventory here: the weight racked, oldest lot first.
+        const rawRackingUpdate = {};
+        if (capKey === "racking_product" && Number(stage.step_number) === 1 && !stage.source_tumble_stage_id && releasedLbs > 0) {
+          const liveRack = await base44.entities.ProductionStage.get(stage.id);
+          // Never take it twice if completion is retried.
+          const alreadyTaken = (liveRack?.consumed_lots || []).some(l => l.material_type === "protein");
+          if (!alreadyTaken) {
+            if (!form.protein_bucket_id) {
+              setSaving(false);
+              alert("Choose the raw protein bucket for this card before completing.");
+              return;
+            }
+            const proteinRes = await base44.functions.invoke("deductRawInventoryOnBatchComplete", {
+              stage_id: stage.id,
+              ingredients: [{
+                bucket_id: form.protein_bucket_id,
+                bucket_name: form.protein_bucket_name || "Protein",
+                actual_lbs: releasedLbs,
+              }],
+            });
+            const proteinShort = Number(proteinRes?.data?.total_shortfall) || 0;
+            if (proteinShort > 0.01) {
+              setSaving(false);
+              alert(`Not enough protein inventory — short by ${proteinShort} lbs. Nothing was deducted. Add stock or pick another bucket, then retry.`);
+              return;
+            }
+            rawRackingUpdate.consumed_lots = [
+              ...(liveRack?.consumed_lots || []),
+              ...tagConsumedLots(proteinRes?.data?.consumed_lots, "protein", { output_lot_number: myLot }),
+            ];
+            queryClient.invalidateQueries({ queryKey: ["rawInventory"] });
+          }
+        }
+
         await base44.entities.ProductionStage.update(stage.id, {
+          ...rawRackingUpdate,
           status: "completed",
           completed_at: new Date().toISOString(),
           output_qty_lbs: releasedLbs,

@@ -19,6 +19,7 @@ export { ProgressBar, NavButtons, FieldInput };
 
 import BlendInputSummary from "@/components/production/wizard/BlendInputSummary";
 import ChopWeightCheck from "@/components/production/wizard/ChopWeightCheck";
+import RackingProteinPicker from "@/components/production/wizard/RackingProteinPicker";
 import { chopIsOverweight } from "@/lib/chopWeight";
 
 export function IntroStep({ stage, capKey, stageLabel, resolvedBatches, measureSteps, product, saving, onStart, usesIngredientBatches }) {
@@ -167,6 +168,8 @@ export function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form,
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [linkBatchCount, !!cookBatch]);
   const isRacking = (capKey === "racking" || capKey === "racking_product") && stepDef.id === "racking";
+  // Racking as the flow's first step (no tumbling before it): raw protein is deducted here.
+  const isRawRacking = isRacking && capKey === "racking_product" && Number(stage?.step_number) === 1 && !stage?.source_tumble_stage_id;
   const isPackaging = capKey === "packaging" && stepDef.id === "packaging" && product?.varied_weights;
   const isMixerInputs = capKey === "mixer" && stepDef.id === "mixer_inputs";
 
@@ -245,7 +248,7 @@ export function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form,
   ].filter(Boolean) : [];
 
   const canProceed = isLinking ? (!!cookBatch && casingOk)
-     : isRacking ? (cookPlan?.racks?.some(r => r.released) || !!cookPlan?.carriedPartial)
+     : isRacking ? ((cookPlan?.racks?.some(r => r.released) || !!cookPlan?.carriedPartial) && (!isRawRacking || !!form.protein_bucket_id))
      : isPackaging ? (caseCount > 0 || form.unfinished_allocated) && caseWeights.slice(0, caseCount).filter(c => c?.weight_lbs > 0).length === caseCount
      : isMixerInputs ? (!!form.pork_lot_confirmed && (stage?.binder_lot_number ? !!form.binder_lot_confirmed : false))
      : isCookStage ? (cookTempEntered && (!cookTempTooLow || tempInitials) && !cookNeedsBatch)
@@ -390,6 +393,14 @@ export function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form,
           stage={stage}
           cookBatch={cookBatch}
           onChange={setCookBatch}
+        />
+      )}
+
+      {isRawRacking && (
+        <RackingProteinPicker
+          product={product}
+          value={form.protein_bucket_id}
+          onChange={(id, name) => setForm(f => ({ ...f, protein_bucket_id: id, protein_bucket_name: name }))}
         />
       )}
 

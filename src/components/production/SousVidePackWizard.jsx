@@ -10,6 +10,16 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CheckCircle2, Circle, Package, AlertCircle, AlertTriangle, Archive } from "lucide-react";
 import { localDateStr } from "@/lib/localDate";
+import { tagConsumedLots } from "@/lib/consumedLots";
+
+// One raw lot's share of a rack, shaped for the stage's recall record.
+function rawLotUse(row, lbs, rackNum, rackLot) {
+  if (!row) return [];
+  return tagConsumedLots([{ ...row, raw_inventory_id: row.id, lbs }], "protein", {
+    batch_number: rackNum,
+    output_lot_number: rackLot,
+  });
+}
 
 const RACK_LBS = 610;
 const GAYLORD_LBS = 1000;
@@ -325,7 +335,7 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
   };
 
   // ─── Core: save rack + update gaylords + maybe create cook stage ──────────
-  const saveRackAndUpdateGaylords = async ({ rackNum, lbs, lot, rawLotsUsed, cookBatchNumber, currentActiveLots }) => {
+  const saveRackAndUpdateGaylords = async ({ rackNum, lbs, lot, rawLotsUsed, cookBatchNumber, currentActiveLots, consumed = [] }) => {
     const today = localDateStr().replace(/-/g, "");
     const cookBatchLot = `SV-CB${cookBatchNumber}-${stageData.order_number}-${today}`;
 
@@ -374,6 +384,8 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
       sub_batches: newSubs,
       gaylords: updatedGaylords,
       pork_lot_number: JSON.stringify(currentActiveLots),
+      // Exact raw lots this rack took (recall traceability).
+      consumed_lots: [...(latestStage?.consumed_lots || []).filter(l => l.batch_number !== rackNum), ...consumed],
     });
 
     // ── Check if cook batch is complete → create cooking stage ──
@@ -475,16 +487,26 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
       // Deduct from single lot
       const newActiveLots = { ...freshActiveLots };
       const active = newActiveLots[primaryBucketId];
-      if (active?.raw_inventory_id) {
-        const freshRow = await base44.entities.RawInventory.filter({ id: active.raw_inventory_id }).then(r => r?.[0]);
-        const newQty = parseFloat((Math.max(0, (freshRow?.available_qty ?? 0) - lbs)).toFixed(2));
-        await base44.entities.RawInventory.update(active.raw_inventory_id, {
-          available_qty: newQty,
-          status: newQty <= 0 ? "depleted" : "in_use",
-        });
-        newActiveLots[primaryBucketId] = { ...active, remaining_qty: newQty };
-        setActiveLots(newActiveLots);
+      const freshRow = active?.raw_inventory_id
+        ? await base44.entities.RawInventory.filter({ id: active.raw_inventory_id }).then(r => r?.[0])
+        : null;
+      // Never pack a rack the raw lot can't cover — that would leave product with no
+      // inventory behind it.
+      if (!freshRow || (freshRow.available_qty ?? 0) < lbs - 0.01) {
+        alert(
+          `Not enough raw product on lot ${active?.lot_number || "(none)"} for this ${lbs} lb rack ` +
+          `(${freshRow?.available_qty ?? 0} lbs left). Nothing was deducted. Receive more or switch to the next lot, then retry.`
+        );
+        return;
       }
+      const newQty = parseFloat((freshRow.available_qty - lbs).toFixed(2));
+      await base44.entities.RawInventory.update(active.raw_inventory_id, {
+        available_qty: newQty,
+        status: newQty <= 0 ? "depleted" : "in_use",
+      });
+      newActiveLots[primaryBucketId] = { ...active, remaining_qty: newQty };
+      setActiveLots(newActiveLots);
+      const consumed = rawLotUse(freshRow, lbs, rackNum, lot);
 
       setEditingRack(null);
 
@@ -493,6 +515,7 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
         lbs,
         lot,
         rawLotsUsed: [active?.lot_number].filter(Boolean),
+        consumed,
         cookBatchNumber: editingRack.cookBatchNumber,
         currentActiveLots: newActiveLots,
       });
@@ -522,14 +545,27 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
       const fromLot1 = splitLotConfirmation.currentRemaining;
       const fromLot2 = parseFloat((lbs - fromLot1).toFixed(2));
 
+      // Check the second lot can cover its share BEFORE anything is deducted.
+      const lot2Row = await base44.entities.RawInventory.filter({ id: selectedSplitLotId }).then(r => r?.[0]);
+      if (!lot2Row || (lot2Row.available_qty ?? 0) < fromLot2 - 0.01) {
+        alert(
+          `Lot ${lot2Row?.lot_number || "(none)"} only has ${lot2Row?.available_qty ?? 0} lbs, but ${fromLot2} lbs are needed ` +
+          `to finish this rack. Nothing was deducted. Pick another lot or receive more, then retry.`
+        );
+        return;
+      }
+      const lot1Row = primaryActive?.raw_inventory_id
+        ? await base44.entities.RawInventory.filter({ id: primaryActive.raw_inventory_id }).then(r => r?.[0])
+        : null;
+      const consumed = [...rawLotUse(lot1Row, fromLot1, rackNum, lot), ...rawLotUse(lot2Row, fromLot2, rackNum, lot)];
+
       // Deplete lot 1
       if (primaryActive?.raw_inventory_id) {
         await base44.entities.RawInventory.update(primaryActive.raw_inventory_id, { available_qty: 0, status: "depleted" });
       }
 
       // Deduct from lot 2
-      const lot2Row = await base44.entities.RawInventory.filter({ id: selectedSplitLotId }).then(r => r?.[0]);
-      const lot2NewQty = parseFloat((Math.max(0, (lot2Row?.available_qty ?? 0) - fromLot2)).toFixed(2));
+      const lot2NewQty = parseFloat((lot2Row.available_qty - fromLot2).toFixed(2));
       await base44.entities.RawInventory.update(selectedSplitLotId, {
         available_qty: lot2NewQty,
         status: lot2NewQty <= 0 ? "depleted" : "in_use",
@@ -552,6 +588,7 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
         lbs,
         lot,
         rawLotsUsed,
+        consumed,
         cookBatchNumber,
         currentActiveLots: newActiveLots,
       });
