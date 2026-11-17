@@ -221,13 +221,23 @@ export function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form,
       })).filter(l => l.lbs > 0)
     : [];
 
-  const canProceed = isLinking ? !!cookBatch
+  // Out-of-range temperatures can be signed off with initials.
+  const tempInitials = !!(form.temp_initials || "").trim();
+  // Casings must be recorded at linking unless the product uses none.
+  const casingOk = !!product?.no_casings || (!!form.casing_bucket_id && Number(form.casing_qty_lbs) > 0);
+  // Chopping can't finish without the spice and cure the product calls for.
+  const chopMissing = isChopStep ? [
+    spiceRequired > 0 && spiceTotalAllocated <= 0 && "assign the spice mix",
+    product?.cure_bucket_id && Number(product?.chop_cure_lbs) > 0 && !(Number(form.cure_amount_lbs) > 0) && "enter the cure added",
+  ].filter(Boolean) : [];
+
+  const canProceed = isLinking ? (!!cookBatch && casingOk)
      : isRacking ? (cookPlan?.racks?.some(r => r.released) || !!cookPlan?.carriedPartial)
      : isPackaging ? (caseCount > 0 || form.unfinished_allocated) && caseWeights.slice(0, caseCount).filter(c => c?.weight_lbs > 0).length === caseCount
      : isMixerInputs ? (!!form.pork_lot_confirmed && (stage?.binder_lot_number ? !!form.binder_lot_confirmed : false))
-     : isCookStage ? (cookTempEntered && !cookTempTooLow && !cookNeedsBatch)
-     : isChillStage ? (chillTempEntered && !chillTempTooHigh)
-     : !spiceBlocksNext && !chopNeedsNote;
+     : isCookStage ? (cookTempEntered && (!cookTempTooLow || tempInitials) && !cookNeedsBatch)
+     : isChillStage ? (chillTempEntered && (!chillTempTooHigh || tempInitials))
+     : !spiceBlocksNext && !chopNeedsNote && chopMissing.length === 0;
 
   return (
     <div className="space-y-5">
@@ -321,7 +331,7 @@ export function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form,
             <AlertCircle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
             <div>
               <p className="text-sm font-semibold text-destructive">Temperature Below 165°F</p>
-              <p className="text-xs text-destructive/90 mt-0.5">Cook must reach at least 165°F to pass food safety. You can't continue until the end temperature is 165°F or higher.</p>
+              <p className="text-xs text-destructive/90 mt-0.5">Cook must reach at least 165°F to pass food safety. Enter your initials above to sign off and continue.</p>
             </div>
           </div>
         </div>
@@ -333,7 +343,7 @@ export function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form,
             <AlertCircle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
             <div>
               <p className="text-sm font-semibold text-destructive">Temperature Above 40°F</p>
-              <p className="text-xs text-destructive/90 mt-0.5">Chill must drop to 40°F or lower. You can't continue until the exit temperature is 40°F or below.</p>
+              <p className="text-xs text-destructive/90 mt-0.5">Chill must drop to 40°F or lower. Enter your initials above to sign off and continue.</p>
             </div>
           </div>
         </div>
@@ -434,12 +444,18 @@ export function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form,
         </div>
       )}
 
+      {(chopMissing.length > 0 || (isLinking && !casingOk)) && (
+        <div className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-2.5">
+          To continue: {[...chopMissing, isLinking && !casingOk && "select the casings and enter the amount used"].filter(Boolean).join(" · ")}
+        </div>
+      )}
+
       {isCookStage && !canProceed && (
         <div className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-2.5">
           To continue: {[
             cookNeedsBatch && "select at least 1 rack",
             !cookTempEntered && "enter the Cook End Temperature (°F)",
-            cookTempTooLow && "end temperature must be at least 165°F",
+            cookTempTooLow && !tempInitials && "enter your initials to sign off the under-165°F reading",
           ].filter(Boolean).join(" · ")}
         </div>
       )}

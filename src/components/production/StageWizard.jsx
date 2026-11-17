@@ -13,6 +13,8 @@ import { addCoolingBatchToPackagingJob } from "./addToPackagingJob";
 import { applyPackYield } from "@/lib/packYield";
 import { applyChopWeightOverride } from "@/lib/chopWeight";
 import { applyOvenCoolingChecks } from "@/lib/ovenCoolingChecks";
+import { localDateStr, addDaysStr } from "@/lib/localDate";
+import { uniqueCookLot } from "@/lib/cookLot";
 
 // ─── Stage icon map ───────────────────────────────────────────────────────────
 const STAGE_ICONS = {
@@ -353,8 +355,9 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
      setSaving(true);
      const currentBatchIdx = step - 1;
      const currentBatch = resolvedBatches?.[currentBatchIdx];
-     const isLastBatch = step === totalBatches;
-     const today_str = new Date().toISOString().slice(0, 10);
+     let isLastBatch = step === totalBatches;
+     let liveStage = null;
+     const today_str = localDateStr();
 
      try {
       // ── Standardized stage lots (new orders only) ──────────────────────────
@@ -363,6 +366,14 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
       // We override the form's lot value here so all downstream routing (blending,
       // chopping, mixer, cooking, chilling, packaging) inherits it untouched.
       {
+        // Never complete the same card twice (e.g. from a screen that hadn't refreshed yet).
+        liveStage = await base44.entities.ProductionStage.get(stage.id);
+        if (liveStage?.status === "completed") {
+          alert("This card was already completed. Nothing was changed.");
+          onCompleted?.();
+          onClose();
+          return;
+        }
         const stdOrder = await base44.entities.ProductionOrder.filter({ id: stage.order_id }).then(r => r?.[0]);
         if (stdOrder?.uses_standard_lots) {
           // Determine this stage's batch number for the -B<n> suffix so multiple batches
@@ -379,7 +390,12 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
             // e.g. COOK-…-20260923-3) so each linked cook batch gets its own lot.
             const cbMatch = (stage.cook_batch_lot || "").match(/CB(\d+)/i)
               || (stage.cook_batch_lot || "").match(/-(\d+)$/);
-            if (cbMatch) stdBatchNumber = parseInt(cbMatch[1], 10);
+            // Chopping / linking: carry the blend batch number so each batch gets its own lot.
+            const upstreamMatch = (capKey === "chopping" || capKey === "linking")
+              ? ((stage.batch_tag || "").match(/blend-batch-(\d+)/) || (stage.input_lot_number || "").match(/-B(\d+)/))
+              : null;
+            const batchMatch = cbMatch || upstreamMatch;
+            if (batchMatch) stdBatchNumber = parseInt(batchMatch[1], 10);
           }
           const stdLot = buildStageLot({
             orderNumber: stage.order_number,
@@ -410,6 +426,9 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
           onClose();
           return;
         }
+        // Blending is finished only when every batch is done, whatever order they were run in.
+        const doneLabels = new Set((liveCheck?.sub_batches || []).filter(sb => sb.status === "completed").map(sb => sb.label));
+        isLastBatch = doneLabels.size + 1 >= totalBatches;
         const blendOutputLot = form.output_lot_number || `BLEND-${Date.now()}`;
         const subBatch = {
           sub_batch_id: `blend-${currentBatch.batchNumber}-${Date.now()}`,
@@ -618,6 +637,13 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
         }
       } else if (capKey === "linking" && cookBatch) {
         // ── Linking: complete this stage and mark all selected sibling stages as part of this cook batch ──
+        cookBatch.lotNumber = await uniqueCookLot(cookBatch.lotNumber);
+        // Cooking receives the weight actually linked, not just what came in.
+        const ownIn = stage.output_qty_lbs || stage.input_qty_lbs || 0;
+        const ownOut = Number(form.output_qty_lbs) || ownIn;
+        const linkCookQty = (cookBatch.selectedStageIds || []).includes(stage.id)
+          ? parseFloat((cookBatch.totalQty - ownIn + ownOut).toFixed(2))
+          : cookBatch.totalQty;
         const updates = {
           status: "completed",
           completed_at: new Date().toISOString(),
@@ -635,7 +661,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
               stage_id: stage.id,
               ingredients: [{
                 bucket_id: form.casing_bucket_id,
-                bucket_name: form.casing_bucket_name || "Casings",
+                bucket_name: form.casing_bucket_name || product?.casing_bucket_name || "Casings",
                 actual_lbs: casingLbs,
               }],
             });
@@ -688,7 +714,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
                 work_profile_id: cookStep.work_profile_id,
                 work_profile_name: cookStep.work_profile_name,
                 status: "available",
-                input_qty_lbs: cookBatch.totalQty,
+                input_qty_lbs: linkCookQty,
                 input_lot_number: cookBatch.lotNumber,
                 cook_batch_lot: cookBatch.lotNumber,
                 // Carry rack count from the linking step config (racks_per_batch)
@@ -784,7 +810,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
       } else {
         // For non-blending/non-linking stages: complete the whole stage
         const today = new Date();
-        const today_str = today.toISOString().slice(0, 10);
+        const today_str = localDateStr(today);
         const updates = {
           status: "completed",
           completed_at: new Date().toISOString(),
@@ -868,7 +894,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
           if (chillOrder?.product_id) {
             const chillProduct = await base44.entities.Product.filter({ id: chillOrder.product_id }).then(r => r?.[0]);
             if (chillProduct?.shelf_life_days) {
-              updates.expiry_date = new Date(today.getTime() + chillProduct.shelf_life_days * 86400000).toISOString().slice(0, 10);
+              updates.expiry_date = addDaysStr(chillProduct.shelf_life_days, today);
             }
           }
         }
@@ -880,16 +906,24 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
           // Output can't exceed what went into the bowl unless the operator gave a reason.
           const chopWeightError = applyChopWeightOverride(updates, stage, form);
           if (chopWeightError) { setSaving(false); alert(chopWeightError); return; }
-          const chopConsumed = [...(stage.consumed_lots || [])];
+          const chopConsumed = [...(liveStage?.consumed_lots || stage.consumed_lots || [])];
+          // If an earlier attempt already took cure / spice for this batch, don't take it again.
+          const cureAlready = chopConsumed.some(l => l.material_type === "cure");
+          const spiceAlready = chopConsumed.some(l => l.material_type === "spice");
+          if (cureAlready) updates.cure_lot_number = liveStage?.cure_lot_number || "";
+          if (spiceAlready) updates.spice_mix_lot_number = liveStage?.spice_mix_lot_number || "";
+          const pickedCure = cureInventory.find(c => c.lot_number === form.cure_lot_number);
           const chopOutLot = updates.output_lot_number || stage.input_lot_number || "";
           // Cure: a RawInventory bucket on the product. Deduct the entered cure amount.
           const cureLbs = Number(form.cure_amount_lbs) || 0;
-          if (product?.cure_bucket_id && cureLbs > 0) {
+          if (product?.cure_bucket_id && cureLbs > 0 && !cureAlready) {
             const cureRes = await base44.functions.invoke("deductRawInventoryOnBatchComplete", {
               stage_id: stage.id,
               ingredients: [{
                 bucket_id: product.cure_bucket_id,
                 bucket_name: product.cure_bucket_name || "Cure",
+                // Take the cure lot the operator picked first.
+                lot_allocations: pickedCure ? [{ raw_inventory_id: pickedCure.id, actual_lbs: cureLbs }] : undefined,
                 actual_lbs: cureLbs,
               }],
             });
@@ -902,9 +936,10 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
             }
             chopConsumed.push(...tagConsumedLots(cureRes?.data?.consumed_lots, "cure", { output_lot_number: chopOutLot }));
             updates.cure_lot_number = (cureRes?.data?.consumed_lots || []).map(l => l.lot_number).filter(Boolean).join(", ");
+            await base44.entities.ProductionStage.update(stage.id, { consumed_lots: chopConsumed, cure_lot_number: updates.cure_lot_number });
           }
           // Spice mix: assigned SpiceMix inventory (same shape as tumble).
-          if (form.spice_mix?.lots?.length) {
+          if (form.spice_mix?.lots?.length && !spiceAlready) {
             const spiceRes = await base44.functions.invoke("deductSpiceMixOnComplete", {
               stage_id: stage.id,
               lots: form.spice_mix.lots,
@@ -916,6 +951,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
             }
             chopConsumed.push(...tagConsumedLots(spiceRes?.data?.consumed_lots, "spice", { output_lot_number: chopOutLot }));
             updates.spice_mix_lot_number = (spiceRes?.data?.consumed_lots || []).map(l => l.lot_number).filter(Boolean).join(", ");
+            await base44.entities.ProductionStage.update(stage.id, { consumed_lots: chopConsumed, spice_mix_lot_number: updates.spice_mix_lot_number });
           }
           // Water: not an inventory bucket, but recorded as a traceable ingredient with its
           // source/lot so a recall can show exactly what water went into each chop batch.
@@ -941,7 +977,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
               stage_id: stage.id,
               ingredients: [{
                 bucket_id: form.casing_bucket_id,
-                bucket_name: form.casing_bucket_name || "Casings",
+                bucket_name: form.casing_bucket_name || product?.casing_bucket_name || "Casings",
                 actual_lbs: casingLbs,
               }],
             });

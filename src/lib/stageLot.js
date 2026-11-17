@@ -9,6 +9,8 @@
 // Lots are AUTO-GENERATED and locked — operators never type them. This keeps
 // traceability uniform across all flows.
 
+import { localDateStr } from "@/lib/localDate";
+
 // Short, human-readable stage codes per capability key.
 const STAGE_CODES = {
   blending: "BLEND",
@@ -30,7 +32,7 @@ export function stageCode(capabilityKey) {
 }
 
 function datePart(date = new Date()) {
-  return date.toISOString().slice(0, 10).replace(/-/g, "");
+  return localDateStr(date).replace(/-/g, "");
 }
 
 function orderPart(orderNumber) {

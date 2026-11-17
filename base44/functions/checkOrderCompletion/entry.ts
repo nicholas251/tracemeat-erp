@@ -20,7 +20,7 @@ export default async function(req) {
             return Response.json({ skipped: true, reason: "no order_id in payload" });
         }
 
-        const stages = await base44.asServiceRole.entities.ProductionStage.filter({ order_id: orderId });
+        let stages = await base44.asServiceRole.entities.ProductionStage.filter({ order_id: orderId });
         if (!stages || stages.length === 0) {
             return Response.json({ skipped: true, reason: "no stages" });
         }
@@ -33,6 +33,17 @@ export default async function(req) {
         const allComplete = stages.filter(s => !isPlaceholder(s)).every(s => s.status === "completed");
         if (!allComplete) {
             return Response.json({ updated: false, reason: "stages still open" });
+        }
+
+        // A step is marked completed a moment before its next card is created. If a card
+        // just completed, wait and look again so the order is never closed in that gap.
+        const justCompleted = stages.some(s => s.completed_at && Date.now() - new Date(s.completed_at).getTime() < 15000);
+        if (justCompleted) {
+            await new Promise(r => setTimeout(r, 8000));
+            stages = await base44.asServiceRole.entities.ProductionStage.filter({ order_id: orderId });
+            if (!stages.filter(s => !isPlaceholder(s)).every(s => s.status === "completed")) {
+                return Response.json({ updated: false, reason: "stages still open" });
+            }
         }
 
         const order = await base44.asServiceRole.entities.ProductionOrder.get(orderId);

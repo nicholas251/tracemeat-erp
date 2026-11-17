@@ -1,4 +1,5 @@
 import { base44 } from "@/api/base44Client";
+import { localDateStr, addDaysStr } from "@/lib/localDate";
 
 // ── Packaging → Finished Goods push ──────────────────────────────────────────
 // Extracted from StageWizard.handleComplete to keep that file editable. Pushes the
@@ -7,7 +8,7 @@ import { base44 } from "@/api/base44Client";
 // original inline implementation.
 export async function pushPackagingToFinishedGoods({ stage, updates, form, queryClient }) {
   const today = new Date();
-  const today_str = today.toISOString().slice(0, 10);
+  const today_str = localDateStr(today);
 
   const order = await base44.entities.ProductionOrder.filter({ id: stage.order_id }).then(r => r?.[0]);
   if (!order) return;
@@ -84,7 +85,7 @@ export async function pushPackagingToFinishedGoods({ stage, updates, form, query
       // Calculate expiry for this split
       let splitExpiryDate = expiryDate;
       if (!splitExpiryDate && shelfLifeDays) {
-        splitExpiryDate = new Date(today.getTime() + shelfLifeDays * 86400000).toISOString().slice(0, 10);
+        splitExpiryDate = addDaysStr(shelfLifeDays, today);
       }
 
       // Calculate cases for this split — use the quantity_cases directly from the split config
@@ -172,12 +173,13 @@ export async function pushPackagingToFinishedGoods({ stage, updates, form, query
   const caseWeightLbs = productData?.case_weight_lbs || 1;
 
   if (!expiryDate && shelfLifeDays) {
-    expiryDate = new Date(today.getTime() + shelfLifeDays * 86400000).toISOString().slice(0, 10);
+    expiryDate = addDaysStr(shelfLifeDays, today);
   }
 
   // Lot number = expiry date (MMDDYY, from the product's shelf life) + order number.
   if (shelfLifeDays) {
-    const shelfExpiry = new Date(today.getTime() + shelfLifeDays * 86400000).toISOString().slice(0, 10);
+    // Use the real expiry (set at cooling) so the lot code always matches the expiry date.
+    const shelfExpiry = expiryDate || addDaysStr(shelfLifeDays, today);
     const [y, m, d] = shelfExpiry.split("-");
     const orderDigits = (order.order_number || "").replace(/\D/g, "").slice(-4).padStart(4, "0");
     baseFgLot = `${m}${d}${y.slice(2)}-${orderDigits}`;

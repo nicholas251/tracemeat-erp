@@ -1,4 +1,5 @@
 import { fullChopBatchLbs } from "@/lib/blendBatchMath";
+import { localDateStr } from "@/lib/localDate";
 
 // ─── Build ingredient batches (blending) with multiple batches ────────────────
 export function buildIngredientBatchesMultiple(stage, product, capKey, numBatches) {
@@ -41,6 +42,11 @@ export function buildMeasurementSteps(stage, product, capKey, casingBuckets = []
   // When standardized lots are on, every stage's output lot is auto-generated and locked
   // at completion — so the operator-typed lot fields are hidden from the wizard entirely.
   const hideLotField = usesStandardLots;
+  // A short (last) batch gets spice, cure and water in proportion to its protein weight.
+  const r2 = n => parseFloat(n.toFixed(2));
+  const fullProteinLbs = Number(product?.blend_batch_lbs) || 0;
+  const rawShare = fullProteinLbs > 0 && !stage?.batch_tag ? (Number(stage?.input_qty_lbs) || 0) / fullProteinLbs : 1;
+  const chopShare = rawShare > 0 && rawShare < 0.95 ? rawShare : 1;
 
   if (capKey === "chopping") {
     steps.push({
@@ -48,11 +54,11 @@ export function buildMeasurementSteps(stage, product, capKey, casingBuckets = []
       label: "Bowl Preparation",
       fields: [
         { key: "input_lot_confirmed", label: `Confirm blend lot ${stage?.input_lot_number || "N/A"} added to bowl?`, type: "boolean" },
-        { key: "spice_mix", label: "Spice Mix", type: "spice_mix_picker", requiredLbs: product?.chop_spice_qty_lbs || 0, filterSpiceMixId: product?.chop_spice_mix_id },
+        { key: "spice_mix", label: "Spice Mix", type: "spice_mix_picker", requiredLbs: r2((product?.chop_spice_qty_lbs || 0) * chopShare), filterSpiceMixId: product?.chop_spice_mix_id },
         { key: "cure_lot_number", label: "Cure Lot #", type: "cure_select" },
-        { key: "cure_amount_lbs", label: "Cure Added (lbs)", type: "number" },
-        { key: "water_amount_lbs", label: "Water Amount Added (lbs)", type: "number", defaultValue: product?.chop_water_lbs || undefined },
-        { key: "water_lot_number", label: "Water Source / Lot #", type: "text", defaultValue: `WATER-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}` },
+        { key: "cure_amount_lbs", label: "Cure Added (lbs)", type: "number", defaultValue: product?.chop_cure_lbs ? r2(product.chop_cure_lbs * chopShare) : undefined },
+        { key: "water_amount_lbs", label: "Water Amount Added (lbs)", type: "number", defaultValue: product?.chop_water_lbs ? r2(product.chop_water_lbs * chopShare) : undefined },
+        { key: "water_lot_number", label: "Water Source / Lot #", type: "text", defaultValue: `WATER-${localDateStr().replace(/-/g, "")}` },
         { key: "output_qty_lbs", label: "Output Qty (lbs)", type: "number" },
         ...(hideLotField ? [] : [{ key: "output_lot_number", label: "Chopping Output Lot #", type: "text", placeholder: "e.g. CHOP-2024-001" }]),
         { key: "notes", label: "Notes / Observations", type: "textarea" },
@@ -65,8 +71,8 @@ export function buildMeasurementSteps(stage, product, capKey, casingBuckets = []
       id: "linking",
       label: "Linking",
       fields: [
-        { key: "casing_bucket_id", label: "Casings Used", type: "casing_select", options: casingBuckets },
-        { key: "casing_qty_lbs", label: "Casing Qty Used (lbs)", type: "number" },
+        { key: "casing_bucket_id", label: "Casings Used", type: "casing_select", options: casingBuckets, defaultValue: product?.casing_bucket_id || undefined },
+        { key: "casing_qty_lbs", label: "Casing Qty Used (in the casing's unit)", type: "number", defaultValue: product?.casing_qty_per_batch_lbs || undefined },
         { key: "output_qty_lbs", label: "Output Qty (lbs)", type: "number" },
       ],
     });
@@ -113,7 +119,7 @@ export function buildMeasurementSteps(stage, product, capKey, casingBuckets = []
   }
 
   if (capKey === "cooking") {
-      const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+      const today = localDateStr().replace(/-/g, "");
       const cookLotDefault = stage?.cook_batch_lot
         ? `${stage.cook_batch_lot}-${today}`
         : `COOK-${today}`;
@@ -133,7 +139,7 @@ export function buildMeasurementSteps(stage, product, capKey, casingBuckets = []
     }
 
   if (capKey === "chilling") {
-    const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+    const today = localDateStr().replace(/-/g, "");
     // Extract cooking batch number from cook_batch_lot (e.g., "CB1" from "SV-CB1-2024...")
     const cookBatchMatch = stage?.cook_batch_lot?.match(/CB(\d+)/);
     const cookBatchNumber = cookBatchMatch ? cookBatchMatch[1] : "?";
@@ -174,7 +180,7 @@ export function buildMeasurementSteps(stage, product, capKey, casingBuckets = []
     }
 
   if (capKey === "ovencooling") {
-    const ymd = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+    const ymd = localDateStr().replace(/-/g, "");
     steps.push({
       id: "oven_cooling",
       label: "Cook & Cool",
