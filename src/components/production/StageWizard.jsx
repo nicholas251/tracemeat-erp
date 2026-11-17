@@ -307,15 +307,16 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
 
   // ── Ingredient batch helpers ──
   const updateIngredient = (batchIdx, ingIdx, field, value) => {
-    const updated = resolvedBatches.map((b, bi) =>
+    // Functional update: all ingredients assign their lots at the same moment when a batch
+    // opens, so each write must build on the previous one instead of a stale snapshot.
+    setBatches(prev => (prev || resolvedBatches).map((b, bi) =>
       bi !== batchIdx ? b : {
         ...b,
         ingredients: b.ingredients.map((ing, ii) =>
           ii !== ingIdx ? ing : { ...ing, [field]: value }
         ),
       }
-    );
-    setBatches(updated);
+    ));
   };
 
   const confirmIngredient = (batchIdx, ingIdx) =>
@@ -398,6 +399,17 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
       if (usesIngredientBatches && currentBatch) {
         // For blending: complete one batch at a time w/ lot traceability
         const batchLbs = currentBatch.batchLbs;
+        // Never complete the same batch twice (e.g. from a card that hadn't refreshed yet).
+        const liveCheck = await base44.entities.ProductionStage.get(stage.id);
+        const alreadyDone = (liveCheck?.sub_batches || []).some(
+          sb => sb.status === "completed" && sb.label === `Blend Batch #${currentBatch.batchNumber}`
+        );
+        if (alreadyDone) {
+          alert(`Batch ${currentBatch.batchNumber} was already completed. Nothing was deducted.`);
+          onCompleted?.();
+          onClose();
+          return;
+        }
         const blendOutputLot = form.output_lot_number || `BLEND-${Date.now()}`;
         const subBatch = {
           sub_batch_id: `blend-${currentBatch.batchNumber}-${Date.now()}`,
