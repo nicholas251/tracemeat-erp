@@ -27,7 +27,7 @@ export default function FGBucketAdjustDialog({ open, bucket, onClose, onSave }) 
     if (adjustType === "add" && lotNumber) {
       updatedLots.push({
         lot_number: lotNumber,
-        production_date: new Date().toISOString().slice(0, 10),
+        production_date: new Date().toLocaleDateString("en-CA"),
         quantity_lbs: qty,
         cases: caseQty,
         status: "available",

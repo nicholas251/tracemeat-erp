@@ -32,7 +32,7 @@ export default function WarehouseOperatorView({ user }) {
                     <p className="font-semibold">{po.po_number}</p>
                     <p className="text-sm text-muted-foreground">{po.supplier} · {po.line_items?.length || 0} items</p>
                     <p className="text-xs text-muted-foreground mt-1">
-                      Expected: {po.expected_delivery_date ? new Date(po.expected_delivery_date).toLocaleDateString() : "TBD"}
+                      Expected: {po.expected_delivery_date ? new Date(po.expected_delivery_date.slice(0, 10) + "T00:00:00").toLocaleDateString() : "TBD"}
                     </p>
                   </div>
                   <div className="flex flex-col items-end gap-2">

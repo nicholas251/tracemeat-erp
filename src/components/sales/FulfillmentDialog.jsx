@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
+import { clearItemsFromPallets } from "@/lib/palletSync";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -99,6 +100,7 @@ export default function FulfillmentDialog({ open, order, onClose, onFulfilled })
       // IMPORTANT: accumulate ALL bucket deductions in memory first and write each bucket
       // ONCE at the end. Updating inside the loop from the stale fgBuckets snapshot made
       // a 2nd pick on the same product overwrite the 1st pick's deduction.
+      const depleted = []; // lots shipped down to zero, to take off their pallets
       const bucketCache = {}; // bucket_id -> working copy with accumulated deductions
       for (const alloc of lineAllocations) {
         for (const pick of alloc.picks) {
@@ -109,6 +111,7 @@ export default function FulfillmentDialog({ open, order, onClose, onFulfilled })
           // 1. Deduct InventoryItem
           const newQty = (invItem.quantity_lbs || 0) - pick.qty_lbs_taken;
           const newStatus = newQty <= 0 ? "shipped" : "available";
+          if (newQty <= 0) depleted.push(pick.inventory_item_id);
           await base44.entities.InventoryItem.update(pick.inventory_item_id, {
             quantity_lbs: Math.max(0, newQty),
             status: newStatus,
@@ -140,6 +143,7 @@ export default function FulfillmentDialog({ open, order, onClose, onFulfilled })
           }
         }
       }
+      await clearItemsFromPallets(depleted);
       // Persist each touched bucket once, with all deductions accumulated.
       for (const wb of Object.values(bucketCache)) {
         await base44.entities.FinishedGoodsBucket.update(wb.id, {

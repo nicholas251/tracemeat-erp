@@ -100,7 +100,7 @@ export default function RawMaterials() {
                         <TableCell className="text-sm">{m.temp_on_arrival_c != null ? `${m.temp_on_arrival_c}°` : "—"}</TableCell>
                         <TableCell><StatusBadge status={m.status} /></TableCell>
                         <TableCell className="text-sm text-muted-foreground">
-                          {m.received_date ? format(new Date(m.received_date), "MMM d") : "—"}
+                          {m.received_date ? format(new Date(m.received_date.slice(0, 10) + "T00:00:00"), "MMM d") : "—"}
                         </TableCell>
                         <TableCell>
                           <div className="flex gap-1">
@@ -154,7 +154,7 @@ export default function RawMaterials() {
                     </div>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {m.received_date ? format(new Date(m.received_date), "MMM d, yyyy") : "—"}
+                    {m.received_date ? format(new Date(m.received_date.slice(0, 10) + "T00:00:00"), "MMM d, yyyy") : "—"}
                   </p>
                   <div className="flex gap-2 pt-2 border-t">
                     <Button size="sm" variant="outline" className="flex-1" onClick={() => setAllocating(m)}>📦 Allocate</Button>

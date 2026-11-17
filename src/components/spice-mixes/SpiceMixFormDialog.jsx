@@ -114,7 +114,7 @@ export default function SpiceMixFormDialog({ open, onClose, onSave, mix }) {
       ingredients: finalIngredients,
       quantity_lbs: Number(form.quantity_lbs),
       available_qty_lbs: mix ? Number(form.available_qty_lbs) : 0,
-      date_created: mix?.date_created || new Date().toISOString().split('T')[0],
+      date_created: mix?.date_created || new Date().toLocaleDateString('en-CA'),
     });
   };
 

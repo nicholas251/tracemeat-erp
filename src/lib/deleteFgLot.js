@@ -1,5 +1,6 @@
 import { base44 } from "@/api/base44Client";
 import { logAudit } from "@/lib/auditLog";
+import { clearItemsFromPallets } from "@/lib/palletSync";
 
 // Removes a finished-goods lot everywhere (bucket + inventory items) and logs who did it.
 export async function deleteFgLot({ productId, productName, lotNumber, initials, reason }) {
@@ -22,6 +23,7 @@ export async function deleteFgLot({ productId, productName, lotNumber, initials,
     });
   }
   await Promise.all(items.map(i => base44.entities.InventoryItem.delete(i.id)));
+  await clearItemsFromPallets(items.map(i => i.id));
 
   await logAudit({
     action: "deleted",

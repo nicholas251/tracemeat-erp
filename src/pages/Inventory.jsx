@@ -99,7 +99,7 @@ export default function Inventory() {
   const totalLbs = items.filter(i => i.status === "available").reduce((sum, i) => sum + (i.quantity_lbs || 0), 0);
   const expiringItems = items.filter(i => {
     if (!i.expiry_date || i.status !== "available") return false;
-    const daysLeft = Math.ceil((new Date(i.expiry_date) - new Date()) / 86400000);
+    const daysLeft = Math.ceil((new Date(i.expiry_date.slice(0, 10) + "T00:00:00") - new Date()) / 86400000);
     return daysLeft <= 5 && daysLeft >= 0;
   });
 
@@ -131,13 +131,13 @@ export default function Inventory() {
 
   const isExpiringSoon = (expiry_date) => {
     if (!expiry_date) return false;
-    const daysLeft = Math.ceil((new Date(expiry_date) - new Date()) / 86400000);
+    const daysLeft = Math.ceil((new Date(expiry_date.slice(0, 10) + "T00:00:00") - new Date()) / 86400000);
     return daysLeft <= 5 && daysLeft >= 0;
   };
 
   const isExpired = (expiry_date) => {
     if (!expiry_date) return false;
-    return new Date(expiry_date) < new Date();
+    return expiry_date.slice(0, 10) < new Date().toLocaleDateString("en-CA");
   };
 
   return (
@@ -265,7 +265,7 @@ export default function Inventory() {
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground">{item.location || "—"}</TableCell>
                         <TableCell className="text-sm text-muted-foreground">
-                          {item.production_date ? format(new Date(item.production_date), "MMM d, yyyy") : "—"}
+                          {item.production_date ? format(new Date(item.production_date.slice(0, 10) + "T00:00:00"), "MMM d, yyyy") : "—"}
                         </TableCell>
                         <TableCell>
                           {item.expiry_date ? (

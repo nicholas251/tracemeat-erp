@@ -40,7 +40,7 @@ export default function RecentBatches({ batches }) {
                   <TableCell className="text-sm">{batch.product_name}</TableCell>
                   <TableCell><StatusBadge status={batch.status} /></TableCell>
                   <TableCell className="text-sm text-muted-foreground">
-                    {batch.production_date ? format(new Date(batch.production_date), "MMM d") : "—"}
+                    {batch.production_date ? format(new Date(batch.production_date.slice(0, 10) + "T00:00:00"), "MMM d") : "—"}
                   </TableCell>
                 </TableRow>
               ))

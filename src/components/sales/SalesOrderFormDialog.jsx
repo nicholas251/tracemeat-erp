@@ -20,7 +20,7 @@ export default function SalesOrderFormDialog({ open, onClose, onSaved }) {
   const [form, setForm] = useState({
     order_number: genOrderNumber(),
     customer_id: "", customer_name: "",
-    order_date: new Date().toISOString().slice(0, 10),
+    order_date: new Date().toLocaleDateString("en-CA"),
     ship_date: "", route: "", route_date: "", status: "draft", notes: "", line_items: []
   });
 

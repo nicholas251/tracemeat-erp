@@ -24,7 +24,7 @@ export default function ShipmentsTable({ shipments, hit }) {
             <tr key={i} className={`border-b last:border-0 ${s.matched ? "bg-yellow-50" : ""}`}>
               <td className="py-1.5 pr-3 font-medium"><Hl on={hit(s.customer_name)} className="font-sans">{s.customer_name || "—"}</Hl></td>
               <td className="py-1.5 pr-3"><Hl on={hit(s.order_number)}>{s.order_number || "—"}</Hl></td>
-              <td className="py-1.5 pr-3">{s.ship_date ? format(new Date(s.ship_date), "MMM d, yyyy") : "—"}</td>
+              <td className="py-1.5 pr-3">{s.ship_date ? format(new Date(s.ship_date.slice(0, 10) + "T00:00:00"), "MMM d, yyyy") : "—"}</td>
               <td className="py-1.5 pr-3">{s.product_name}</td>
               <td className="py-1.5 pr-3"><Hl on={hit(s.lot_number)}>{s.lot_number || "—"}</Hl></td>
               <td className="py-1.5 pr-3 text-right font-semibold">{(s.lbs || 0).toFixed(2)}</td>

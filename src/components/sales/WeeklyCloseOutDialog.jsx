@@ -15,7 +15,7 @@ export default function DailyCloseOutDialog({ open, onClose, orders, onArchived 
 
   // Get today's routes only
   const now = new Date();
-  const todayStr = now.toISOString().split('T')[0];
+  const todayStr = now.toLocaleDateString('en-CA');
   const activeRoutes = ROUTES.filter(r =>
     orders.some(o => o.route === r && o.route_date === todayStr && o.status !== "cancelled")
   );

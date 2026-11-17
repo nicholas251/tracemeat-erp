@@ -11,7 +11,7 @@ import { buildForecast } from "@/lib/forecastMath";
 const RANK = { red: 0, yellow: 1, green: 2, none: 3 };
 
 async function loadForecastData() {
-  const since = new Date(Date.now() - 42 * 86400000).toISOString().slice(0, 10);
+  const since = new Date(Date.now() - 42 * 86400000).toLocaleDateString("en-CA");
   const [products, sales, lots, openOrders, wipOrders] = await Promise.all([
     base44.entities.Product.filter({ status: "active" }),
     base44.entities.DailySalesRecord.filter({ sales_date: { $gte: since } }),

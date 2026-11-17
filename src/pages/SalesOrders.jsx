@@ -44,7 +44,7 @@ export default function SalesOrders() {
   // Show close-out banner daily at 1pm for today's routes
   const now = new Date();
   const isDailyCloseOutTime = now.getHours() >= 13;
-  const todayStr = now.toISOString().split('T')[0];
+  const todayStr = now.toLocaleDateString('en-CA');
   const hasTodaysRoutes = orders.some(o => o.route && o.route_date === todayStr && o.status !== "cancelled");
 
   const handleView = (o) => { setSelected(o); setDetailOpen(true); };

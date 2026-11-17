@@ -76,7 +76,15 @@ export default function Receiving() {
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["purchase_orders"] }); },
   });
 
+  // One receipt at a time: a second tap while the first is still saving must not create a duplicate lot.
+  const receivingRef = useRef(false);
   const handleReceiveItem = async (lineItemIndex) => {
+    if (receivingRef.current) return;
+    receivingRef.current = true;
+    try { await receiveItem(lineItemIndex); } finally { receivingRef.current = false; }
+  };
+
+  const receiveItem = async (lineItemIndex) => {
     if (!currentPO) return;
 
     const item = currentPO.line_items[lineItemIndex];

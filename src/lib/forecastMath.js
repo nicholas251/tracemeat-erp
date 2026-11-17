@@ -2,7 +2,7 @@
 // target (2 weeks cover capped by shelf life + safety stock), and suggested production.
 const DAY = 86400000;
 const TARGET_DAYS = 14;
-const dayStr = (d) => d.toISOString().slice(0, 10);
+const dayStr = (d) => d.toLocaleDateString("en-CA");
 
 export function buildForecast({ products, sales, lots, openOrders, wipOrders, wipProduced }) {
   const today = new Date();

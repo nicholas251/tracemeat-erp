@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import ProductSearchSelect from "@/components/production-orders/ProductSearchSelect";
 
-const today = new Date().toISOString().slice(0, 10);
+const today = new Date().toLocaleDateString("en-CA");
 const UNITS = {
   cases: { label: "Cases", count: "Cases" },
   weight: { label: "Weight", count: "" },
