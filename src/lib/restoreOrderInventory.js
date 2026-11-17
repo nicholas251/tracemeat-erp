@@ -12,7 +12,9 @@ export async function restoreOrderInventory(orderId) {
     }
   }
   for (const [id, lbs] of Object.entries(add)) {
-    const lot = await base44.entities.RawInventory.get(id);
+    // A lot that has since been removed from raw inventory has nothing to restore to.
+    const [lot] = await base44.entities.RawInventory.filter({ id });
+    if (!lot) continue;
     const available = Math.round(((lot.available_qty || 0) + lbs) * 100) / 100;
     await base44.entities.RawInventory.update(id, { available_qty: available, status: "available" });
   }
@@ -23,7 +25,8 @@ export async function restoreOrderInventory(orderId) {
     }
   }
   for (const [id, lbs] of Object.entries(mixAdd)) {
-    const mix = await base44.entities.SpiceMix.get(id);
+    const [mix] = await base44.entities.SpiceMix.filter({ id });
+    if (!mix) continue;
     await base44.entities.SpiceMix.update(id, { available_qty_lbs: Math.round(((mix.available_qty_lbs || 0) + lbs) * 100) / 100 });
   }
   if (stages.length) await base44.entities.ProductionStage.deleteMany({ order_id: orderId });
