@@ -6,6 +6,14 @@
       "type": "string",
       "description": "Spice mix name (e.g., 'Classic Hot Dog Blend')"
     },
+    "bucket_id": {
+      "type": "string",
+      "description": "InventoryBucket that holds this mix's on-hand lots"
+    },
+    "bucket_name": {
+      "type": "string",
+      "description": "Name of the linked inventory bucket"
+    },
     "ingredients": {
       "type": "array",
       "items": {
