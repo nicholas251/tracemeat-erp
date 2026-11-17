@@ -153,6 +153,19 @@ export function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form,
     }
   }, [stepDef.id]);
   const isLinking = capKey === "linking" && stepDef.id === "linking";
+  // Merging linking batches into one cook batch uses casings for each of them.
+  const linkBatchCount = cookBatch?.selectedStageIds?.length || 1;
+  const autoCasing = React.useRef(null);
+  React.useEffect(() => {
+    const perBatch = Number(product?.casing_qty_per_batch_lbs) || 0;
+    if (!isLinking || !perBatch || !cookBatch) return;
+    const scaled = parseFloat((perBatch * linkBatchCount).toFixed(3));
+    if (linkBatchCount > 1 || form.casing_qty_lbs === autoCasing.current) {
+      autoCasing.current = scaled;
+      setForm(f => ({ ...f, casing_qty_lbs: scaled }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [linkBatchCount, !!cookBatch]);
   const isRacking = (capKey === "racking" || capKey === "racking_product") && stepDef.id === "racking";
   const isPackaging = capKey === "packaging" && stepDef.id === "packaging" && product?.varied_weights;
   const isMixerInputs = capKey === "mixer" && stepDef.id === "mixer_inputs";

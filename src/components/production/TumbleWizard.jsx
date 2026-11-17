@@ -159,55 +159,14 @@ export default function TumbleWizard({ stage, open, onClose, onCompleted }) {
       if (!rackingStep) {
         throw new Error("No racking step found after tumbling in this product's flow — add one in the Flow Builder before releasing.");
       }
-      // 1. Deduct protein for THIS batch from the selected bucket.
-      //    A bucket is REQUIRED — without it we cannot deduct inventory.
+      // A bucket is REQUIRED — without it we cannot deduct inventory.
       if (!chosenBucket?.bucket_id) {
         throw new Error("Pick a protein bucket for this batch before releasing — inventory can't be deducted without one.");
       }
-      // 1. Deduct spice mix FIRST. Spice is the smaller, more commonly-short
-      //    deduction — validating it before committing protein means a spice
-      //    shortfall never strands an already-deducted protein batch (which would
-      //    double-deduct protein on retry).
-      let spiceRes = null;
-      if (spiceLots.length) {
-        spiceRes = await base44.functions.invoke("deductSpiceMixOnComplete", {
-          stage_id: stage.id,
-          lots: spiceLots,
-        });
-        const spiceShort = Number(spiceRes?.data?.total_shortfall) || 0;
-        if (spiceShort > 0.01) {
-          throw new Error(
-            `Spice mix was ${spiceShort} lbs short — nothing was racked. Add spice mix or adjust lots, then retry.`
-          );
-        }
-      }
 
-      // 2. Deduct protein for THIS batch from the selected bucket. Committed last
-      //    so it only runs once spice is confirmed available.
-      const proteinRes = await base44.functions.invoke("deductRawInventoryOnBatchComplete", {
-        stage_id: stage.id,
-        ingredients: [{
-          bucket_id: chosenBucket.bucket_id,
-          bucket_name: chosenBucket.bucket_name || "Protein",
-          actual_lbs: batch.protein_lbs,
-          lot_allocations: proteinLots.length ? proteinLots : null,
-        }],
-      });
-      const proteinShort = Number(proteinRes?.data?.total_shortfall) || 0;
-      if (proteinShort > 0.01) {
-        throw new Error(
-          `Protein inventory was ${proteinShort} lbs short — nothing was racked. Add inventory or adjust lots, then retry.`
-        );
-      }
-
-      // 3. Create a racking card carrying this batch's weight.
-      //    Lot uses the STANDARD plant-wide format <DATE>-<ORDER>-RACK-B<n> (via
-      //    buildStageLot) so racking lots read the same as every other stage. It's
-      //    unique per order + batch + day, and the "-B<n>" suffix stays LAST so the
-      //    resume-seeding regex below still matches.
-      // Use the parent tumble stage's batch number (N of M) when present, so each
-      // separate tumble batch yields -B1 / -B2 / -B3. Fall back to the internal index
-      // for single-batch tumble stages that aren't part of a split set.
+      // Lot uses the STANDARD plant-wide format <DATE>-<ORDER>-RACK-B<n>. The parent
+      // tumble stage's batch number (N of M) drives the suffix when present, so each
+      // separate tumble batch yields -B1 / -B2 / -B3.
       const lotBatchNum = stageBatchNumber || batch.batch_number;
       const lot = buildStageLot({
         orderNumber: stage.order_number,
@@ -215,12 +174,8 @@ export default function TumbleWizard({ stage, open, onClose, onCompleted }) {
         batchNumber: lotBatchNum,
       });
 
-      // Authoritative dedupe against the DB (not local state). A refetch race in the
-      // seeding effect could leave a batch looking un-released locally, letting the
-      // operator release it again and spawn a duplicate racking card. Re-read this
-      // tumble stage's racking cards right before creating and bail if THIS batch
-      // number already produced one — guaranteeing exactly one card per batch number,
-      // each with its own -B<n> lot.
+      // Check the saved records BEFORE touching inventory: a batch that already has its
+      // racking card was fully released earlier and must not be deducted again.
       const liveCards = await base44.entities.ProductionStage.filter({
         order_id: stage.order_id,
         source_tumble_stage_id: stage.id,
@@ -228,20 +183,61 @@ export default function TumbleWizard({ stage, open, onClose, onCompleted }) {
       const alreadyRacked = liveCards.some(
         (c) => new RegExp(`-B${lotBatchNum}$`).test(c.input_lot_number || "")
       );
-      // Stamp the EXACT lots this batch consumed on the tumble stage (recall traceability).
-      // Re-read the stage so rapid successive releases append instead of overwriting.
-      const liveStage = await base44.entities.ProductionStage.filter({ id: stage.id }).then(r => r?.[0]);
-      const batchConsumed = [
-        ...tagConsumedLots(spiceRes?.data?.consumed_lots, "spice", { batch_number: lotBatchNum, output_lot_number: lot }),
-        ...tagConsumedLots(proteinRes?.data?.consumed_lots, "protein", { batch_number: lotBatchNum, output_lot_number: lot }),
-      ];
-      await base44.entities.ProductionStage.update(stage.id, {
-        consumed_lots: [...(liveStage?.consumed_lots || []), ...batchConsumed],
-        status: "in_progress",
-        started_at: liveStage?.started_at || new Date().toISOString(),
-      });
+      const liveStage = await base44.entities.ProductionStage.get(stage.id);
+      let consumed = liveStage?.consumed_lots || [];
 
       if (!alreadyRacked) {
+        // 1. Spice mix first (the smaller, more commonly-short deduction). It is saved on
+        //    the stage straight away, so if protein then turns out short the retry skips
+        //    the spice instead of taking it a second time.
+        const spiceTaken = consumed.some((l) => l.material_type === "spice" && l.batch_number === lotBatchNum);
+        if (spiceLots.length && !spiceTaken) {
+          const spiceRes = await base44.functions.invoke("deductSpiceMixOnComplete", {
+            stage_id: stage.id,
+            lots: spiceLots,
+          });
+          const spiceShort = Number(spiceRes?.data?.total_shortfall) || 0;
+          if (spiceShort > 0.01) {
+            throw new Error(
+              `Spice mix was ${spiceShort} lbs short — nothing was racked. Add spice mix or adjust lots, then retry.`
+            );
+          }
+          consumed = [
+            ...consumed,
+            ...tagConsumedLots(spiceRes?.data?.consumed_lots, "spice", { batch_number: lotBatchNum, output_lot_number: lot }),
+          ];
+          await base44.entities.ProductionStage.update(stage.id, { consumed_lots: consumed });
+        }
+
+        // 2. Protein for THIS batch from the selected bucket.
+        const proteinRes = await base44.functions.invoke("deductRawInventoryOnBatchComplete", {
+          stage_id: stage.id,
+          ingredients: [{
+            bucket_id: chosenBucket.bucket_id,
+            bucket_name: chosenBucket.bucket_name || "Protein",
+            actual_lbs: batch.protein_lbs,
+            lot_allocations: proteinLots.length ? proteinLots : null,
+          }],
+        });
+        const proteinShort = Number(proteinRes?.data?.total_shortfall) || 0;
+        if (proteinShort > 0.01) {
+          throw new Error(
+            `Protein inventory was ${proteinShort} lbs short — nothing was racked. Add inventory or adjust lots, then retry.`
+          );
+        }
+
+        // Stamp the EXACT lots this batch consumed on the tumble stage (recall traceability).
+        consumed = [
+          ...consumed,
+          ...tagConsumedLots(proteinRes?.data?.consumed_lots, "protein", { batch_number: lotBatchNum, output_lot_number: lot }),
+        ];
+        await base44.entities.ProductionStage.update(stage.id, {
+          consumed_lots: consumed,
+          status: "in_progress",
+          started_at: liveStage?.started_at || new Date().toISOString(),
+        });
+
+        // 3. Create the racking card carrying this batch's weight.
         await base44.entities.ProductionStage.create({
           order_id: stage.order_id,
           order_number: stage.order_number,

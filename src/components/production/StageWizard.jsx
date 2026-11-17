@@ -393,9 +393,18 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
             // Chopping / linking: carry the blend batch number so each batch gets its own lot.
             const upstreamMatch = (capKey === "chopping" || capKey === "linking")
               ? ((stage.batch_tag || "").match(/blend-batch-(\d+)/) || (stage.input_lot_number || "").match(/-B(\d+)/))
+              // Cooling carries the number of the cook / rack batch it came from.
+              : (capKey === "chilling" || capKey === "ovencooling")
+              ? (stage.input_lot_number || "").match(/-B(\d+)$/)
               : null;
             const batchMatch = cbMatch || upstreamMatch;
             if (batchMatch) stdBatchNumber = parseInt(batchMatch[1], 10);
+            else if (capKey === "cooking") {
+              // Oven loads built from released racks: number them in the order they are cooked.
+              stdBatchNumber = (await base44.entities.ProductionStage.count({
+                order_id: stage.order_id, capability_key: "cooking", status: "completed",
+              })) + 1;
+            }
           }
           const stdLot = buildStageLot({
             orderNumber: stage.order_number,
@@ -408,6 +417,8 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
           } else {
             setForm(f => ({ ...f, output_lot_number: stdLot }));
             form.output_lot_number = stdLot;
+            // Racks loaded into this oven carry the same unique cook lot.
+            if (capKey === "cooking" && cookBatch && !stage.cook_batch_lot) cookBatch.lotNumber = stdLot;
           }
         }
       }

@@ -11,6 +11,7 @@ import { base44 } from "@/api/base44Client";
 import InventoryShortageCheck from "./InventoryShortageCheck";
 import ProductSearchSelect from "./ProductSearchSelect";
 import { calcBlendBatchCount } from "@/lib/blendBatchMath";
+import { localDateStr } from "@/lib/localDate";
 
 export default function ProductionOrderFormDialog({ open, onClose, onSave, order, products, flows, suppliers, saving }) {
   // Locks instantly on first click so rapid double-clicks can't create duplicate orders.
@@ -19,7 +20,7 @@ export default function ProductionOrderFormDialog({ open, onClose, onSave, order
   useEffect(() => { if (!saving) submitLock.current = false; }, [saving]);
   const [form, setForm] = useState({
     order_number: "", product_id: "", product_name: "", flow_id: "", flow_name: "",
-    supplier_id: "", supplier_name: "", quantity_to_produce: "", order_date: new Date().toISOString().split("T")[0],
+    supplier_id: "", supplier_name: "", quantity_to_produce: "", order_date: localDateStr(),
     target_completion_date: "", status: "pending", notes: ""
   });
   const [homeStock, setHomeStock] = useState(false);
@@ -35,7 +36,7 @@ export default function ProductionOrderFormDialog({ open, onClose, onSave, order
         order_number: `PO-${Date.now().toString().slice(-6)}`,
         product_id: "", product_name: "", flow_id: "", flow_name: "",
         supplier_id: "", supplier_name: "", quantity_to_produce: "",
-        order_date: new Date().toISOString().split("T")[0],
+        order_date: localDateStr(),
         target_completion_date: "", status: "pending", notes: ""
       });
       setHomeStock(false);
@@ -142,6 +143,8 @@ export default function ProductionOrderFormDialog({ open, onClose, onSave, order
 
   const handleSave = () => {
     if (!form.order_number || !form.product_id || !form.quantity_to_produce) return;
+    // An order with no flow gets no step cards and can never be run.
+    if (!order && !form.flow_id) return;
     if (submitLock.current || saving) return;
     submitLock.current = true;
     onSave({
@@ -180,6 +183,11 @@ export default function ProductionOrderFormDialog({ open, onClose, onSave, order
             <div className="flex items-center px-3 py-2 border rounded-md bg-muted/50">
               <span className="text-sm font-medium">{form.flow_name || "—"}</span>
             </div>
+            {!order && form.product_id && !form.flow_id && (
+              <p className="rounded bg-amber-100 border border-amber-300 text-amber-900 px-2 py-1 text-xs font-medium">
+                This product has no production flow. Assign one in Products before creating an order.
+              </p>
+            )}
           </div>
 
           <label className="flex items-center gap-2 cursor-pointer select-none">
@@ -356,7 +364,7 @@ export default function ProductionOrderFormDialog({ open, onClose, onSave, order
 
         <DialogFooter className="gap-2 mt-4">
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={handleSave} disabled={saving || !form.order_number || !form.product_id || !form.quantity_to_produce}>
+          <Button onClick={handleSave} disabled={saving || !form.order_number || !form.product_id || !form.quantity_to_produce || (!order && !form.flow_id)}>
             {saving ? "Saving..." : `${order ? "Update" : "Create"} Order`}
           </Button>
         </DialogFooter>

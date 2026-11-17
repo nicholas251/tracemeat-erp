@@ -100,7 +100,7 @@ export function buildMeasurementSteps(stage, product, capKey, casingBuckets = []
       label: "Mixing",
       fields: [
         { key: "duration_minutes", label: "Mix Duration (minutes)", type: "number" },
-        { key: "output_qty_lbs", label: "Combined Output Qty (lbs)", type: "number" },
+        { key: "output_qty_lbs", label: "Combined Output Qty (lbs)", type: "number", defaultValue: r2((Number(stage?.input_qty_lbs) || 0) + (Number(stage?.binder_qty_lbs) || 0)) || undefined },
         ...(hideLotField ? [] : [{ key: "output_lot_number", label: "Linker Batch Lot #", type: "text", placeholder: "e.g. MIX-2024-001" }]),
       ],
     });

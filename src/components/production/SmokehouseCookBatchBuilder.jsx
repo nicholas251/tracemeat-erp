@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Flame, Layers, CheckCircle2, AlertCircle, Trash2 } from "lucide-react";
+import { localDateStr } from "@/lib/localDate";
 
 const MAX_RACKS_PER_BATCH = 3;
 
@@ -26,7 +27,7 @@ const MAX_RACKS_PER_BATCH = 3;
  */
 export default function SmokehouseCookBatchBuilder({ stage, cookBatch, onChange }) {
   const [lotNumber, setLotNumber] = useState(
-    cookBatch?.lotNumber || `COOK-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}`
+    cookBatch?.lotNumber || `COOK-${localDateStr().replace(/-/g, "")}`
   );
   const [selectedIds, setSelectedIds] = useState(cookBatch?.rackIds || []);
 

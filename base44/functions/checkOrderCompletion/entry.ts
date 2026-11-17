@@ -1,10 +1,12 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.44';
 
 // Entity automation handler: runs when a ProductionStage is created/updated.
-// Marks the parent ProductionOrder completed (and archives it) only when:
-//   1. every stage on the order is completed, AND
-//   2. at least one completed stage is the flow's FINAL step.
-// Rule 2 closes a race: the wizard marks e.g. chilling "completed" a moment BEFORE it
+// 1. Moves a "pending" order to "in_progress" as soon as any of its cards has started.
+// 2. Marks the order completed (and archives it) only when:
+//      a. every stage on the order is completed (this covers the full planned weight —
+//         every first-step card carries its share of it), AND
+//      b. at least one completed stage is the flow's FINAL step.
+// Rule b closes a race: the wizard marks e.g. chilling "completed" a moment BEFORE it
 // creates the packaging stage. Without it, this handler could observe "all stages done"
 // in that gap and close the order while product was still waiting to be packed.
 export default async function(req) {
@@ -23,6 +25,20 @@ export default async function(req) {
         let stages = await base44.asServiceRole.entities.ProductionStage.filter({ order_id: orderId });
         if (!stages || stages.length === 0) {
             return Response.json({ skipped: true, reason: "no stages" });
+        }
+
+        const order = await base44.asServiceRole.entities.ProductionOrder.get(orderId)
+            .catch((e) => (e.status === 404 ? null : Promise.reject(e)));
+        if (!order) {
+            return Response.json({ skipped: true, reason: "order not found" });
+        }
+        if (order.status === "completed") {
+            return Response.json({ updated: false, reason: "already completed" });
+        }
+
+        // Work has begun — show the order as in progress.
+        if (order.status === "pending" && stages.some(s => s.status === "in_progress" || s.status === "completed")) {
+            await base44.asServiceRole.entities.ProductionOrder.update(orderId, { status: "in_progress" });
         }
 
         // Ignore empty placeholder stubs created with the order (locked, no input, no lot,
@@ -46,14 +62,6 @@ export default async function(req) {
             }
         }
 
-        const order = await base44.asServiceRole.entities.ProductionOrder.get(orderId);
-        if (!order) {
-            return Response.json({ skipped: true, reason: "order not found" });
-        }
-        if (order.status === "completed") {
-            return Response.json({ updated: false, reason: "already completed" });
-        }
-
         // The final step of the flow must be among the completed stages.
         if (order.flow_id) {
             const flow = await base44.asServiceRole.entities.ProductFlow.filter({ id: order.flow_id }).then(r => r?.[0]);
@@ -64,23 +72,6 @@ export default async function(req) {
                 if (!finalStepDone) {
                     return Response.json({ updated: false, reason: `final flow step ${lastStepNumber} not completed yet` });
                 }
-            }
-        }
-
-        // The whole order quantity must have gone through the first step — otherwise only part
-        // of the order has been produced (remaining batches not started yet).
-        // quantity_to_produce is FINISHED lbs; the first step handles RAW lbs, so gross the
-        // target up by the product yield (raw = finished / yield) before comparing.
-        const product = order.product_id ? await base44.asServiceRole.entities.Product.get(order.product_id).catch(() => null) : null;
-        const yieldFrac = (Number(product?.yield_percent) || 100) / 100;
-        const target = (Number(order.quantity_to_produce) || 0) / yieldFrac - 0.5;
-        if (target > 0) {
-            const firstStep = Math.min(...stages.map(s => Number(s.step_number) || 0));
-            const processed = stages
-                .filter(s => Number(s.step_number) === firstStep && s.status === "completed")
-                .reduce((sum, s) => sum + (Number(s.input_qty_lbs) || Number(s.output_qty_lbs) || 0), 0);
-            if (processed < target) {
-                return Response.json({ updated: false, reason: `only ${processed} of ${target} lbs processed` });
             }
         }
 

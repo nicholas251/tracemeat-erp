@@ -30,4 +30,6 @@ export async function restoreOrderInventory(orderId) {
     await base44.entities.SpiceMix.update(id, { available_qty_lbs: Math.round(((mix.available_qty_lbs || 0) + lbs) * 100) / 100 });
   }
   if (stages.length) await base44.entities.ProductionStage.deleteMany({ order_id: orderId });
+  // Racks belong to the order too — left behind, they would stay on offer at the smokehouse.
+  await base44.entities.RackUnit.deleteMany({ order_id: orderId });
 }

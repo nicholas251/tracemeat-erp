@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CheckCircle2, Circle, Package, AlertCircle, AlertTriangle, Archive } from "lucide-react";
+import { localDateStr } from "@/lib/localDate";
 
 const RACK_LBS = 610;
 const GAYLORD_LBS = 1000;
@@ -63,7 +64,7 @@ function buildPlan(totalLbs) {
  * Returns { updatedGaylords, contributions: [{gaylord_number, qty_lbs}] }
  */
 function distributeRackToGaylords(gaylords, rackLbs, cookBatchLot, orderNumber) {
-  const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+  const today = localDateStr().replace(/-/g, "");
   const updated = gaylords.map(g => ({ ...g, source_rack_numbers: [...(g.source_rack_numbers || [])], source_cook_batch_lots: [...(g.source_cook_batch_lots || [])] }));
   const contributions = [];
   let remaining = rackLbs;
@@ -286,7 +287,7 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
   // ─── Open rack edit form ──────────────────────────────────────────────────
   const openEditRack = (rack) => {
     const existing = completedRacks[rack.rackNumber];
-    const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+    const today = localDateStr().replace(/-/g, "");
     setEditForm({
       lot_number: existing?.lot_number || `SV-R${rack.rackNumber}-${today}`,
       notes: existing?.notes || "",
@@ -325,7 +326,7 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
 
   // ─── Core: save rack + update gaylords + maybe create cook stage ──────────
   const saveRackAndUpdateGaylords = async ({ rackNum, lbs, lot, rawLotsUsed, cookBatchNumber, currentActiveLots }) => {
-    const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+    const today = localDateStr().replace(/-/g, "");
     const cookBatchLot = `SV-CB${cookBatchNumber}-${stageData.order_number}-${today}`;
 
     // Get latest stage from DB for sub_batches + gaylords (avoid stale reads)
@@ -443,7 +444,7 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
     if (!editingRack) return;
     const rackNum = editingRack.rackNumber;
     const lbs = parseFloat(editForm.lbs) || editingRack.lbs;
-    const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+    const today = localDateStr().replace(/-/g, "");
     const lot = editForm.lot_number.trim() || `SV-R${rackNum}-${today}`;
 
     setSaving(true);
@@ -512,7 +513,7 @@ export default function SousVidePackWizard({ stage, open, onClose, onCompleted }
     if (!splitLotConfirmation || !selectedSplitLotId) return;
     const rackNum = splitLotConfirmation.rackNumber;
     const lbs = parseFloat(editForm.lbs) || splitLotConfirmation.weightNeeded;
-    const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+    const today = localDateStr().replace(/-/g, "");
     const lot = editForm.lot_number.trim() || `SV-R${rackNum}-${today}`;
     const primaryActive = activeLots[primaryBucketId];
 
