@@ -30,6 +30,12 @@ function shipToLines(order, customer) {
   return [order.customer_name, sameAsName ? null : shipToName, ...street.split("\n"), cityInStreet ? null : cityLine, customer?.phone];
 }
 
+// yyyy-mm-dd -> mm/dd/yyyy
+function mdy(date) {
+  const [yyyy, mm, dd] = String(date || "").slice(0, 10).split("-");
+  return dd ? `${mm}/${dd}/${yyyy}` : "";
+}
+
 export async function generateBillOfLading(orderId, shipFrom) {
   const order = await base44.entities.SalesOrder.get(orderId);
   const customer = order.customer_id ? await base44.entities.Customer.get(order.customer_id) : null;
@@ -39,6 +45,9 @@ export async function generateBillOfLading(orderId, shipFrom) {
   const lotIds = items.flatMap((it) => (it.fulfilled_lots || []).map((l) => l.inventory_item_id)).filter(Boolean);
   const invItems = lotIds.length ? await base44.entities.InventoryItem.filter({ id: { $in: lotIds } }) : [];
   const manualLot = Object.fromEntries(invItems.filter((i) => i.batch_id === "manual").map((i) => [i.id, i.batch_number]));
+  const productIds = [...new Set(items.map((it) => it.product_id).filter(Boolean))];
+  const products = productIds.length ? await base44.entities.Product.filter({ id: { $in: productIds } }) : [];
+  const productCode = Object.fromEntries(products.map((p) => [p.id, p.product_number]));
   const logo = await loadLogoPng();
   doc.addImage(logo, "PNG", 14, 8, 35, 28);
   let y = 22;
@@ -47,10 +56,10 @@ export async function generateBillOfLading(orderId, shipFrom) {
   y += 18;
   doc.setFontSize(10).setFont(undefined, "normal");
   doc.text(`BOL #: BOL-${order.order_number || order.id.slice(-6)}`, 14, y);
-  doc.text(`Date: ${new Date().toLocaleDateString()}`, 140, y);
+  doc.text(`Date: ${mdy(new Date().toLocaleDateString("en-CA"))}`, 140, y);
   y += 6;
   doc.text(`Sales Order: ${order.order_number || order.id.slice(-6)}`, 14, y);
-  doc.text(`Route: ${order.route || "—"}   Ship Date: ${order.ship_date || order.route_date || "—"}`, 140, y);
+  doc.text(`Route: ${order.route || "—"}   Ship Date: ${mdy(order.ship_date || order.route_date) || "—"}`, 140, y);
   y += 10;
 
   doc.setFont(undefined, "bold").text("SHIP FROM", 14, y).text("SHIP TO / CONSIGNEE", 110, y);
@@ -64,21 +73,24 @@ export async function generateBillOfLading(orderId, shipFrom) {
   y += Math.max(from.length, to.length, 1) * 5 + 8;
 
   doc.setFont(undefined, "bold");
-  ["Product", "Lots", "Cases", "Weight (lbs)"].forEach((h, i) => doc.text(h, [14, 85, 150, 172][i], y));
+  ["Code", "Product", "Lots", "Cases", "Weight (lbs)"].forEach((h, i) => doc.text(h, [14, 36, 92, 150, 172][i], y));
   doc.line(14, y + 2, 196, y + 2);
   doc.setFont(undefined, "normal");
   y += 8;
   let cases = 0, lbs = 0;
   items.forEach((it) => {
     const lots = (it.fulfilled_lots || []).map((l) => manualLot[l.inventory_item_id] || l.lot_number || l.batch_number).filter(Boolean).join(", ");
-    const lotLines = doc.splitTextToSize(lots || "—", 60);
-    doc.text(doc.splitTextToSize(it.product_name || "", 68), 14, y);
-    doc.text(lotLines, 85, y);
+    const lotLines = doc.splitTextToSize(lots || "—", 54);
+    const codeLines = doc.splitTextToSize(productCode[it.product_id] || it.sku || "—", 20);
+    const nameLines = doc.splitTextToSize(it.product_name || "", 53);
+    doc.text(codeLines, 14, y);
+    doc.text(nameLines, 36, y);
+    doc.text(lotLines, 92, y);
     doc.text(String(it.cases_qty || 0), 150, y);
     doc.text((it.total_lbs || 0).toFixed(1), 172, y);
     cases += Number(it.cases_qty) || 0;
     lbs += Number(it.total_lbs) || 0;
-    y += Math.max(lotLines.length, 1) * 5 + 3;
+    y += Math.max(lotLines.length, nameLines.length, codeLines.length) * 5 + 3;
   });
   doc.line(14, y - 1, 196, y - 1);
   doc.setFont(undefined, "bold").text("TOTAL", 14, y + 4).text(String(cases), 150, y + 4).text(lbs.toFixed(1), 172, y + 4);
