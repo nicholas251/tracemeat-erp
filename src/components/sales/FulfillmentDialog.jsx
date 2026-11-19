@@ -35,24 +35,32 @@ export default function FulfillmentDialog({ open, order, onClose, onFulfilled })
     queryFn: () => base44.entities.InventoryItem.filter({ status: "available" }),
   });
 
-  const { data: fgBuckets = [] } = useQuery({
+  const { data: fgBuckets = [], isSuccess: bucketsLoaded } = useQuery({
     queryKey: ["fgBuckets-all"],
     queryFn: () => base44.entities.FinishedGoodsBucket.list(),
+  });
+
+  // Only lots still on hand in Finished Goods can be picked. Lots deleted or used up there
+  // leave an old lot record behind, and FIFO used to grab that old lot number first.
+  const pickable = inventory.filter(i => {
+    const bucket = fgBuckets.find(b => b.product_id === i.product_id);
+    return !bucket || (bucket.lots || []).some(l =>
+      l.lot_number === i.lot_number && l.status === "available" && (l.quantity_lbs || 0) > 0);
   });
 
   // Auto-pick FIFO ONCE when the dialog opens. Re-running on every background inventory
   // refresh would silently wipe the operator's manual lot adjustments.
   useEffect(() => {
     if (!open) { setReady(false); return; }
-    if (ready || !inventory.length) return;
+    if (ready || !inventory.length || !bucketsLoaded) return;
     const allocations = (order.line_items || []).map(item => {
-      const productInv = inventory.filter(i => i.product_id === item.product_id);
+      const productInv = pickable.filter(i => i.product_id === item.product_id);
       const picks = autoPickFIFO(productInv, item.total_lbs || 0);
       return { ...item, picks };
     });
     setLineAllocations(allocations);
     setReady(true);
-  }, [open, inventory, ready]);
+  }, [open, inventory, ready, bucketsLoaded]);
 
   const addManualLot = (lineIdx) => {
     setLineAllocations(prev => prev.map((line, i) => {
@@ -190,7 +198,7 @@ export default function FulfillmentDialog({ open, order, onClose, onFulfilled })
   const allOk = lineAllocations.every(l => getLineSuficiency(l) === "ok") && !anyOverdrawn;
 
   // Filter inventory by product for a line
-  const getProductInventory = (productId) => inventory.filter(i => i.product_id === productId && (i.quantity_lbs || 0) > 0);
+  const getProductInventory = (productId) => pickable.filter(i => i.product_id === productId && (i.quantity_lbs || 0) > 0);
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
