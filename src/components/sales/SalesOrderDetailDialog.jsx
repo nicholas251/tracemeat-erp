@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { FileText, CheckCircle, Pencil } from "lucide-react";
+import { FileText, CheckCircle, Pencil, Truck } from "lucide-react";
 import FulfillmentDialog from "./FulfillmentDialog";
 import BolPromptDialog from "./BolPromptDialog";
 
@@ -19,6 +19,7 @@ export default function SalesOrderDetailDialog({ open, order, onClose, onUpdated
   const { data: me } = useQuery({ queryKey: ["currentUser"], queryFn: () => base44.auth.me() });
   const [fulfillOpen, setFulfillOpen] = useState(false);
   const [bolOrderId, setBolOrderId] = useState(null);
+  const [bolReprint, setBolReprint] = useState(false);
   const queryClient = useQueryClient();
 
   const updateMutation = useMutation({
@@ -137,6 +138,9 @@ export default function SalesOrderDetailDialog({ open, order, onClose, onUpdated
                 <Pencil className="w-4 h-4 mr-1" /> Edit
               </Button>
             )}
+            <Button size="sm" variant="outline" onClick={() => { setBolReprint(true); setBolOrderId(order.id); }}>
+              <Truck className="w-4 h-4 mr-1" /> Bill of Lading
+            </Button>
             <Button size="sm" variant="outline" onClick={handlePackingSlip}>
               <FileText className="w-4 h-4 mr-1" /> Packing Slip
             </Button>
@@ -158,7 +162,7 @@ export default function SalesOrderDetailDialog({ open, order, onClose, onUpdated
           }}
         />
       )}
-      <BolPromptDialog orderId={bolOrderId} onClose={() => setBolOrderId(null)} />
+      <BolPromptDialog orderId={bolOrderId} reprint={bolReprint} onClose={() => { setBolOrderId(null); setBolReprint(false); }} />
     </Dialog>
   );
 }
