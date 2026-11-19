@@ -4,26 +4,24 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { CheckCircle2, AlertCircle, Save, Search } from "lucide-react";
+import { CheckCircle2, Search } from "lucide-react";
 import { format, startOfWeek, addDays } from "date-fns";
 import CustomerAllocationDialog from "@/components/sales/CustomerAllocationDialog";
 
 export default function WeeklyReconciliation({ products, fgBuckets, onReconcileWeek }) {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [reconciliation, setReconciliation] = useState({});
-  const [saving, setSaving] = useState(false);
+  const [savingDay, setSavingDay] = useState(null);
   const [search, setSearch] = useState("");
   const [allocations, setAllocations] = useState({});
   const [editing, setEditing] = useState(null);
-  const [completedDays, setCompletedDays] = useState(new Set());
+  const [finalizedDays, setFinalizedDays] = useState(new Set());
 
   // Get Monday of current week
   const weekStart = startOfWeek(selectedDate, { weekStartsOn: 1 });
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
   const dayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-  const weekProgress = (completedDays.size / 7) * 100;
-  const isWeekComplete = completedDays.size === 7;
 
   const handleProductDayInput = (productId, dayIndex, value) => {
     const key = `${productId}-day${dayIndex}`;
@@ -31,88 +29,58 @@ export default function WeeklyReconciliation({ products, fgBuckets, onReconcileW
     setReconciliation(prev => ({ ...prev, [key]: newValue }));
   };
 
-  const toggleDayComplete = (dayIndex) => {
-    setCompletedDays(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(dayIndex)) {
-        newSet.delete(dayIndex);
-      } else {
-        newSet.add(dayIndex);
-      }
-      return newSet;
-    });
-  };
+  const dayHasEntries = (dayIndex) =>
+    Object.entries(reconciliation).some(([k, v]) => k.endsWith(`-day${dayIndex}`) && v > 0);
 
-  const handleSubmit = async () => {
-    if (!isWeekComplete) {
-      alert("All 7 days must be marked complete before finalizing the week.");
-      return;
-    }
-    setSaving(true);
+  // Records one day's sales on its own and clears that day's entries from the grid.
+  const finalizeDay = async (dayIndex) => {
+    const suffix = `-day${dayIndex}`;
+    const only = (obj) => Object.fromEntries(Object.entries(obj).filter(([k]) => k.endsWith(suffix)));
+    const without = (obj) => Object.fromEntries(Object.entries(obj).filter(([k]) => !k.endsWith(suffix)));
+    setSavingDay(dayIndex);
     try {
       await onReconcileWeek({
         weekStart: format(weekStart, "yyyy-MM-dd"),
-        data: reconciliation,
-        allocations
+        data: only(reconciliation),
+        allocations: only(allocations)
       });
-      setReconciliation({});
-      setAllocations({});
-      setCompletedDays(new Set());
+      setReconciliation(without);
+      setAllocations(without);
+      setFinalizedDays(prev => new Set(prev).add(dayIndex));
     } finally {
-      setSaving(false);
+      setSavingDay(null);
     }
   };
 
   return (
     <div className="space-y-6">
       {/* Week Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-lg font-semibold">
-            Week of {format(weekStart, "MMM d, yyyy")}
-          </h3>
-          <p className="text-sm text-muted-foreground">All 7 days required to complete</p>
-        </div>
-        <div className="text-right">
-          <div className="text-2xl font-bold text-chart-1">{completedDays.size}/7</div>
-          <p className="text-xs text-muted-foreground">Days Complete</p>
-        </div>
-      </div>
-
-      {/* Progress Bar */}
-      <div className="space-y-2">
-        <div className="h-2 rounded-full bg-muted overflow-hidden">
-          <div 
-            className="h-full bg-chart-1 transition-all" 
-            style={{ width: `${weekProgress}%` }}
-          />
-        </div>
+      <div>
+        <h3 className="text-lg font-semibold">
+          Week of {format(weekStart, "MMM d, yyyy")}
+        </h3>
+        <p className="text-sm text-muted-foreground">Enter a day's sales below, then finalize that day to record them</p>
       </div>
 
       {/* Days Grid */}
       <div className="grid grid-cols-7 gap-2">
-        {weekDays.map((day, idx) => {
-          const isComplete = completedDays.has(idx);
-          return (
-            <button
-              key={idx}
-              onClick={() => toggleDayComplete(idx)}
-              className={`p-3 rounded-lg border-2 transition-all text-center cursor-pointer ${
-                isComplete
-                  ? "border-chart-2 bg-chart-2/10"
-                  : "border-border hover:border-chart-1"
-              }`}
+        {weekDays.map((day, idx) => (
+          <div key={idx} className="p-2 rounded-lg border-2 border-border text-center space-y-1">
+            <div className="text-xs font-semibold text-muted-foreground">{dayLabels[idx]}</div>
+            <div className="text-sm font-semibold flex items-center justify-center gap-1">
+              {format(day, "d")}
+              {finalizedDays.has(idx) && <CheckCircle2 className="w-4 h-4 text-chart-2" />}
+            </div>
+            <Button
+              size="sm"
+              className="w-full px-1 text-[10px] sm:text-xs"
+              disabled={!dayHasEntries(idx) || savingDay !== null}
+              onClick={() => finalizeDay(idx)}
             >
-              <div className="text-xs font-semibold text-muted-foreground mb-1">
-                {dayLabels[idx]}
-              </div>
-              <div className="text-sm font-semibold">{format(day, "d")}</div>
-              {isComplete && (
-                <CheckCircle2 className="w-4 h-4 text-chart-2 mx-auto mt-1" />
-              )}
-            </button>
-          );
-        })}
+              {savingDay === idx ? "Saving..." : "Finalize"}
+            </Button>
+          </div>
+        ))}
       </div>
 
       {/* Products Grid */}
@@ -182,23 +150,6 @@ export default function WeeklyReconciliation({ products, fgBuckets, onReconcileW
         }}
       />
 
-      {/* Submit Button */}
-      <div className="flex gap-2">
-        {!isWeekComplete && (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground flex-1">
-            <AlertCircle className="w-4 h-4" />
-            Complete all 7 days to finalize week
-          </div>
-        )}
-        <Button
-          onClick={handleSubmit}
-          disabled={!isWeekComplete || saving}
-          className="gap-2"
-        >
-          <Save className="w-4 h-4" />
-          {saving ? "Submitting..." : "Finalize Week"}
-        </Button>
-      </div>
     </div>
   );
 }
