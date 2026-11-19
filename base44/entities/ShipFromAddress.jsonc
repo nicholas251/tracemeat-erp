@@ -1,0 +1,53 @@
+{
+  "name": "ShipFromAddress",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Shipper / facility name printed on the bill of lading"
+    },
+    "address": {
+      "type": "string",
+      "description": "Full ship-from address (multi-line)"
+    },
+    "phone": {
+      "type": "string",
+      "description": "Shipper phone number"
+    }
+  },
+  "required": [
+    "name",
+    "address"
+  ],
+  "rls": {
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "user"
+          }
+        }
+      ]
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

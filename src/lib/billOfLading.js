@@ -20,7 +20,17 @@ function loadLogoPng() {
   });
 }
 
-export async function generateBillOfLading(orderId) {
+// Customer name, ship-to location, street, city/state/zip and phone
+function shipToLines(order, customer) {
+  const street = customer?.address || "";
+  const cityLine = [[customer?.city, customer?.state].filter(Boolean).join(", "), customer?.zip].filter(Boolean).join(" ");
+  const cityInStreet = customer?.city && street.toLowerCase().includes(customer.city.toLowerCase());
+  const shipToName = (customer?.ship_to_name || "").trim();
+  const sameAsName = shipToName.toLowerCase() === (order.customer_name || "").trim().toLowerCase();
+  return [order.customer_name, sameAsName ? null : shipToName, ...street.split("\n"), cityInStreet ? null : cityLine, customer?.phone];
+}
+
+export async function generateBillOfLading(orderId, shipFrom) {
   const order = await base44.entities.SalesOrder.get(orderId);
   const customer = order.customer_id ? await base44.entities.Customer.get(order.customer_id) : null;
   const doc = new jsPDF();
@@ -42,10 +52,12 @@ export async function generateBillOfLading(orderId) {
   doc.setFont(undefined, "bold").text("SHIP FROM", 14, y).text("SHIP TO / CONSIGNEE", 110, y);
   doc.setFont(undefined, "normal");
   y += 6;
-  doc.text("TraceMeat ERP", 14, y);
-  const to = [order.customer_name, ...(customer?.address || "").split("\n"), customer?.phone].filter(Boolean);
-  to.forEach((line, i) => doc.text(String(line), 110, y + i * 5));
-  y += Math.max(to.length, 1) * 5 + 8;
+  const wrap = (lines) => lines.filter(Boolean).flatMap((l) => doc.splitTextToSize(String(l), 86));
+  const from = wrap([shipFrom?.name, ...(shipFrom?.address || "").split("\n"), shipFrom?.phone]);
+  const to = wrap(shipToLines(order, customer));
+  from.forEach((line, i) => doc.text(line, 14, y + i * 5));
+  to.forEach((line, i) => doc.text(line, 110, y + i * 5));
+  y += Math.max(from.length, to.length, 1) * 5 + 8;
 
   doc.setFont(undefined, "bold");
   ["Product", "Lots", "Cases", "Weight (lbs)"].forEach((h, i) => doc.text(h, [14, 85, 150, 172][i], y));
