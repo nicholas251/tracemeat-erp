@@ -56,10 +56,11 @@ export async function generateBillOfLading(orderId, shipFrom) {
   y += 18;
   doc.setFontSize(10).setFont(undefined, "normal");
   doc.text(`BOL #: BOL-${order.order_number || order.id.slice(-6)}`, 14, y);
-  doc.text(`Date: ${mdy(new Date().toLocaleDateString("en-CA"))}`, 140, y);
+  const today = mdy(new Date().toLocaleDateString("en-CA"));
+  doc.text(`Date: ${today}`, 140, y);
   y += 6;
   doc.text(`Sales Order: ${order.order_number || order.id.slice(-6)}`, 14, y);
-  doc.text(`Route: ${order.route || "—"}   Ship Date: ${mdy(order.ship_date || order.route_date) || "—"}`, 140, y);
+  doc.text(`Route: ${order.route || "—"}   Ship Date: ${today}`, 140, y);
   y += 10;
 
   doc.setFont(undefined, "bold").text("SHIP FROM", 14, y).text("SHIP TO / CONSIGNEE", 110, y);
