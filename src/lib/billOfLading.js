@@ -35,6 +35,10 @@ export async function generateBillOfLading(orderId, shipFrom) {
   const customer = order.customer_id ? await base44.entities.Customer.get(order.customer_id) : null;
   const doc = new jsPDF();
   const items = order.line_items || [];
+  // Manually entered lots print the lot number that was typed in, not the date-based one
+  const lotIds = items.flatMap((it) => (it.fulfilled_lots || []).map((l) => l.inventory_item_id)).filter(Boolean);
+  const invItems = lotIds.length ? await base44.entities.InventoryItem.filter({ id: { $in: lotIds } }) : [];
+  const manualLot = Object.fromEntries(invItems.filter((i) => i.batch_id === "manual").map((i) => [i.id, i.batch_number]));
   const logo = await loadLogoPng();
   doc.addImage(logo, "PNG", 14, 8, 35, 28);
   let y = 22;
@@ -66,7 +70,7 @@ export async function generateBillOfLading(orderId, shipFrom) {
   y += 8;
   let cases = 0, lbs = 0;
   items.forEach((it) => {
-    const lots = (it.fulfilled_lots || []).map((l) => l.lot_number || l.batch_number).filter(Boolean).join(", ");
+    const lots = (it.fulfilled_lots || []).map((l) => manualLot[l.inventory_item_id] || l.lot_number || l.batch_number).filter(Boolean).join(", ");
     const lotLines = doc.splitTextToSize(lots || "—", 60);
     doc.text(doc.splitTextToSize(it.product_name || "", 68), 14, y);
     doc.text(lotLines, 85, y);
