@@ -95,18 +95,18 @@ export async function generateBillOfLading(orderId, shipFrom) {
 
   // Truck inspection checklist, bottom right, filled in by hand
   y += 22;
-  if (y + 64 > 287) { doc.addPage(); y = 20; }
+  if (y + 70 > 287) { doc.addPage(); y = 20; }
   const bx = 110;
-  doc.rect(bx, y, 86, 64);
+  doc.rect(bx, y, 86, 70);
   doc.setFont(undefined, "bold").text("TRUCK INSPECTION", bx + 3, y + 6);
   doc.setFont(undefined, "normal");
-  ["Date", "Shipper's name", "Truck setpoint", "Truck temperature"].forEach((label, i) => {
+  ["Date", "Shipper's name", "Truck setpoint", "Truck temperature", "Product temperature"].forEach((label, i) => {
     const ly = y + 13 + i * 6;
     doc.text(`${label}:`, bx + 3, ly);
     doc.line(bx + 5 + doc.getTextWidth(`${label}:`), ly + 0.5, bx + 83, ly + 0.5);
   });
   ["Trailer passes visual inspection?", "Items show signs of damage?", "Evidence of pest activity?", "Any off odor detected?", "Any items rejected?"].forEach((q, i) => {
-    const ly = y + 37 + i * 6;
+    const ly = y + 43 + i * 6;
     doc.text(q, bx + 3, ly);
     doc.text("Y / N", bx + 83, ly, { align: "right" });
   });
