@@ -11,18 +11,37 @@ import { Plus, Trash2, Calendar } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { format } from "date-fns";
+import ProductSearchSelect from "@/components/production-orders/ProductSearchSelect";
 
 function genOrderNumber() {
   return "SO-" + Date.now().toString().slice(-6);
 }
 
-export default function SalesOrderFormDialog({ open, onClose, onSaved }) {
-  const [form, setForm] = useState({
-    order_number: genOrderNumber(),
-    customer_id: "", customer_name: "",
-    order_date: new Date().toLocaleDateString("en-CA"),
-    ship_date: "", route: "", route_date: "", status: "draft", notes: "", line_items: []
-  });
+const blankForm = () => ({
+  order_number: genOrderNumber(),
+  customer_id: "", customer_name: "",
+  order_date: new Date().toLocaleDateString("en-CA"),
+  ship_date: "", route: "", route_date: "", status: "draft", notes: "", line_items: []
+});
+
+// Existing order → form values (only the fields this form edits)
+const formFromOrder = (o) => ({
+  order_number: o.order_number || "",
+  customer_id: o.customer_id || "", customer_name: o.customer_name || "",
+  order_date: o.order_date || "", ship_date: o.ship_date || "",
+  route: o.route || "", route_date: o.route_date || "",
+  status: o.status || "draft", notes: o.notes || "",
+  line_items: (o.line_items || []).map(l => ({
+    ...l,
+    case_weight_lbs: l.case_weight_lbs ?? "",
+    price_per_case: l.price_per_case ?? "",
+    price_per_lb: l.price_per_lb ?? "",
+  })),
+});
+
+export default function SalesOrderFormDialog({ open, onClose, onSaved, order = null }) {
+  const isEdit = !!order;
+  const [form, setForm] = useState(blankForm);
 
   const { data: customers = [] } = useQuery({
     queryKey: ["customers-active"],
@@ -41,8 +60,8 @@ export default function SalesOrderFormDialog({ open, onClose, onSaved }) {
   });
 
   useEffect(() => {
-    if (open) setForm(f => ({ ...f, order_number: genOrderNumber() }));
-  }, [open]);
+    if (open) setForm(order ? formFromOrder(order) : blankForm());
+  }, [open, order]);
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
@@ -119,7 +138,9 @@ export default function SalesOrderFormDialog({ open, onClose, onSaved }) {
           price_per_lb: item.price_per_lb ? parseFloat(item.price_per_lb) : null
         }))
       };
-      return base44.entities.SalesOrder.create(cleanedData);
+      return isEdit
+        ? base44.entities.SalesOrder.update(order.id, cleanedData)
+        : base44.entities.SalesOrder.create(cleanedData);
     },
     onSuccess: onSaved,
   });
@@ -128,7 +149,7 @@ export default function SalesOrderFormDialog({ open, onClose, onSaved }) {
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
         <DialogHeader>
-          <DialogTitle>New Sales Order</DialogTitle>
+          <DialogTitle>{isEdit ? `Edit Sales Order ${order.order_number || ""}` : "New Sales Order"}</DialogTitle>
         </DialogHeader>
 
         <div className="grid grid-cols-3 gap-4 py-2">
@@ -204,16 +225,18 @@ export default function SalesOrderFormDialog({ open, onClose, onSaved }) {
               </Popover>
             </div>
           )}
-          <div>
-            <Label>Status</Label>
-            <Select value={form.status} onValueChange={v => set("status", v)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent position="popper">
-                <SelectItem value="draft">Draft</SelectItem>
-                <SelectItem value="confirmed">Confirmed</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          {!isEdit && (
+            <div>
+              <Label>Status</Label>
+              <Select value={form.status} onValueChange={v => set("status", v)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent position="popper">
+                  <SelectItem value="draft">Draft</SelectItem>
+                  <SelectItem value="confirmed">Confirmed</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </div>
 
         {/* Line Items */}
@@ -237,12 +260,13 @@ export default function SalesOrderFormDialog({ open, onClose, onSaved }) {
                 <div className="grid grid-cols-12 gap-2 items-end">
                   <div className="col-span-4">
                     <label className="text-xs text-muted-foreground">Product</label>
-                    <Select value={item.product_id} onValueChange={v => handleProductSelect(i, v)}>
-                      <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Select..." /></SelectTrigger>
-                      <SelectContent position="popper" className="max-h-72 overflow-y-auto">
-                        {products.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
+                    <ProductSearchSelect
+                      products={products}
+                      value={item.product_id}
+                      onChange={v => handleProductSelect(i, v)}
+                      placeholder={item.product_name || "Search name or code..."}
+                      className="h-8 text-xs"
+                    />
                   </div>
                   <div className="col-span-2">
                     <label className="text-xs text-muted-foreground">Cases</label>
@@ -306,7 +330,7 @@ export default function SalesOrderFormDialog({ open, onClose, onSaved }) {
             onClick={() => saveMutation.mutate(form)}
             disabled={!form.customer_id || !form.order_date || form.line_items.length === 0 || saveMutation.isPending}
           >
-            {saveMutation.isPending ? "Saving..." : "Create Order"}
+            {saveMutation.isPending ? "Saving..." : isEdit ? "Save Changes" : "Create Order"}
           </Button>
         </div>
       </DialogContent>

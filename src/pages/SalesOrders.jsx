@@ -30,6 +30,7 @@ export default function SalesOrders() {
   const [formOpen, setFormOpen] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
   const [selected, setSelected] = useState(null);
+  const [editing, setEditing] = useState(null);
   const [view, setView] = useState("orders"); // "orders" | "routes"
   const [closeOutOpen, setCloseOutOpen] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
@@ -48,7 +49,8 @@ export default function SalesOrders() {
   const hasTodaysRoutes = orders.some(o => o.route && o.route_date === todayStr && o.status !== "cancelled");
 
   const handleView = (o) => { setSelected(o); setDetailOpen(true); };
-  const handleNew = () => { setSelected(null); setFormOpen(true); };
+  const handleNew = () => { setSelected(null); setEditing(null); setFormOpen(true); };
+  const handleEdit = (o) => { setDetailOpen(false); setSelected(null); setEditing(o); setFormOpen(true); };
 
   const handleArchiveRoutes = async (notes) => {
     await base44.functions.invoke("weeklyRouteReset", { notes });
@@ -153,6 +155,7 @@ export default function SalesOrders() {
 
       <SalesOrderFormDialog
         open={formOpen}
+        order={editing}
         onClose={() => setFormOpen(false)}
         onSaved={() => { queryClient.invalidateQueries({ queryKey: ["salesOrders"] }); setFormOpen(false); }}
       />
@@ -163,6 +166,7 @@ export default function SalesOrders() {
           order={selected}
           onClose={() => { setDetailOpen(false); setSelected(null); }}
           onUpdated={() => { queryClient.invalidateQueries({ queryKey: ["salesOrders"] }); }}
+          onEdit={handleEdit}
         />
       )}
     </div>

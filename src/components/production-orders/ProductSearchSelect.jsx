@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Check, ChevronsUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export default function ProductSearchSelect({ products = [], value, onChange, placeholder = "Select product..." }) {
+export default function ProductSearchSelect({ products = [], value, onChange, placeholder = "Select product...", className }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const selected = products.find(p => p.id === value);
@@ -13,7 +13,7 @@ export default function ProductSearchSelect({ products = [], value, onChange, pl
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="outline" role="combobox" className="w-full justify-between font-normal bg-slate-200 border-slate-400 text-foreground hover:bg-slate-200">
+        <Button variant="outline" role="combobox" className={cn("w-full justify-between font-normal bg-slate-200 border-slate-400 text-foreground hover:bg-slate-200", className)}>
           <span className="truncate">
             {selected ? `${selected.product_number ? selected.product_number + " · " : ""}${selected.name}` : placeholder}
           </span>
@@ -22,13 +22,13 @@ export default function ProductSearchSelect({ products = [], value, onChange, pl
       </PopoverTrigger>
       <PopoverContent className="p-0 w-[--radix-popover-trigger-width] bg-slate-100 border-slate-300" align="start">
         <Command shouldFilter={false}>
-          <CommandInput placeholder="Search by name or product number..." value={search} onValueChange={setSearch} />
+          <CommandInput placeholder="Search by name or code..." value={search} onValueChange={setSearch} />
           <CommandList>
             <CommandEmpty>No products found.</CommandEmpty>
             <CommandGroup>
               {products.filter(p => {
                 const q = search.trim().toLowerCase();
-                return !q || (p.product_number || "").toLowerCase().includes(q) || (p.name || "").toLowerCase().includes(q);
+                return !q || [p.product_number, p.sku, p.name].some(v => (v || "").toLowerCase().includes(q));
               }).map(p => (
                 <CommandItem
                   key={p.id}

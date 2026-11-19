@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { FileText, CheckCircle } from "lucide-react";
+import { FileText, CheckCircle, Pencil } from "lucide-react";
 import FulfillmentDialog from "./FulfillmentDialog";
 import BolPromptDialog from "./BolPromptDialog";
 
@@ -15,7 +15,8 @@ const STATUS_STYLES = {
   cancelled: "bg-red-100 text-red-700",
 };
 
-export default function SalesOrderDetailDialog({ open, order, onClose, onUpdated }) {
+export default function SalesOrderDetailDialog({ open, order, onClose, onUpdated, onEdit }) {
+  const { data: me } = useQuery({ queryKey: ["currentUser"], queryFn: () => base44.auth.me() });
   const [fulfillOpen, setFulfillOpen] = useState(false);
   const [bolOrderId, setBolOrderId] = useState(null);
   const queryClient = useQueryClient();
@@ -131,6 +132,11 @@ export default function SalesOrderDetailDialog({ open, order, onClose, onUpdated
             )}
           </div>
           <div className="flex gap-2">
+            {me?.role === "admin" && (
+              <Button size="sm" variant="outline" onClick={() => onEdit(order)}>
+                <Pencil className="w-4 h-4 mr-1" /> Edit
+              </Button>
+            )}
             <Button size="sm" variant="outline" onClick={handlePackingSlip}>
               <FileText className="w-4 h-4 mr-1" /> Packing Slip
             </Button>
