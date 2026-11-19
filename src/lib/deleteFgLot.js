@@ -22,8 +22,18 @@ export async function deleteFgLot({ productId, productName, lotNumber, initials,
       cases_on_hand: cw ? Math.floor(qty / cw) : Math.max(0, (bucket.cases_on_hand || 0) - cases),
     });
   }
-  await Promise.all(items.map(i => base44.entities.InventoryItem.delete(i.id)));
-  await clearItemsFromPallets(items.map(i => i.id));
+  // The lot record can carry a different lot number than the on-hand lot, so also remove any
+  // of this product's available lot records that no longer match a lot left on hand.
+  // Left behind, they stay pickable on sales orders.
+  let orphans = [];
+  if (bucket) {
+    const kept = new Set((bucket.lots || []).filter(l => l.lot_number !== lotNumber).map(l => l.lot_number));
+    const live = await base44.entities.InventoryItem.filter({ product_id: productId, status: "available" });
+    orphans = live.filter(i => i.lot_number !== lotNumber && !kept.has(i.lot_number));
+  }
+  const gone = [...items, ...orphans];
+  await Promise.all(gone.map(i => base44.entities.InventoryItem.delete(i.id)));
+  await clearItemsFromPallets(gone.map(i => i.id));
 
   await logAudit({
     action: "deleted",
