@@ -94,10 +94,8 @@ export async function generateBillOfLading(orderId, shipFrom) {
   });
   doc.line(14, y - 1, 196, y - 1);
   doc.setFont(undefined, "bold").text("TOTAL", 14, y + 4).text(String(cases), 150, y + 4).text(lbs.toFixed(1), 172, y + 4);
-  y += 14;
-
-  doc.setFont(undefined, "normal").text("Keep refrigerated / perishable meat products.", 14, y);
-  y += 16;
+  y += 24;
+  doc.setFont(undefined, "normal");
   ["Shipper Signature", "Driver Signature", "Consignee Signature"].forEach((s, i) => {
     const x = 14 + i * 64;
     doc.line(x, y, x + 56, y);
