@@ -247,13 +247,18 @@ export function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form,
     product?.cure_bucket_id && Number(product?.chop_cure_lbs) > 0 && !(Number(form.cure_amount_lbs) > 0) && "enter the cure added",
   ].filter(Boolean) : [];
 
-  const canProceed = isLinking ? (!!cookBatch && casingOk)
+  // Splitting can never pack more weight than is available to this packing job.
+  const packOverLbs = capKey === "packaging" && splitLbs > 0
+    ? parseFloat((mainCaseLbs + splitLbs - effectiveInputLbs).toFixed(2)) : 0;
+  const packOver = packOverLbs > 0.01;
+
+  const canProceed = !packOver && (isLinking ? (!!cookBatch && casingOk)
      : isRacking ? ((cookPlan?.racks?.some(r => r.released) || !!cookPlan?.carriedPartial) && (!isRawRacking || !!form.protein_bucket_id))
      : isPackaging ? (caseCount > 0 || form.unfinished_allocated) && caseWeights.slice(0, caseCount).filter(c => c?.weight_lbs > 0).length === caseCount
      : isMixerInputs ? (!!form.pork_lot_confirmed && (stage?.binder_lot_number ? !!form.binder_lot_confirmed : false))
      : isCookStage ? (cookTempEntered && (!cookTempTooLow || tempInitials) && !cookNeedsBatch)
      : isChillStage ? (chillTempEntered && (!chillTempTooHigh || tempInitials))
-     : !spiceBlocksNext && !chopNeedsNote && chopMissing.length === 0;
+     : !spiceBlocksNext && !chopNeedsNote && chopMissing.length === 0);
 
   return (
     <div className="space-y-5">
@@ -311,6 +316,16 @@ export function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form,
                     spice_mix_name: val.spice_mix_name || "",
                     spice_mix_lot_number: val.spice_mix_lot_number || "",
                     spice_mix_qty_lbs: val.spice_mix_qty_lbs || 0,
+                  }));
+                } else if (field.type === "finished_product_split") {
+                  // Split cases come out of the same weight as the main product's cases, so
+                  // lower the main case count when the splits would push the total over.
+                  const newSplitLbs = (val || []).reduce((s, sp) => s + ((Number(sp.quantity_cases) || 0) * (Number(sp.case_weight_lbs) || 0)), 0);
+                  const maxMainCases = caseWeightLbs > 0 ? Math.max(0, Math.floor((effectiveInputLbs - newSplitLbs + 0.001) / caseWeightLbs)) : 0;
+                  setForm(f => ({
+                    ...f,
+                    [field.key]: val,
+                    ...(newSplitLbs > 0 && (Number(f.packages_produced) || 0) > maxMainCases ? { packages_produced: maxMainCases } : {}),
                   }));
                 } else {
                   setForm(f => ({ ...f, [field.key]: val }));
@@ -465,6 +480,12 @@ export function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form,
               <p className="text-muted-foreground">Average: <span className="font-semibold text-foreground">{(caseWeights.reduce((s, c) => s + (c.weight_lbs || 0), 0) / caseWeights.length).toFixed(2)} lbs</span></p>
             </div>
           )}
+        </div>
+      )}
+
+      {packOver && (
+        <div className="text-xs text-destructive bg-destructive/5 border border-destructive/40 rounded-lg p-2.5">
+          Over by {packOverLbs.toFixed(2)} lbs. The cases entered add up to more than the {effectiveInputLbs.toFixed(2)} lbs available. Lower the cases for this product or the splits to continue.
         </div>
       )}
 
