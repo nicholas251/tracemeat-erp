@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import ProductSearchSelect from "@/components/production-orders/ProductSearchSelect";
 import { Plus, Trash2 } from "lucide-react";
 
 export default function ProductSplitAllocator({ compatibleProducts = [], splits = [], onChange, totalLbs = 0, remainingCases = 0 }) {
@@ -74,18 +74,12 @@ export default function ProductSplitAllocator({ compatibleProducts = [], splits 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label className="text-xs font-medium">Product</Label>
-                  <Select value={split.product_id || ""} onValueChange={(val) => updateSplit(idx, "product_id", val)}>
-                    <SelectTrigger className="h-9 text-sm bg-slate-200 border-slate-400 text-slate-900">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="bg-slate-100 border-slate-400">
-                      {compatibleProducts.map(p => (
-                        <SelectItem key={p.id} value={p.id}>
-                          {p.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <ProductSearchSelect
+                    products={compatibleProducts}
+                    value={split.product_id || ""}
+                    onChange={(val) => updateSplit(idx, "product_id", val)}
+                    className="h-9 text-sm"
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs font-medium">Cases</Label>
