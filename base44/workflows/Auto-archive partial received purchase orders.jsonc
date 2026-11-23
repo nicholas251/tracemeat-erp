@@ -1,0 +1,45 @@
+{
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "auto_archive_partial_received_purchase_orders",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "archive_partial_orders": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "archivePartialPurchaseOrders",
+            "args": {}
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Archive partial purchase orders",
+            "description": "Partially received 24+ hours ago"
+          }
+        }
+      }
+    ]
+  },
+  "name": "Auto-archive partial received purchase orders",
+  "description": "Every hour, archives purchase orders that have been partially received for 24 hours",
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "recurring",
+      "cron_expression": "0 * * * *",
+      "one_time_date": null,
+      "timezone": "America/New_York",
+      "interval_value": null,
+      "interval_unit": null,
+      "interval_anchor": null,
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  }
+}

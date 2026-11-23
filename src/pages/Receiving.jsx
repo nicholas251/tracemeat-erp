@@ -149,7 +149,7 @@ export default function Receiving() {
       data: {
         line_items: updatedLineItems,
         status: allReceived ? "received" : "partial_received",
-        ...(allReceived ? { received_at: new Date().toISOString() } : {}),
+        ...(allReceived ? { received_at: new Date().toISOString() } : { partial_received_at: new Date().toISOString() }),
       },
     });
 
