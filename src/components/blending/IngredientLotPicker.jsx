@@ -77,7 +77,7 @@ function buildFifoAllocations(inventoryRows, requiredLbs) {
  *   onChange    – (field, value) => void
  *   onConfirm   – () => void
  */
-export default function IngredientLotPicker({ ing, disabled, onChange, onConfirm, cacheKey, capByRequired = false, externalRows = null, allowShort = false }) {
+export default function IngredientLotPicker({ ing, disabled, onChange, onConfirm, cacheKey, capByRequired = false, externalRows = null, allowShort = false, strictStock = false }) {
   // Guards against double-firing onConfirm if the operator taps "Confirm" multiple
   // times before the parent re-renders this picker as disabled. Reset whenever the
   // picker becomes editable again (e.g. "Edit lots").
@@ -242,7 +242,9 @@ export default function IngredientLotPicker({ ing, disabled, onChange, onConfirm
 
   const canConfirm =
     allocations.every(a => a.lot_number?.trim()) &&
-    (allowShort ? !isOver && totalActual > 0 : isExact);
+    (allowShort ? !isOver && totalActual > 0 : isExact) &&
+    // Strict: every row is a real stock lot and never takes more than that lot holds.
+    (!strictStock || allocations.every(a => a.raw_inventory_id && Number(a.actual_lbs) > 0 && Number(a.actual_lbs) <= (a.available_qty || 0) + 0.001));
 
   return (
     <div className="space-y-2">

@@ -19,6 +19,7 @@ export default function ProduceSpiceMixDialog({ mix, open, onClose, onProduced }
     if (mix) {
       setBatchQty(mix.quantity_lbs || "");
       setResult(null);
+      setError("");
       setPartialAck(false);
       setInitials("");
       setIngredients(buildIngredients(mix, mix.quantity_lbs || 0));
@@ -51,10 +52,12 @@ export default function ProduceSpiceMixDialog({ mix, open, onClose, onProduced }
 
   const [partialAck, setPartialAck] = useState(false);
   const [initials, setInitials] = useState("");
-  const anyShort = ingredients.some(ing => ing.confirmed &&
-    (ing.lot_allocations || []).reduce((s, a) => s + (Number(a.actual_lbs) || 0), 0) < ing.required_lbs - 0.001);
-  const isPartial = mix && (anyShort || (Number(batchQty) > 0 && Number(batchQty) < Number(mix.quantity_lbs || 0)));
-  const partialOk = !isPartial || (partialAck && initials.trim().length >= 2);
+  const [error, setError] = useState("");
+  // Ingredients whose first lot ran short and were covered by the next lot.
+  const multiLot = ingredients.filter(ing => ing.confirmed && (ing.lot_allocations || []).length > 1);
+  const isPartial = mix && Number(batchQty) > 0 && Number(batchQty) < Number(mix.quantity_lbs || 0);
+  const needsSignoff = isPartial || multiLot.length > 0;
+  const partialOk = !needsSignoff || (partialAck && initials.trim().length >= 2);
   const allConfirmed = ingredients.length > 0 && ingredients.every(i => i.confirmed) && partialOk;
 
   const handleProduce = async () => {
@@ -70,15 +73,23 @@ export default function ProduceSpiceMixDialog({ mix, open, onClose, onProduced }
       })),
       notes: ing.notes || "",
     }));
-    const res = await base44.functions.invoke("produceSpiceMixBatch", {
-      spiceMixId: mix.id,
-      batchQtyLbs: Number(batchQty),
-      ingredientLots,
-      partialInitials: isPartial ? initials.trim().toUpperCase() : undefined,
-    });
-    setResult(res.data);
+    setError("");
+    try {
+      const res = await base44.functions.invoke("produceSpiceMixBatch", {
+        spiceMixId: mix.id,
+        batchQtyLbs: Number(batchQty),
+        ingredientLots,
+        partialInitials: isPartial ? initials.trim().toUpperCase() : undefined,
+        multiLotInitials: multiLot.length ? initials.trim().toUpperCase() : undefined,
+      });
+      setResult(res.data);
+      onProduced?.();
+    } catch (e) {
+      // Stock changed since the lots were confirmed: nothing was deducted, so re-pick.
+      setError(e?.response?.data?.error || e.message || "Could not produce this batch.");
+      setIngredients(buildIngredients(mix, Number(batchQty) || 0));
+    }
     setProducing(false);
-    onProduced?.();
   };
 
   return (
@@ -117,14 +128,25 @@ export default function ProduceSpiceMixDialog({ mix, open, onClose, onProduced }
               />
             </div>
 
-            {isPartial && (
+            {error && (
+              <p className="rounded-lg border border-destructive bg-destructive/10 p-3 text-sm text-destructive">{error}</p>
+            )}
+
+            {needsSignoff && (
               <div className="rounded-lg border border-accent bg-accent/10 p-3 space-y-2">
-                <p className="text-sm font-medium">
-                  Partial batch{anyShort ? ": one or more ingredients are below the required weight." : `: ${batchQty} lbs of the ${mix.quantity_lbs} lbs base batch.`}
-                </p>
+                {isPartial && (
+                  <p className="text-sm font-medium">
+                    Partial batch: {batchQty} lbs of the {mix.quantity_lbs} lbs base batch. Ingredient amounts have been scaled down.
+                  </p>
+                )}
+                {multiLot.map(ing => (
+                  <p key={ing.bucket_id} className="text-sm font-medium">
+                    {ing.bucket_name} is covered by more than one lot: {ing.lot_allocations.map(a => `${a.lot_number} (${a.actual_lbs} lbs)`).join(" + ")}
+                  </p>
+                ))}
                 <label className="flex items-start gap-2 text-sm cursor-pointer">
                   <Checkbox checked={partialAck} onCheckedChange={(v) => setPartialAck(!!v)} className="mt-0.5" />
-                  I understand I am making a partial batch and ingredient amounts have been scaled down.
+                  I confirm the above. It will be recorded on this batch with my initials.
                 </label>
                 <div className="space-y-1">
                   <Label className="text-xs">Your initials</Label>
@@ -142,7 +164,7 @@ export default function ProduceSpiceMixDialog({ mix, open, onClose, onProduced }
                   <IngredientLotPicker
                     ing={ing}
                     disabled={ing.confirmed}
-                    allowShort
+                    strictStock
                     onChange={(field, value) => updateIng(idx, field, value)}
                     onConfirm={() => confirmIng(idx)}
                   />
