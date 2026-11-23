@@ -14,6 +14,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { isUserAdminOrSupervisor } from "@/lib/accessControl";
 import { useEntitySync } from "@/hooks/useEntitySync";
 import { restoreOrderInventory } from "@/lib/restoreOrderInventory";
+import { flattenBatchSizes } from "@/lib/flattenStage";
 
 export default function ProductionOrders() {
   const [showForm, setShowForm] = useState(false);
@@ -87,7 +88,7 @@ export default function ProductionOrders() {
 
             if (firstStepKey === "blending" && product?.blend_batch_lbs && yieldPct) {
               totalRawInputLbs = rawNeeded;
-            } else if (firstStepKey === "tumble" || firstStepKey === "tumbling" || firstStepKey === "mixer") {
+            } else if (firstStepKey === "tumble" || firstStepKey === "tumbling" || firstStepKey === "mixer" || firstStepKey === "flatten") {
               totalRawInputLbs = rawNeeded;
             }
 
@@ -111,6 +112,32 @@ export default function ProductionOrders() {
               // For tumbling flows: only create the tumbling stages upfront.
               // Downstream stages (cooking, chilling, packaging) are created by the wizard per cook batch.
               if (hasTumblingStep && !isTumblingStep) {
+                continue;
+              }
+
+              // Fryer flows: only the 600 lb flatten batches are created upfront. Each one
+              // opens its own Fryer Rack card when completed; cooking onward follows the racks.
+              if (firstStepKey === "flatten") {
+                if (step.capability_key !== "flatten") continue;
+                const flattenSizes = flattenBatchSizes(totalRawInputLbs);
+                for (let t = 0; t < flattenSizes.length; t++) {
+                  await base44.entities.ProductionStage.create({
+                    order_id: order.id,
+                    order_number: order.order_number,
+                    product_name: data.product_name,
+                    step_number: step.step_number,
+                    capability_id: step.capability_id,
+                    capability_key: step.capability_key,
+                    capability_name: step.capability_name,
+                    work_profile_id: step.work_profile_id || "",
+                    work_profile_name: step.work_profile_name || "",
+                    status: "available",
+                    input_qty_lbs: flattenSizes[t],
+                    batch_tag: `flatten-batch-${t + 1}`,
+                    sub_batches: [],
+                    notes: flattenSizes.length > 1 ? `Flatten Batch ${t + 1} of ${flattenSizes.length}` : "",
+                  });
+                }
                 continue;
               }
 

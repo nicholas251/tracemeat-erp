@@ -25,6 +25,8 @@ const STAGE_CODES = {
   chilling: "CHILL",
   packaging: "FG",
   sous_vide_pack: "PACK",
+  flatten: "FLAT",
+  fryer_rack: "FRY",
 };
 
 export function stageCode(capabilityKey) {

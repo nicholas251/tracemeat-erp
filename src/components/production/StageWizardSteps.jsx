@@ -167,7 +167,9 @@ export function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form,
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [linkBatchCount, !!cookBatch]);
-  const isRacking = (capKey === "racking" || capKey === "racking_product") && stepDef.id === "racking";
+  const isRacking = (capKey === "racking" || capKey === "racking_product" || capKey === "fryer_rack") && stepDef.id === "racking";
+  const isFlatten = capKey === "flatten" && stepDef.id === "flatten";
+  const isFryStep = capKey === "fryer_rack" && stepDef.id === "fry";
   // Racking as the flow's first step (no tumbling before it): raw protein is deducted here.
   const isRawRacking = isRacking && capKey === "racking_product" && Number(stage?.step_number) === 1 && !stage?.source_tumble_stage_id;
   const isPackaging = capKey === "packaging" && stepDef.id === "packaging" && product?.varied_weights;
@@ -242,10 +244,14 @@ export function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form,
   // Casings must be recorded at linking unless the product uses none.
   const casingOk = !!product?.no_casings || (!!form.casing_bucket_id && Number(form.casing_qty_lbs) > 0);
   // Chopping can't finish without the spice and cure the product calls for.
-  const chopMissing = isChopStep ? [
+  const chopMissing = [
+    isFlatten && !form.protein_bucket_id && "choose the protein bucket being flattened",
+    isFlatten && !(Number(form.output_qty_lbs) > 0) && "enter the weight flattened",
+    isFryStep && spiceTotalAllocated <= 0 && "assign the spice mix",
+    ...(isChopStep ? [
     spiceRequired > 0 && spiceTotalAllocated <= 0 && "assign the spice mix",
     product?.cure_bucket_id && Number(product?.chop_cure_lbs) > 0 && !(Number(form.cure_amount_lbs) > 0) && "enter the cure added",
-  ].filter(Boolean) : [];
+  ] : [])].filter(Boolean);
 
   // Splitting can never pack more weight than is available to this packing job.
   const packOverLbs = capKey === "packaging" && splitLbs > 0
@@ -316,6 +322,8 @@ export function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form,
                     spice_mix_name: val.spice_mix_name || "",
                     spice_mix_lot_number: val.spice_mix_lot_number || "",
                     spice_mix_qty_lbs: val.spice_mix_qty_lbs || 0,
+                    // Fryer: the spice mix is combined with the product, so the racked weight includes it.
+                    ...(isFryStep ? { output_qty_lbs: parseFloat(((stage?.input_qty_lbs || 0) + (val.lots || []).reduce((s, l) => s + (Number(l.spice_mix_qty_lbs) || 0), 0)).toFixed(2)) } : {}),
                   }));
                 } else if (field.type === "finished_product_split") {
                   // Split cases come out of the same weight as the main product's cases, so
@@ -411,9 +419,10 @@ export function MeasureStep({ stepDef, stepIndex, totalSteps, progressPct, form,
         />
       )}
 
-      {isRawRacking && (
+      {(isRawRacking || isFlatten) && (
         <RackingProteinPicker
           product={product}
+          {...(isFlatten ? { label: "Protein bucket being flattened", verb: "flattened" } : {})}
           value={form.protein_bucket_id}
           onChange={(id, name) => setForm(f => ({ ...f, protein_bucket_id: id, protein_bucket_name: name }))}
         />

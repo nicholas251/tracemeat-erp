@@ -7,7 +7,7 @@ import { filterBucketsBySpecies } from "@/lib/proteinSpecies";
 
 // Shown on racking cards that are the FIRST step of a flow (no tumbling before them):
 // the operator picks the raw protein bucket that is deducted when the card completes.
-export default function RackingProteinPicker({ product, value, onChange }) {
+export default function RackingProteinPicker({ product, value, onChange, label = "Raw protein being racked", verb = "racked" }) {
   const { data: allBuckets = [] } = useQuery({
     queryKey: ["proteinBuckets"],
     queryFn: () => base44.entities.InventoryBucket.filter({ category: "protein", status: "active" }),
@@ -38,7 +38,7 @@ export default function RackingProteinPicker({ product, value, onChange }) {
 
   return (
     <div className="rounded-lg border-2 border-amber-300 bg-amber-50 p-3 space-y-2">
-      <Label className="text-sm font-semibold">Raw protein being racked</Label>
+      <Label className="text-sm font-semibold">{label}</Label>
       <Select value={value || ""} onValueChange={(id) => onChange(id, buckets.find((b) => b.id === id)?.name || "")}>
         <SelectTrigger className="h-10 bg-slate-200 border-slate-400">
           <SelectValue placeholder="Choose a protein bucket…" />
@@ -52,7 +52,7 @@ export default function RackingProteinPicker({ product, value, onChange }) {
       </Select>
       <p className="text-xs text-slate-700">
         {value ? `${onHand.toFixed(1)} lbs on hand. ` : ""}
-        The racked weight is taken from this bucket, oldest lot first, when the card is completed.
+        The {verb} weight is taken from this bucket, oldest lot first, when the card is completed.
       </p>
     </div>
   );

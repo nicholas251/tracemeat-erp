@@ -1,5 +1,6 @@
 import { fullChopBatchLbs } from "@/lib/blendBatchMath";
 import { localDateStr } from "@/lib/localDate";
+import { FLATTEN_BATCH_LBS } from "@/lib/flattenStage";
 
 // ─── Build ingredient batches (blending) with multiple batches ────────────────
 export function buildIngredientBatchesMultiple(stage, product, capKey, numBatches) {
@@ -106,6 +107,38 @@ export function buildMeasurementSteps(stage, product, capKey, casingBuckets = []
     });
   }
 
+  if (capKey === "flatten") {
+    // The protein bucket is picked on this step; its lots are deducted at completion.
+    steps.push({
+      id: "flatten",
+      label: "Flatten",
+      fields: [
+        { key: "output_qty_lbs", label: "Weight Flattened (lbs)", type: "number", defaultValue: stage?.input_qty_lbs },
+        { key: "notes", label: "Notes / Observations", type: "textarea" },
+      ],
+    });
+  }
+
+  if (capKey === "fryer_rack") {
+    // Spice mix per 600 lb flatten batch, scaled for a short batch.
+    const fryShare = (Number(stage?.input_qty_lbs) || 0) / FLATTEN_BATCH_LBS;
+    steps.push({
+      id: "fry",
+      label: "Fry & Spice Mix",
+      fields: [
+        { key: "spice_mix", label: "Spice Mix", type: "spice_mix_picker", requiredLbs: r2((Number(product?.chop_spice_qty_lbs) || 0) * fryShare), filterSpiceMixId: product?.chop_spice_mix_id },
+        { key: "output_qty_lbs", label: "Combined Weight to Rack (lbs) — product + spice mix", type: "number", disabled: true, defaultValue: stage?.input_qty_lbs },
+      ],
+    });
+    steps.push({
+      id: "racking",
+      label: "Rack Out",
+      fields: [
+        { key: "notes", label: "Notes / Observations", type: "textarea" },
+      ],
+    });
+  }
+
   if (capKey === "racking" || capKey === "racking_product") {
     // Output qty + lot are driven entirely by the cook batch builder below — no manual
     // fields here (each cook batch carries its own lot/qty/rack count to cooking).
@@ -200,7 +233,7 @@ export function buildMeasurementSteps(stage, product, capKey, casingBuckets = []
   }
 
   // Generic fallback for any capability not explicitly handled above
-  const knownKeys = ["ovencooling", "chopping", "linking", "cooking", "chilling", "packaging", "racking", "racking_product", "tumble", "tumbling", "mixer"];
+  const knownKeys = ["flatten", "fryer_rack", "ovencooling", "chopping", "linking", "cooking", "chilling", "packaging", "racking", "racking_product", "tumble", "tumbling", "mixer"];
   if (!knownKeys.includes(capKey)) {
     steps.push({
       id: "generic",

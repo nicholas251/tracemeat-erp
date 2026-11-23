@@ -15,6 +15,7 @@ import { applyChopWeightOverride } from "@/lib/chopWeight";
 import { applyOvenCoolingChecks } from "@/lib/ovenCoolingChecks";
 import { localDateStr, addDaysStr } from "@/lib/localDate";
 import { uniqueCookLot } from "@/lib/cookLot";
+import { deductFlattenProtein, releaseFlattenBatch, deductFryerSpice } from "@/lib/flattenStage";
 
 // ─── Stage icon map ───────────────────────────────────────────────────────────
 const STAGE_ICONS = {
@@ -87,7 +88,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
   //     trailing partial back on the queue UNCLAIMED → the next card to open claims it.
   //   • Resume is safe: a partial already stamped with MY id stays mine; one stamped
   //     for another stage is ignored.
-  const isRackingStage = capKey === "racking" || capKey === "racking_product";
+  const isRackingStage = capKey === "racking" || capKey === "racking_product" || capKey === "fryer_rack";
   // Only expose the partial to THIS card once it is claimed by THIS stage. An unclaimed
   // or other-stage-claimed partial is hidden so the rack builder never double-loads it.
   const orderPartial = wizardOrder?.open_partial_rack || null;
@@ -103,7 +104,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
     enabled: !!isRackingStage && !!stage?.order_id,
     queryFn: () => base44.entities.ProductionStage.count({
       order_id: stage.order_id,
-      capability_key: { $in: ["tumbling", "racking_product"] },
+      capability_key: { $in: ["tumbling", "racking_product", "flatten", "fryer_rack"] },
       status: { $ne: "completed" },
       id: { $ne: stage.id },
     }),
@@ -391,7 +392,9 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
             const cbMatch = (stage.cook_batch_lot || "").match(/CB(\d+)/i)
               || (stage.cook_batch_lot || "").match(/-(\d+)$/);
             // Chopping / linking: carry the blend batch number so each batch gets its own lot.
-            const upstreamMatch = (capKey === "chopping" || capKey === "linking")
+            const upstreamMatch = capKey === "flatten"
+              ? (stage.batch_tag || "").match(/flatten-batch-(\d+)/)
+              : (capKey === "chopping" || capKey === "linking")
               ? ((stage.batch_tag || "").match(/blend-batch-(\d+)/) || (stage.input_lot_number || "").match(/-B(\d+)/))
               // Cooling carries the number of the cook / rack batch it came from.
               : (capKey === "chilling" || capKey === "ovencooling")
@@ -740,7 +743,7 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
         queryClient.invalidateQueries({ queryKey: ["productionOrders"] });
         onCompleted?.();
         onClose();
-      } else if ((capKey === "racking" || capKey === "racking_product") && cookPlan?.racks) {
+      } else if (isRackingStage && cookPlan?.racks) {
         // Guard: every rack on this card must be RESOLVED before completing — either
         // released to the smokehouse, OR (for the trailing partial) explicitly carried
         // over to the next card. A rack still holding product that is neither released
@@ -812,6 +815,13 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
             ];
             queryClient.invalidateQueries({ queryKey: ["rawInventory"] });
           }
+        }
+
+        // Fryer Rack: the spice mix is consumed here and tied to the same lot as the product.
+        if (capKey === "fryer_rack") {
+          const fry = await deductFryerSpice({ stage, form, lot: myLot });
+          if (fry.error) { setSaving(false); alert(fry.error); return; }
+          Object.assign(rawRackingUpdate, fry.update);
         }
 
         await base44.entities.ProductionStage.update(stage.id, {
@@ -1050,10 +1060,19 @@ export default function StageWizard({ stage, open, onClose, onCompleted, startBa
           await pushPackagingToFinishedGoods({ stage, updates, form, queryClient });
         }
 
+        // Flatten: take the protein out of the chosen bucket and record its lots.
+        if (capKey === "flatten") {
+          const flattenError = await deductFlattenProtein({ stage, liveStage, form, updates });
+          if (flattenError) { setSaving(false); alert(flattenError); return; }
+          queryClient.invalidateQueries({ queryKey: ["rawInventory"] });
+        }
+
         // Everything above succeeded — only NOW mark the stage completed. Marking it
         // earlier meant a failed deduction/FG push could leave a "completed" stage with
         // no inventory movement, and could let the auto-archive fire prematurely.
         await base44.entities.ProductionStage.update(stage.id, updates);
+
+        if (capKey === "flatten") await releaseFlattenBatch({ stage, updates });
 
         // ── Mixer special case: update paired linking stages with mixer output lot ──
         if (capKey === "mixer") {
