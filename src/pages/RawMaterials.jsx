@@ -97,7 +97,7 @@ export default function RawMaterials() {
                         <TableCell className="text-sm">{m.supplier}</TableCell>
                         <TableCell className="text-sm capitalize">{(m.category || "").replace(/_/g, " ")}</TableCell>
                         <TableCell className="text-sm">{(m.available_qty_lbs ?? m.quantity_lbs) || "—"}</TableCell>
-                        <TableCell className="text-sm">{m.temp_on_arrival_c != null ? `${m.temp_on_arrival_c}°` : "—"}</TableCell>
+                        <TableCell className="text-sm">{m.temp_on_arrival_c != null ? `${m.temp_on_arrival_c}°F` : "—"}</TableCell>
                         <TableCell><StatusBadge status={m.status} /></TableCell>
                         <TableCell className="text-sm text-muted-foreground">
                           {m.received_date ? format(new Date(m.received_date.slice(0, 10) + "T00:00:00"), "MMM d") : "—"}
@@ -150,7 +150,7 @@ export default function RawMaterials() {
                     </div>
                     <div>
                       <p className="text-muted-foreground text-xs">Temp</p>
-                      <p className="font-medium">{m.temp_on_arrival_c != null ? `${m.temp_on_arrival_c}°` : "—"}</p>
+                      <p className="font-medium">{m.temp_on_arrival_c != null ? `${m.temp_on_arrival_c}°F` : "—"}</p>
                     </div>
                   </div>
                   <p className="text-xs text-muted-foreground">

@@ -435,7 +435,7 @@ export default function Receiving() {
                                />
                              </div>
                              <div>
-                               <Label className="text-xs">Temp on Arrival (°C)</Label>
+                               <Label className="text-xs">Temp on Arrival (°F)</Label>
                                <Input
                                  type="number"
                                  step="0.1"

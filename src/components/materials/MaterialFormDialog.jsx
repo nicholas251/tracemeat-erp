@@ -85,7 +85,7 @@ export default function MaterialFormDialog({ open, onClose, onSave, material }) 
             <Input type="number" value={form.par_level} onChange={e => update("par_level", e.target.value)} placeholder="e.g. 100" />
           </div>
           <div className="space-y-2">
-            <Label>Temp on Arrival (°C)</Label>
+            <Label>Temp on Arrival (°F)</Label>
             <Input type="number" value={form.temp_on_arrival_c} onChange={e => update("temp_on_arrival_c", e.target.value)} />
           </div>
           <div className="space-y-2">
